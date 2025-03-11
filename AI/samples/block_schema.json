@@ -1,0 +1,75 @@
+{
+    "type":{
+        "type": "string",
+        "enum": ["narration", "dialogue", "sound", "effect"],
+        "description": "장면 요소의 유형 (나레이션, 대사, 사운드, 기타 효과 등)"
+    },
+    "text": {
+        "type": ["string", "null"],
+        "description": "해당 장면의 텍스트 내용. 대사/나레이션일 때 읽어줄 텍스트, 사운드일 경우 소리를 설명하는 텍스트 등"
+    },
+    "character": {
+        "type": ["string", "null"],
+        "description": "대사(‘dialogue’) 유형일 때 누가 말하는지 나타내는 필드"
+    },
+    "emotion": {
+        "type": ["string", "null"],
+        "description": "발화자의 감정(예: '기쁨', '슬픔', '후회' 등). 'dialogue'나 'narration'에서 사용 가능"
+    },
+    "audio": {
+        "type": ["object", "null"],
+        "description": "TTS나 사운드 재생 등에 필요한 정보를 담는 필드",
+        "properties": {
+            "voiceType": {
+                "type": "string",
+                "description": "음성 유형(예: '남성 목소리', '여성 목소리', '로봇 음성' 등)"
+            },
+            "emotion": {
+                "type": "object",
+                "description": "다양한 감정에 대한 수치 정보를 담는 필드",
+                "properties": {
+                    "happiness": {
+                        "type": "number",
+                        "description": "기쁨 수치"
+                    },
+                    "sadness": {
+                        "type": "number",
+                        "description": "슬픔 수치"
+                    },
+                    "disgust": {
+                        "type": "number",
+                        "description": "더러움 수치"
+                    },
+                    "fear": {
+                        "type": "number",
+                        "description": "두려움 수치"
+                    },
+                    "surprise": {
+                        "type": "number",
+                        "description": "놀람 수치"
+                    },
+                    "anger": {
+                        "type": "number",
+                        "description": "분노 수치"
+                    },
+                    "neutral": {
+                        "type": "number",
+                        "description": "중립 수치"
+                    }
+                }
+            },
+            "speakingRate": {
+                "type": "number",
+                "description": "발화 속도 (1.0은 기본 속도)"
+            },
+            "seed": {
+                "type": "number",
+                "description": "발화 시드 값"
+            },
+            "languageCode": {
+                "type": "string",
+                "description": "발화 언어"
+            }
+        }
+    }
+}
