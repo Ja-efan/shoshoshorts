@@ -1,27 +1,29 @@
-"use client"
+// components/script/script-line.tsx
+"use client";
 
-import { useState } from "react"
-import { Draggable } from "@hello-pangea/dnd"
-import { Grip, Settings, Trash2, ChevronUp } from "lucide-react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Slider } from "@/components/ui/slider"
-import { Label } from "@/components/ui/label"
-import type { ScriptLineType, Speaker, EmotionSettings } from "@/types/script-editor"
-import { getLineStyles, getAvatarColor, getAvatarInitial, allSpeakers } from "@/utils/script-helpers"
+import { useState } from "react";
+import { Draggable } from "@hello-pangea/dnd";
+import { Grip, Settings, Trash2, ChevronUp } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
+import { ScriptLineType, Speaker, EmotionSettings } from "@/types/script-editor";
+import { getLineStyles, getAvatarColor, getAvatarInitial } from "@/utils/script-helpers";
 
 interface ScriptLineProps {
-  line: ScriptLineType
-  index: number
-  onContentChange: (id: string, content: string) => void
-  onSpeakerChange: (id: string, type: Speaker) => void
-  onEmotionsChange: (id: string, emotions: EmotionSettings) => void
-  onDelete: (id: string) => void
-  isSettingsActive: boolean
-  onToggleSettings: (id: string) => void
-  isMobile: boolean
+  line: ScriptLineType;
+  index: number;
+  onContentChange: (id: string, content: string) => void;
+  onSpeakerChange: (id: string, type: Speaker) => void;
+  onEmotionsChange: (id: string, emotions: EmotionSettings) => void;
+  onDelete: (id: string) => void;
+  isSettingsActive: boolean;
+  onToggleSettings: (id: string) => void;
+  isMobile: boolean;
+  customSpeakers: string[];
 }
 
 export default function ScriptLine({
@@ -34,27 +36,30 @@ export default function ScriptLine({
   isSettingsActive,
   onToggleSettings,
   isMobile,
+  customSpeakers,
 }: ScriptLineProps) {
-  const [isEditing, setIsEditing] = useState(false)
-  const [editContent, setEditContent] = useState(line.content)
-  const [emotions, setEmotions] = useState<EmotionSettings>(line.emotions)
-  const [showMobileSettings, setShowMobileSettings] = useState(false)
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(line.content);
+  const [emotions, setEmotions] = useState<EmotionSettings>(line.emotions);
+  const [showMobileSettings, setShowMobileSettings] = useState(false);
 
   const handleBlur = () => {
     // Auto-save on blur
-    onContentChange(line.id, editContent)
-    setIsEditing(false)
-  }
+    onContentChange(line.id, editContent);
+    setIsEditing(false);
+  };
 
   const handleEmotionChange = (key: keyof EmotionSettings, value: number) => {
-    const updatedEmotions = { ...emotions, [key]: value }
-    setEmotions(updatedEmotions)
-    onEmotionsChange(line.id, updatedEmotions)
-  }
+    const updatedEmotions = { ...emotions, [key]: value };
+    setEmotions(updatedEmotions);
+    onEmotionsChange(line.id, updatedEmotions);
+  };
 
   const toggleMobileSettings = () => {
-    setShowMobileSettings(!showMobileSettings)
-  }
+    setShowMobileSettings(!showMobileSettings);
+  };
+
+  const speakers: Speaker[] = ["Narrator", "Situation", "Speaker A", "Speaker B", ...customSpeakers as Speaker[]];
 
   return (
     <Draggable draggableId={line.id} index={index}>
@@ -76,7 +81,7 @@ export default function ScriptLine({
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                {allSpeakers.map((speaker) => (
+                {speakers.map((speaker) => (
                   <DropdownMenuItem key={speaker} onClick={() => onSpeakerChange(line.id, speaker)}>
                     {speaker}
                   </DropdownMenuItem>
@@ -99,8 +104,8 @@ export default function ScriptLine({
                 <div
                   className="p-2 min-h-[40px] cursor-pointer"
                   onClick={() => {
-                    setIsEditing(true)
-                    setEditContent(line.content) // Ensure we have the latest content
+                    setIsEditing(true);
+                    setEditContent(line.content); // Ensure we have the latest content
                   }}
                 >
                   <div className="text-sm font-medium text-gray-500 mb-1">{line.type}</div>
@@ -115,9 +120,9 @@ export default function ScriptLine({
                 size="icon"
                 onClick={() => {
                   if (isMobile) {
-                    toggleMobileSettings()
+                    toggleMobileSettings();
                   }
-                  onToggleSettings(line.id)
+                  onToggleSettings(line.id);
                 }}
                 className={isSettingsActive && !isMobile ? "bg-gray-200" : ""}
               >
@@ -180,5 +185,5 @@ export default function ScriptLine({
         </div>
       )}
     </Draggable>
-  )
+  );
 }

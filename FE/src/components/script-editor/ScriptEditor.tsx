@@ -1,90 +1,69 @@
-"use client"
+// components/script/script-editor.tsx
+"use client";
 
-import { DragDropContext, Droppable, type DropResult } from "@hello-pangea/dnd"
-import { Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import ScriptLine from "@/components/script-editor/ScriptLine"
-import { SettingsPanel } from "@/components/script-editor/SettingsPanel"
-import { useMediaQuery } from "@/hooks/use-media-query"
-import { useScript } from "@/hooks/useScript"
-import { ScriptLineType } from "@/types/script-editor"
-import { defaultEmotions } from "@/types/script-editor"
-
-// 초기 스크립트 데이터
-const initialScriptLines: ScriptLineType[] = [
-  {
-    id: "line-1",
-    type: "Situation",
-    content: "A quiet café on a rainy afternoon.",
-    emotions: defaultEmotions,
-  },
-  {
-    id: "line-2",
-    type: "Narrator",
-    content: "Two strangers sit at adjacent tables, occasionally glancing at each other.",
-    emotions: defaultEmotions,
-  },
-  {
-    id: "line-3",
-    type: "Speaker A",
-    content: "Excuse me, is this seat taken?",
-    emotions: { ...defaultEmotions, happiness: 0.3, neutral: 0.7 },
-  },
-  {
-    id: "line-4",
-    type: "Speaker B",
-    content: "No, please feel free to take it.",
-    emotions: { ...defaultEmotions, surprise: 0.2, neutral: 0.8 },
-  },
-]
+import { useState } from "react";
+import { DragDropContext, Droppable } from "@hello-pangea/dnd";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import ScriptLine from "@/components/script-editor/ScriptLine";
+import SettingsPanel from "@/components/script-editor/SettingsPanel";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { useScript } from "@/hooks/useScript";
+import { exportScript } from "@/utils/script-helpers";
 
 export default function ScriptEditor() {
-  const isMobile = useMediaQuery("(max-width: 768px)")
   const {
     scriptLines,
     activeSettingsId,
-    hoverIndex,
+    customSpeakers,
     handleDragEnd,
-    updateContent,
-    updateSpeaker,
-    updateEmotions,
-    deleteLine,
-    addLine,
-    insertLine,
+    handleContentChange,
+    handleSpeakerChange,
+    handleEmotionsChange,
+    handleDeleteLine,
+    addNewLine,
+    insertNewLine,
     toggleSettings,
-    clearHoverIndex,
-    setHover,
-  } = useScript({ initialLines: initialScriptLines })
+    addCustomSpeaker,
+    removeCustomSpeaker,
+  } = useScript();
 
-  const onDragEnd = (result: DropResult) => {
-    if (!result.destination) return
-    handleDragEnd(result.source.index, result.destination.index)
-  }
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  const [showAddSpeaker, setShowAddSpeaker] = useState(false);
+  const [newSpeakerName, setNewSpeakerName] = useState("");
+
+  const handleAddCustomSpeaker = () => {
+    if (addCustomSpeaker(newSpeakerName)) {
+      setNewSpeakerName("");
+    }
+  };
 
   return (
     <div className="grid md:grid-cols-3 gap-6">
       <div className="md:col-span-2 bg-white rounded-lg shadow-md p-6">
-        <DragDropContext onDragEnd={onDragEnd}>
+        <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="script-lines">
             {(provided) => (
               <div
                 {...provided.droppableProps}
                 ref={provided.innerRef}
                 className="space-y-4"
-                onMouseLeave={clearHoverIndex}
+                onMouseLeave={() => setHoverIndex(null)}
               >
                 {scriptLines.map((line, index) => (
-                  <div key={line.id} className="relative" onMouseEnter={() => setHover(index)}>
+                  <div key={line.id} className="relative" onMouseEnter={() => setHoverIndex(index)}>
                     <ScriptLine
                       line={line}
                       index={index}
-                      onContentChange={updateContent}
-                      onSpeakerChange={updateSpeaker}
-                      onEmotionsChange={updateEmotions}
-                      onDelete={deleteLine}
+                      onContentChange={handleContentChange}
+                      onSpeakerChange={handleSpeakerChange}
+                      onEmotionsChange={handleEmotionsChange}
+                      onDelete={handleDeleteLine}
                       isSettingsActive={activeSettingsId === line.id}
                       onToggleSettings={toggleSettings}
                       isMobile={isMobile}
+                      customSpeakers={customSpeakers}
                     />
 
                     {/* Insert line button that appears on hover */}
@@ -94,7 +73,7 @@ export default function ScriptEditor() {
                           variant="outline"
                           size="icon"
                           className="h-6 w-6 rounded-full bg-white shadow-md border-gray-200 hover:bg-gray-100"
-                          onClick={() => insertLine(index, defaultEmotions)}
+                          onClick={() => insertNewLine(index)}
                         >
                           <Plus className="h-3 w-3" />
                         </Button>
@@ -108,10 +87,58 @@ export default function ScriptEditor() {
           </Droppable>
         </DragDropContext>
 
-        <Button onClick={() => addLine(defaultEmotions)} className="mt-6 w-full" variant="outline">
-          <Plus className="mr-2 h-4 w-4" />
-          Add New Line
-        </Button>
+        <div className="mt-6 flex flex-col gap-4">
+          <Button onClick={addNewLine} className="w-full" variant="outline">
+            <Plus className="mr-2 h-4 w-4" />
+            Add New Line
+          </Button>
+
+          <div className="flex gap-2">
+            <Button onClick={() => exportScript(scriptLines)} className="flex-1" variant="secondary">
+              Export to JSON
+            </Button>
+
+            <Button onClick={() => setShowAddSpeaker(!showAddSpeaker)} className="flex-1" variant="secondary">
+              Manage Characters
+            </Button>
+          </div>
+
+          {showAddSpeaker && (
+            <div className="p-4 border rounded-lg mt-2">
+              <h3 className="font-medium mb-2">Custom Characters</h3>
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={newSpeakerName}
+                  onChange={(e) => setNewSpeakerName(e.target.value)}
+                  placeholder="New character name"
+                  className="flex-1 px-3 py-2 border rounded-md"
+                />
+                <Button onClick={handleAddCustomSpeaker} variant="outline">
+                  Add
+                </Button>
+              </div>
+
+              {customSpeakers.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {customSpeakers.map((speaker) => (
+                    <div key={speaker} className="flex items-center bg-gray-100 px-3 py-1 rounded-full">
+                      <span>{speaker}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 ml-1"
+                        onClick={() => removeCustomSpeaker(speaker)}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {!isMobile && activeSettingsId && (
@@ -121,11 +148,11 @@ export default function ScriptEditor() {
             <SettingsPanel
               key={activeSettingsId}
               line={scriptLines.find((line) => line.id === activeSettingsId)!}
-              onEmotionsChange={updateEmotions}
+              onEmotionsChange={handleEmotionsChange}
             />
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

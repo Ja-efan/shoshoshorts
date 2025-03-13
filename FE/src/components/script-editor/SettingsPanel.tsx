@@ -1,19 +1,26 @@
-import { useState } from "react"
-import { ScriptLineType, EmotionSettings } from "@/types/script-editor"
+// components/script/settings-panel.tsx
+"use client";
+
+import { useState, useEffect } from "react";
+import { ScriptLineType, EmotionSettings } from "@/types/script-editor";
 
 interface SettingsPanelProps {
-  line: ScriptLineType
-  onEmotionsChange: (id: string, emotions: EmotionSettings) => void
+  line: ScriptLineType;
+  onEmotionsChange: (id: string, emotions: EmotionSettings) => void;
 }
 
-export function SettingsPanel({ line, onEmotionsChange }: SettingsPanelProps) {
-  const [emotions, setEmotions] = useState<EmotionSettings>(line.emotions)
+export default function SettingsPanel({ line, onEmotionsChange }: SettingsPanelProps) {
+  const [emotions, setEmotions] = useState<EmotionSettings>(line.emotions);
+
+  useEffect(() => {
+    setEmotions(line.emotions);
+  }, [line]);
 
   const handleChange = (key: keyof EmotionSettings, value: number) => {
-    const updatedEmotions = { ...emotions, [key]: value }
-    setEmotions(updatedEmotions)
-    onEmotionsChange(line.id, updatedEmotions)
-  }
+    const updatedEmotions = { ...emotions, [key]: value };
+    setEmotions(updatedEmotions);
+    onEmotionsChange(line.id, updatedEmotions);
+  };
 
   return (
     <div className="space-y-4">
@@ -59,5 +66,5 @@ export function SettingsPanel({ line, onEmotionsChange }: SettingsPanelProps) {
         />
       </div>
     </div>
-  )
+  );
 }
