@@ -1,4 +1,4 @@
-import { EmotionSettings, Speaker } from "@/types/script-editor"
+import { Speaker } from "@/types/script-editor"
 
 export function getAvatarColor(type: Speaker): string {
   switch (type) {
