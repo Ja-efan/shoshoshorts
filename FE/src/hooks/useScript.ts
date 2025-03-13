@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { type DropResult } from "@hello-pangea/dnd"
 import { ScriptLineType, Speaker, EmotionSettings, defaultEmotions } from "@/types/script-editor"
+import { useMediaQuery } from "./use-media-query"
 
 export default function useScript(initialLines?: ScriptLineType[]) {
   const [scriptLines, setScriptLines] = useState<ScriptLineType[]>(initialLines || [
@@ -30,6 +31,9 @@ export default function useScript(initialLines?: ScriptLineType[]) {
     },
   ])
 
+  const [activeSettingsId, setActiveSettingsId] = useState<string | null>(null)
+  const isMobile = useMediaQuery("(max-width: 768px)")
+
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return
 
@@ -54,6 +58,9 @@ export default function useScript(initialLines?: ScriptLineType[]) {
 
   const handleDeleteLine = (id: string) => {
     setScriptLines(scriptLines.filter((line) => line.id !== id))
+    if (activeSettingsId === id) {
+      setActiveSettingsId(null)
+    }
   }
 
   const addNewLine = () => {
@@ -69,13 +76,33 @@ export default function useScript(initialLines?: ScriptLineType[]) {
     ])
   }
 
+  const insertNewLine = (index: number) => {
+    const newId = `line-${Date.now()}`
+    const newLines = [...scriptLines]
+    newLines.splice(index + 1, 0, {
+      id: newId,
+      type: "Speaker A",
+      content: "New dialogue line",
+      emotions: defaultEmotions,
+    })
+    setScriptLines(newLines)
+  }
+
+  const toggleSettings = (id: string) => {
+    setActiveSettingsId(activeSettingsId === id ? null : id)
+  }
+
   return {
     scriptLines,
+    activeSettingsId,
+    isMobile,
     handleDragEnd,
     handleContentChange,
     handleSpeakerChange,
     handleEmotionsChange,
     handleDeleteLine,
-    addNewLine
+    addNewLine,
+    insertNewLine,
+    toggleSettings
   }
 }

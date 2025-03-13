@@ -1,5 +1,20 @@
 import { Speaker } from "@/types/script-editor"
 
+export function getLineStyles(type: Speaker): string {
+    switch (type) {
+      case "Narrator":
+        return "border-l-4 border-blue-500 bg-blue-50"
+      case "Speaker A":
+        return "border-l-4 border-green-500 bg-green-50"
+      case "Speaker B":
+        return "border-l-4 border-purple-500 bg-purple-50"
+      case "Situation":
+        return "border-l-4 border-amber-500 bg-amber-50"
+      default:
+        return "bg-gray-50"
+    }
+  }
+
 export function getAvatarColor(type: Speaker): string {
   switch (type) {
     case "Narrator":
