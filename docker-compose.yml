@@ -1,0 +1,56 @@
+services:
+  # 백엔드 서비스
+  backend:
+    build:
+      context: ./BE
+      dockerfile: Dockerfile
+    container_name: sss-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/bta_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      - db
+    networks:
+      - sss-network
+    restart: unless-stopped
+
+  # 프론트엔드 서비스
+  frontend:
+    build:
+      context: ./FE
+      dockerfile: Dockerfile
+    container_name: sss-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - sss-network
+    restart: unless-stopped
+
+  # 데이터베이스 서비스
+  db:
+    image: postgres:16-alpine
+    container_name: sss-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=bta_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - sss-network
+    restart: unless-stopped
+
+networks:
+  sss-network:
+    driver: bridge
+
+volumes:
+  postgres-data: 
