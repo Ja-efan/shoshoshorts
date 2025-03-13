@@ -1,10 +1,11 @@
-## 1. Fast API server + Zonos 도커 이미지 빌드 및 실행 방법
+## 1. Fast API server + AI 도커 이미지 빌드 및 실행 방법
 
 ### 1.1. 도커 이미지 빌드
 
 ```bash
 # 프로젝트 루트 디렉토리에서 실행
-docker build -t zonos-tts-api .
+docker build -t ai-api .
+docker-compose up --build ai-api
 ```
 
 ### 1.2. 도커 컨테이너 실행
@@ -13,30 +14,22 @@ docker build -t zonos-tts-api .
 
 ```bash
 # Windows (Git Bash)
-docker run -it --gpus all -p 8000:8000 -v "C:/Users/SSAFY/Desktop/Zonos":/app zonos-tts-api
+docker run -it --gpus all -p 8000:8000 -v "C:/Users/SSAFY/Desktop/S12P21B106/AI":/app ai-api
 
 # Linux/macOS
-docker run -it --gpus all -p 8000:8000 -v $(pwd):/app zonos-tts-api
+docker run -it --gpus all -p 8000:8000 -v $(pwd):/app ai-api
 ```
-
-<!-- ```
-# gradio_interface.py 실행 (기존 방식)
-docker run -it --gpus all -p 7860:7860 -v "C:/Users/SSAFY/Desktop/Zonos":/app zonos-tts-api python gradio_interface.py
-
-# main.py 실행 (새로운 API 서버)
-docker run -it --gpus all -p 8000:8000 -v "C:/Users/SSAFY/Desktop/Zonos":/app zonos-tts-api
-``` -->
 
 #### 환경 변수 설정하면서 실행하고 싶은 경우
 
 ```
 # 특정 모델 사용
-docker run -it --gpus all -p 8000:8000 -e ZONOS_DEFAULT_MODEL="Zyphra/Zonos-v0.1-hybrid" -v "C:/Users/SSAFY/Desktop/Zonos":/app zonos-tts-api
+docker run -it --gpus all -p 8000:8000 -e ZONOS_DEFAULT_MODEL="Zyphra/Zonos-v0.1-hybrid" -v "C:/Users/SSAFY/Desktop/S12P21B106/AI":/app ai-api
 ```
 
 ## 2. 실행 이후 확인
 
-### 2.1. API 서버 (main.py) 확인
+### 2.1. API 서버 확인
 
 ```
 http://localhost:8000/docs
@@ -53,9 +46,8 @@ docker-compose up
 # 백그라운드에서 실행
 docker-compose up -d
 
-# 특정 서비스만 실행 (현재 gradio는 제거함.)
-docker-compose up zonos-api
-docker-compose up zonos-gradio
+# 특정 서비스만 실행
+docker-compose up ai-api
 ```
 
 로그 확인 방법
@@ -68,9 +60,17 @@ docker logs <container_id>
 docker logs -f <container_id>
 ```
 
-## 4. post 양식 api
+## 4. 지원하는 API 엔드포인트
+
+### 4.1. Zonos TTS API
 
 ```
+POST /zonos/tts
+```
+
+요청 예시:
+
+```json
 {
   "model_choice": "Zyphra/Zonos-v0.1-transformer",
   "text": "안녕하세요, Zonos TTS 모델입니다.",
@@ -99,8 +99,39 @@ docker logs -f <container_id>
 }
 ```
 
-## 5. 반환 양식
+### 4.2. ElevenLabs TTS API
 
-현재 base64 양식으로 반환되고 로컬에는 값이 저장이 안됨 <<< 리눅스 환경경에 저장되고 있나본데
+```
+POST /elevenlabs/tts
+```
 
-base64는 https://base64.guru/converter/decode/audio 로 변환해서 확인 가능능
+요청 예시:
+
+```json
+{
+  "text": "안녕하세요, ElevenLabs TTS API입니다.",
+  "voice_id": "your_voice_id",
+  "model_id": "eleven_multilingual_v2",
+  "output_format": "mp3"
+}
+```
+
+```
+GET /elevenlabs/voices
+```
+
+### 4.3. 스크립트 변환 API
+
+```
+POST /script/convert
+```
+
+## 5. 환경 변수 설정
+
+`.env` 파일을 프로젝트 루트에 생성하여 다음 환경 변수를 설정할 수 있습니다:
+
+```
+OPENAI_API_KEY=your_openai_api_key
+ELEVENLABS_API_KEY=your_elevenlabs_api_key
+ZONOS_DEFAULT_MODEL=Zyphra/Zonos-v0.1-transformer
+```

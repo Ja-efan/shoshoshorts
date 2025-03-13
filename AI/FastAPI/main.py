@@ -17,9 +17,23 @@ from io import BytesIO
 import soundfile as sf
 from datetime import datetime
 
+# zonos 모듈 경로 수정 (상위 디렉토리 참조)
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from zonos.model import Zonos, DEFAULT_BACKBONE_CLS as ZonosBackbone
 from zonos.conditioning import make_cond_dict, supported_language_codes
 from zonos.utils import DEFAULT_DEVICE as device
+
+# 스크립트 변환 모듈 임포트
+from app.service.scripts import ScriptRequest, ScriptResponse, generate_script_json
+
+# ElevenLabs TTS 모듈 임포트
+from app.service.elevenlabas import (
+    ElevenLabsTTSRequest, 
+    ElevenLabsTTSResponse, 
+    generate_tts_with_elevenlabs,
+    get_available_voices,
+)
 
 # 전역 변수 선언: 현재 로드된 모델 타입과 모델 인스턴스를 저장
 CURRENT_MODEL_TYPE = None
@@ -53,7 +67,7 @@ app = FastAPI(
 )
 
 # 시작 이벤트 핸들러 등록
-app.add_event_handler("startup", startup_event)
+# app.add_event_handler("startup", startup_event)
 
 # CORS 설정
 app.add_middleware(
@@ -320,7 +334,7 @@ def encode_audio_to_base64(audio_array: np.ndarray, sample_rate: int):
     audio_base64 = base64.b64encode(buffer.read()).decode("utf-8")
     return audio_base64
 
-@app.post("/tts", response_model=TTSResponse)
+@app.post("/zonos/tts", response_model=TTSResponse)
 async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks):
     """
     텍스트를 음성으로 변환하는 API 엔드포인트
@@ -421,7 +435,7 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         
         # 현재 스크립트 경로 기준으로 output 폴더 생성
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        base_dir = os.path.dirname(script_dir)  # AI 폴더의 상위 폴더
+        base_dir = os.path.dirname(script_dir)  # AI 폴더
         output_dir = os.path.join(base_dir, "output")
         os.makedirs(output_dir, exist_ok=True)
         
@@ -502,40 +516,78 @@ async def register_speaker(request: RegisterSpeakerRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"화자 등록 중 오류 발생: {str(e)}")
 
-# @app.get("/supported_languages")
-# async def get_supported_languages():
-#     """
-#     지원되는 언어 코드 목록을 반환하는 API 엔드포인트
-#     """
-#     return {"supported_languages": supported_language_codes}
-
-# @app.get("/supported_models")
-# async def get_supported_models():
-#     """
-#     지원되는 모델 목록을 반환하는 API 엔드포인트
-#     """
-#     supported_models = []
-#     if "transformer" in ZonosBackbone.supported_architectures:
-#         supported_models.append("Zyphra/Zonos-v0.1-transformer")
-
-#     if "hybrid" in ZonosBackbone.supported_architectures:
-#         supported_models.append("Zyphra/Zonos-v0.1-hybrid")
+# 스크립트 변환 API 엔드포인트 추가
+@app.post("/script/convert", response_model=ScriptResponse)
+async def convert_script(request: ScriptRequest):
+    """
+    스크립트 내용을 JSON 형식으로 변환하는 API 엔드포인트
+    """
+    try:
+        # 스크립트 변환 함수 호출
+        response = await generate_script_json(request)
+        return response
     
-#     return {"supported_models": supported_models}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"스크립트 변환 중 오류 발생: {str(e)}")
 
-# @app.get("/registered_speakers")
-# async def get_registered_speakers():
-#     """
-#     등록된 화자 목록을 반환하는 API 엔드포인트
-#     """
-#     return {"registered_speakers": list(SPEAKER_EMBEDDING_CACHE.keys())}
+# ElevenLabs TTS API 엔드포인트 추가
+@app.post("/elevenlabs/tts", response_model=ElevenLabsTTSResponse)
+async def elevenlabs_tts(request: ElevenLabsTTSRequest, background_tasks: BackgroundTasks):
+    """
+    ElevenLabs API를 사용하여 텍스트를 음성으로 변환하는 API 엔드포인트
+    생성된 오디오는 output/elevenlabs 폴더에 저장됩니다.
+    """
+    try:
+        # 현재 스크립트 경로 기준으로 output 폴더 생성
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = os.path.dirname(script_dir)  # AI 폴더
+        output_dir = os.path.join(base_dir, "output", "elevenlabs")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 파일명 생성 (시간 기반)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        text_short = request.text[:20].replace(" ", "_").replace("/", "_").replace("\\", "_")  # 텍스트 일부를 파일명에 포함 (특수문자 제거)
+        filename = os.path.join(output_dir, f"elevenlabs_tts_{timestamp}_{text_short}.{request.output_format}")
+        
+        print(f"ElevenLabs TTS 생성 시작: {filename}")
+        
+        # ElevenLabs TTS 생성 함수 호출
+        response = await generate_tts_with_elevenlabs(request, save_path=filename)
+        
+        # 상대 경로로 변환 (절대 경로는 보안상 문제가 될 수 있음)
+        relative_path = os.path.relpath(filename, base_dir)
+        
+        # 응답 객체 생성
+        result = ElevenLabsTTSResponse(
+            audio_path=relative_path,
+            content_type=response.content_type,
+            file_size=response.file_size
+        )
+        
+        print(f"ElevenLabs TTS 생성 완료: {relative_path}")
+        
+        return result
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"ElevenLabs TTS 생성 중 오류 발생: {str(e)}")
 
-# @app.get("/health")
-# async def health_check():
-#     """
-#     서버 상태 확인을 위한 API 엔드포인트
-#     """
-#     return {"status": "healthy", "model_loaded": CURRENT_MODEL_TYPE}
+@app.get("/elevenlabs/voices")
+async def elevenlabs_voices():
+    """
+    ElevenLabs에서 사용 가능한 음성 목록을 가져오는 API 엔드포인트
+    """
+    try:
+        voices = await get_available_voices()
+        return {"voices": voices}
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"ElevenLabs 음성 목록 가져오기 중 오류 발생: {str(e)}")
 
 if __name__ == "__main__":
     # 명령행 인자 파싱
@@ -558,7 +610,7 @@ if __name__ == "__main__":
     
     # 서버 실행
     uvicorn.run(
-        "main:app", 
+        "__main__:app",  # main:app 대신 __main__:app 사용
         host=args.host, 
         port=args.port, 
         reload=args.reload
