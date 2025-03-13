@@ -1,15 +1,16 @@
+"use client"
+
 import { useState } from "react"
 import { Draggable } from "@hello-pangea/dnd"
-import { Grip, Settings, Trash2, Check, X, ChevronUp } from "lucide-react"
+import { Grip, Settings, Trash2, ChevronUp } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-// import { Dialog, DialogDescription, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import type { ScriptLineType, Speaker, EmotionSettings } from "@/types/script-editor"
-import { getAvatarColor, getAvatarInitial, getLineStyles } from "@/utils/script-helpers"
+import { getLineStyles, getAvatarColor, getAvatarInitial, allSpeakers } from "@/utils/script-helpers"
 
 interface ScriptLineProps {
   line: ScriptLineType
@@ -39,13 +40,9 @@ export default function ScriptLine({
   const [emotions, setEmotions] = useState<EmotionSettings>(line.emotions)
   const [showMobileSettings, setShowMobileSettings] = useState(false)
 
-  const handleSave = () => {
+  const handleBlur = () => {
+    // Auto-save on blur
     onContentChange(line.id, editContent)
-    setIsEditing(false)
-  }
-
-  const handleCancel = () => {
-    setEditContent(line.content)
     setIsEditing(false)
   }
 
@@ -58,8 +55,6 @@ export default function ScriptLine({
   const toggleMobileSettings = () => {
     setShowMobileSettings(!showMobileSettings)
   }
-
-  const speakers: Speaker[] = ["Narrator", "Situation", "Speaker A", "Speaker B"]
 
   return (
     <Draggable draggableId={line.id} index={index}>
@@ -81,7 +76,7 @@ export default function ScriptLine({
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                {speakers.map((speaker) => (
+                {allSpeakers.map((speaker) => (
                   <DropdownMenuItem key={speaker} onClick={() => onSpeakerChange(line.id, speaker)}>
                     {speaker}
                   </DropdownMenuItem>
@@ -95,19 +90,19 @@ export default function ScriptLine({
                   <Textarea
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
+                    onBlur={handleBlur}
+                    autoFocus
                     className="min-h-[80px]"
                   />
-                  <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="ghost" onClick={handleCancel}>
-                      <X className="h-4 w-4 mr-1" /> Cancel
-                    </Button>
-                    <Button size="sm" onClick={handleSave}>
-                      <Check className="h-4 w-4 mr-1" /> Save
-                    </Button>
-                  </div>
                 </div>
               ) : (
-                <div className="p-2 min-h-[40px] cursor-pointer" onClick={() => setIsEditing(true)}>
+                <div
+                  className="p-2 min-h-[40px] cursor-pointer"
+                  onClick={() => {
+                    setIsEditing(true)
+                    setEditContent(line.content) // Ensure we have the latest content
+                  }}
+                >
                   <div className="text-sm font-medium text-gray-500 mb-1">{line.type}</div>
                   <div>{line.content}</div>
                 </div>
@@ -121,9 +116,8 @@ export default function ScriptLine({
                 onClick={() => {
                   if (isMobile) {
                     toggleMobileSettings()
-                  } else {
-                    onToggleSettings(line.id)
                   }
+                  onToggleSettings(line.id)
                 }}
                 className={isSettingsActive && !isMobile ? "bg-gray-200" : ""}
               >

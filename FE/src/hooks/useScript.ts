@@ -1,90 +1,58 @@
+"use client"
+
 import { useState } from "react"
-import { type DropResult } from "@hello-pangea/dnd"
-import { ScriptLineType, Speaker, EmotionSettings, defaultEmotions } from "@/types/script-editor"
-import { useMediaQuery } from "./use-media-query"
+import type { ScriptLineType, Speaker, EmotionSettings } from "@/types/script-editor"
+import { createNewScriptLine } from "@/utils/script-helpers"
 
-export default function useScript(initialLines?: ScriptLineType[]) {
-  const [scriptLines, setScriptLines] = useState<ScriptLineType[]>(initialLines || [
-    {
-      id: "line-1",
-      type: "Situation",
-      content: "A quiet café on a rainy afternoon.",
-      emotions: defaultEmotions,
-    },
-    {
-      id: "line-2",
-      type: "Narrator",
-      content: "Two strangers sit at adjacent tables, occasionally glancing at each other.",
-      emotions: defaultEmotions,
-    },
-    {
-      id: "line-3",
-      type: "Speaker A",
-      content: "Excuse me, is this seat taken?",
-      emotions: { ...defaultEmotions, happiness: 0.3, neutral: 0.7 },
-    },
-    {
-      id: "line-4",
-      type: "Speaker B",
-      content: "No, please feel free to take it.",
-      emotions: { ...defaultEmotions, surprise: 0.2, neutral: 0.8 },
-    },
-  ])
+interface UseScriptProps {
+  initialLines?: ScriptLineType[]
+}
 
+export function useScript({ initialLines = [] }: UseScriptProps = {}) {
+  const [scriptLines, setScriptLines] = useState<ScriptLineType[]>(initialLines)
   const [activeSettingsId, setActiveSettingsId] = useState<string | null>(null)
-  const isMobile = useMediaQuery("(max-width: 768px)")
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null)
 
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return
+  const handleDragEnd = (source: number, destination: number | null) => {
+    if (destination === null) return
 
     const items = Array.from(scriptLines)
-    const [reorderedItem] = items.splice(result.source.index, 1)
-    items.splice(result.destination.index, 0, reorderedItem)
+    const [reorderedItem] = items.splice(source, 1)
+    items.splice(destination, 0, reorderedItem)
 
     setScriptLines(items)
   }
 
-  const handleContentChange = (id: string, content: string) => {
+  const updateContent = (id: string, content: string) => {
     setScriptLines(scriptLines.map((line) => (line.id === id ? { ...line, content } : line)))
   }
 
-  const handleSpeakerChange = (id: string, type: Speaker) => {
+  const updateSpeaker = (id: string, type: Speaker) => {
     setScriptLines(scriptLines.map((line) => (line.id === id ? { ...line, type } : line)))
   }
 
-  const handleEmotionsChange = (id: string, emotions: EmotionSettings) => {
+  const updateEmotions = (id: string, emotions: EmotionSettings) => {
     setScriptLines(scriptLines.map((line) => (line.id === id ? { ...line, emotions } : line)))
   }
 
-  const handleDeleteLine = (id: string) => {
+  const deleteLine = (id: string) => {
     setScriptLines(scriptLines.filter((line) => line.id !== id))
     if (activeSettingsId === id) {
       setActiveSettingsId(null)
     }
   }
 
-  const addNewLine = () => {
-    const newId = `line-${Date.now()}`
+  const addLine = (emotions: EmotionSettings, type?: Speaker, content?: string) => {
     setScriptLines([
       ...scriptLines,
-      {
-        id: newId,
-        type: "Speaker A",
-        content: "New dialogue line",
-        emotions: defaultEmotions,
-      },
+      createNewScriptLine(type, content, emotions),
     ])
   }
 
-  const insertNewLine = (index: number) => {
-    const newId = `line-${Date.now()}`
+  const insertLine = (index: number, emotions: EmotionSettings, type?: Speaker, content?: string) => {
+    const newLine = createNewScriptLine(type, content, emotions)
     const newLines = [...scriptLines]
-    newLines.splice(index + 1, 0, {
-      id: newId,
-      type: "Speaker A",
-      content: "New dialogue line",
-      emotions: defaultEmotions,
-    })
+    newLines.splice(index + 1, 0, newLine)
     setScriptLines(newLines)
   }
 
@@ -92,17 +60,22 @@ export default function useScript(initialLines?: ScriptLineType[]) {
     setActiveSettingsId(activeSettingsId === id ? null : id)
   }
 
+  const clearHoverIndex = () => setHoverIndex(null)
+  const setHover = (index: number) => setHoverIndex(index)
+
   return {
     scriptLines,
     activeSettingsId,
-    isMobile,
+    hoverIndex,
     handleDragEnd,
-    handleContentChange,
-    handleSpeakerChange,
-    handleEmotionsChange,
-    handleDeleteLine,
-    addNewLine,
-    insertNewLine,
-    toggleSettings
+    updateContent,
+    updateSpeaker,
+    updateEmotions,
+    deleteLine,
+    addLine,
+    insertLine,
+    toggleSettings,
+    clearHoverIndex,
+    setHover,
   }
 }
