@@ -1,7 +1,7 @@
-- Organize and refine the base data structure  
-- Backend for todoList needs to be completed, API call implementation required  
+- Implement API calls after backend completion (todoList)  
 - Improve character addition UI  
-- Allow character selection when adding a line  
-- Fix screen resizing issue caused by scrollbar visibility  
-- Add media query support for tablets  
-- Enable parent components to control height and width via props  
+- Allow character selection when adding a new line  
+- Fix screen jump issue caused by scrollbar visibility  
+- Add media query handling for tablet devices  
+- Pass height and width as props from parent component  
+- Shift scriptBlock left when opening setting panel instead of leaving empty space  
