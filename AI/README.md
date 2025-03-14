@@ -20,11 +20,28 @@ docker run -it --gpus all -p 8000:8000 -v "C:/Users/SSAFY/Desktop/S12P21B106/AI"
 docker run -it --gpus all -p 8000:8000 -v $(pwd):/app ai-api
 ```
 
+### CPU 환경에서 실행 (GPU가 없는 경우)
+
+GPU가 없는 환경에서는 Dockerfile.cpu를 사용하여 CPU 전용 이미지를 빌드하고 실행할 수 있습니다.
+
+```bash
+# CPU 전용 이미지 빌드
+docker build -f Dockerfile.cpu -t ai-api-cpu .
+
+# CPU 전용 이미지 실행
+docker run -p 8000:8000 ai-api-cpu
+```
+
+CPU 환경에서는 일부 GPU 의존적인 기능이 제한될 수 있습니다.
+
 #### 환경 변수 설정하면서 실행하고 싶은 경우
 
 ```
-# 특정 모델 사용
+# 특정 모델 사용 (GPU 환경)
 docker run -it --gpus all -p 8000:8000 -e ZONOS_DEFAULT_MODEL="Zyphra/Zonos-v0.1-hybrid" -v "C:/Users/SSAFY/Desktop/S12P21B106/AI":/app ai-api
+
+# 환경 변수 설정 (CPU 환경)
+docker run -p 8000:8000 -e OPENAI_API_KEY=your_openai_api_key -e ELEVENLABS_API_KEY=your_elevenlabs_api_key ai-api-cpu
 ```
 
 ## 2. 실행 이후 확인
@@ -48,6 +65,15 @@ docker-compose up -d
 
 # 특정 서비스만 실행
 docker-compose up ai-api
+```
+
+### 3.1. CPU 환경에서 도커 컴포즈 실행
+
+CPU 환경에서 도커 컴포즈를 사용하려면 docker-compose.cpu.yml 파일을 생성하고 다음과 같이 실행할 수 있습니다:
+
+```bash
+# CPU 환경에서 실행
+docker-compose -f docker-compose.cpu.yml up
 ```
 
 로그 확인 방법
@@ -135,3 +161,14 @@ OPENAI_API_KEY=your_openai_api_key
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
 ZONOS_DEFAULT_MODEL=Zyphra/Zonos-v0.1-transformer
 ```
+
+## 6. CPU와 GPU 환경 비교
+
+| 기능 | GPU 환경 | CPU 환경 |
+|------|---------|---------|
+| OpenAI API 기반 스크립트 생성 | ✅ 지원 | ✅ 지원 |
+| ElevenLabs TTS API | ✅ 지원 | ✅ 지원 |
+| Zonos TTS 모델 | ✅ 지원 (빠른 처리) | ⚠️ 제한적 지원 (느린 처리) |
+| 기타 GPU 가속 기능 | ✅ 지원 | ❌ 미지원 |
+
+CPU 환경에서는 주로 API 기반 기능(OpenAI, ElevenLabs)을 사용하는 것이 권장됩니다.
