@@ -1,0 +1,7 @@
+- Organize and refine the base data structure  
+- Backend for todoList needs to be completed, API call implementation required  
+- Improve character addition UI  
+- Allow character selection when adding a line  
+- Fix screen resizing issue caused by scrollbar visibility  
+- Add media query support for tablets  
+- Enable parent components to control height and width via props  

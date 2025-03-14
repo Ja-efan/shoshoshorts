@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button";
 import ScriptLine from "@/components/script-editor/ScriptLine";
 import SettingsPanel from "@/components/script-editor/SettingsPanel";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { useScript } from "@/hooks/useScript";
-import { exportScript } from "@/utils/script-helpers";
+import { useScript } from "@/hooks/script-editor/useScript";
+import { dummyScriptData, convertScriptDataToScriptLines, convertScriptLinesToScriptData } from "@/utils/script-editor/script-helpers";
 
 export default function ScriptEditor() {
   const {
     scriptLines,
     activeSettingsId,
-    customSpeakers,
+    characters,
     handleDragEnd,
     handleContentChange,
     handleSpeakerChange,
@@ -26,6 +26,8 @@ export default function ScriptEditor() {
     toggleSettings,
     addCustomSpeaker,
     removeCustomSpeaker,
+    setScriptLines,
+    updateCharacters,
   } = useScript();
 
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -39,9 +41,93 @@ export default function ScriptEditor() {
     }
   };
 
+  const handleRemoveCustomSpeaker = (speaker: string) => {
+    if (!removeCustomSpeaker(speaker)) {
+      alert("이 캐릭터는 현재 대사에 사용 중이어서 삭제할 수 없습니다.");
+    }
+  };
+
+  const handleLoadDummyData = () => {
+    const newScriptLines = convertScriptDataToScriptLines(dummyScriptData);
+    setScriptLines(newScriptLines);
+    updateCharacters(dummyScriptData.characters);
+  };
+
+  const handleExportScriptData = () => {
+    const scriptData = convertScriptLinesToScriptData(scriptLines);
+    const jsonData = JSON.stringify(scriptData, null, 2);
+    const blob = new Blob([jsonData], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "script-data.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="grid md:grid-cols-3 gap-6">
       <div className="md:col-span-2 bg-white rounded-lg shadow-md p-6">
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium">캐릭터 관리</h3>
+            <Button 
+              onClick={() => setShowAddSpeaker(!showAddSpeaker)} 
+              variant="outline" 
+              size="sm"
+            >
+              {showAddSpeaker ? "닫기" : "캐릭터 추가"}
+            </Button>
+          </div>
+          
+          {showAddSpeaker && (
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={newSpeakerName}
+                onChange={(e) => setNewSpeakerName(e.target.value)}
+                placeholder="새 캐릭터 이름"
+                className="flex-1 px-3 py-2 border rounded-md"
+              />
+              <Button onClick={handleAddCustomSpeaker} variant="outline">
+                추가
+              </Button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {characters.map((character) => (
+              <div 
+                key={character.name} 
+                className={`flex flex-col items-center p-4 border rounded-lg ${
+                  character.name === "Narrator" || character.name === "Situation"
+                    ? "bg-gray-50"
+                    : "hover:bg-gray-50"
+                }`}
+              >
+                <div className="w-16 h-16 rounded-full bg-gray-200 mb-2 flex items-center justify-center">
+                  <span className="text-lg font-medium">
+                    {character.name.charAt(0)}
+                  </span>
+                </div>
+                <span className="text-sm font-medium mb-2">{character.name}</span>
+                {character.name !== "Narrator" && character.name !== "Situation" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-600"
+                    onClick={() => handleRemoveCustomSpeaker(character.name)}
+                  >
+                    삭제
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="script-lines">
             {(provided) => (
@@ -59,15 +145,16 @@ export default function ScriptEditor() {
                       onContentChange={handleContentChange}
                       onSpeakerChange={handleSpeakerChange}
                       onEmotionsChange={handleEmotionsChange}
-                      onDelete={handleDeleteLine}
-                      isSettingsActive={activeSettingsId === line.id}
+                      onDeleteLine={handleDeleteLine}
                       onToggleSettings={toggleSettings}
+                      isSettingsOpen={activeSettingsId === line.id}
                       isMobile={isMobile}
-                      customSpeakers={customSpeakers}
+                      characters={characters}
+                      onInsertLine={insertNewLine}
                     />
 
-                    {/* Insert line button that appears on hover */}
-                    {hoverIndex === index && (
+                    {/* Insert line button - visible on hover for desktop, always visible on mobile */}
+                    {(isMobile || hoverIndex === index) && (
                       <div className="absolute left-1/2 transform -translate-x-1/2 -top-3 z-10">
                         <Button
                           variant="outline"
@@ -94,50 +181,13 @@ export default function ScriptEditor() {
           </Button>
 
           <div className="flex gap-2">
-            <Button onClick={() => exportScript(scriptLines)} className="flex-1" variant="secondary">
-              Export to JSON
+            <Button onClick={handleLoadDummyData} className="flex-1" variant="secondary">
+              더미 데이터 불러오기
             </Button>
-
-            <Button onClick={() => setShowAddSpeaker(!showAddSpeaker)} className="flex-1" variant="secondary">
-              Manage Characters
+            <Button onClick={handleExportScriptData} className="flex-1" variant="secondary">
+              스크립트 데이터 내보내기
             </Button>
           </div>
-
-          {showAddSpeaker && (
-            <div className="p-4 border rounded-lg mt-2">
-              <h3 className="font-medium mb-2">Custom Characters</h3>
-              <div className="flex gap-2 mb-4">
-                <input
-                  type="text"
-                  value={newSpeakerName}
-                  onChange={(e) => setNewSpeakerName(e.target.value)}
-                  placeholder="New character name"
-                  className="flex-1 px-3 py-2 border rounded-md"
-                />
-                <Button onClick={handleAddCustomSpeaker} variant="outline">
-                  Add
-                </Button>
-              </div>
-
-              {customSpeakers.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {customSpeakers.map((speaker) => (
-                    <div key={speaker} className="flex items-center bg-gray-100 px-3 py-1 rounded-full">
-                      <span>{speaker}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 ml-1"
-                        onClick={() => removeCustomSpeaker(speaker)}
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

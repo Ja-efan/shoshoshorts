@@ -1,6 +1,3 @@
-// components/script/script-line.tsx
-"use client";
-
 import { useState } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { Grip, Settings, Trash2, ChevronUp } from "lucide-react";
@@ -10,8 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { ScriptLineType, Speaker, EmotionSettings } from "@/types/script-editor";
-import { getLineStyles, getAvatarColor, getAvatarInitial } from "@/utils/script-helpers";
+import { ScriptLineType, Speaker, EmotionSettings, Character } from "@/types/script-editor/script-editor";
+import { getLineStyles, getAvatarColor, getAvatarInitial } from "@/utils/script-editor/script-helpers";
 
 interface ScriptLineProps {
   line: ScriptLineType;
@@ -19,11 +16,12 @@ interface ScriptLineProps {
   onContentChange: (id: string, content: string) => void;
   onSpeakerChange: (id: string, type: Speaker) => void;
   onEmotionsChange: (id: string, emotions: EmotionSettings) => void;
-  onDelete: (id: string) => void;
-  isSettingsActive: boolean;
+  onDeleteLine: (id: string) => void;
   onToggleSettings: (id: string) => void;
+  isSettingsOpen: boolean;
   isMobile: boolean;
-  customSpeakers: string[];
+  characters: Character[];
+  onInsertLine: (index: number) => void;
 }
 
 export default function ScriptLine({
@@ -32,11 +30,11 @@ export default function ScriptLine({
   onContentChange,
   onSpeakerChange,
   onEmotionsChange,
-  onDelete,
-  isSettingsActive,
+  onDeleteLine,
   onToggleSettings,
+  isSettingsOpen,
   isMobile,
-  customSpeakers,
+  characters,
 }: ScriptLineProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(line.content);
@@ -44,7 +42,6 @@ export default function ScriptLine({
   const [showMobileSettings, setShowMobileSettings] = useState(false);
 
   const handleBlur = () => {
-    // Auto-save on blur
     onContentChange(line.id, editContent);
     setIsEditing(false);
   };
@@ -59,12 +56,12 @@ export default function ScriptLine({
     setShowMobileSettings(!showMobileSettings);
   };
 
-  const speakers: Speaker[] = ["Narrator", "Situation", "Speaker A", "Speaker B", ...customSpeakers as Speaker[]];
+  const speakers: Speaker[] = characters.map(c => c.name as Speaker);
 
   return (
     <Draggable draggableId={line.id} index={index}>
       {(provided) => (
-        <div className="space-y-2">
+        <div className="space-y-2 relative">
           <div
             ref={provided.innerRef}
             {...provided.draggableProps}
@@ -124,11 +121,11 @@ export default function ScriptLine({
                   }
                   onToggleSettings(line.id);
                 }}
-                className={isSettingsActive && !isMobile ? "bg-gray-200" : ""}
+                className={isSettingsOpen && !isMobile ? "bg-gray-200" : ""}
               >
                 <Settings className="h-5 w-5 text-gray-500" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => onDelete(line.id)}>
+              <Button variant="ghost" size="icon" onClick={() => onDeleteLine(line.id)}>
                 <Trash2 className="h-5 w-5 text-gray-500" />
               </Button>
             </div>

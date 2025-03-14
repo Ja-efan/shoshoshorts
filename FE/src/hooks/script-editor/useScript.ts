@@ -1,10 +1,20 @@
-// hooks/use-script.ts
-"use client";
-
 import { useState } from "react";
 import type { DropResult } from "@hello-pangea/dnd";
-import { ScriptLineType, Speaker, EmotionSettings, defaultEmotions } from "@/types/script-editor";
-import { createNewScriptLine } from "@/utils/script-helpers";
+import { ScriptLineType, Speaker, EmotionSettings, defaultEmotions, Character } from "@/types/script-editor/script-editor";
+import { createNewScriptLine } from "@/utils/script-editor/script-helpers";
+
+const defaultCharacters: Character[] = [
+  {
+    name: "Narrator",
+    gender: "male",
+    properties: "내레이션"
+  },
+  {
+    name: "Situation",
+    gender: "male",
+    properties: "상황 설명"
+  }
+];
 
 const initialScriptLines: ScriptLineType[] = [
   {
@@ -18,25 +28,13 @@ const initialScriptLines: ScriptLineType[] = [
     type: "Narrator",
     content: "Two strangers sit at adjacent tables, occasionally glancing at each other.",
     emotions: defaultEmotions,
-  },
-  {
-    id: "line-3",
-    type: "Speaker A",
-    content: "Excuse me, is this seat taken?",
-    emotions: { ...defaultEmotions, happiness: 0.3, neutral: 0.7 },
-  },
-  {
-    id: "line-4",
-    type: "Speaker B",
-    content: "No, please feel free to take it.",
-    emotions: { ...defaultEmotions, surprise: 0.2, neutral: 0.8 },
-  },
+  }
 ];
 
 export function useScript() {
   const [scriptLines, setScriptLines] = useState<ScriptLineType[]>(initialScriptLines);
   const [activeSettingsId, setActiveSettingsId] = useState<string | null>(null);
-  const [customSpeakers, setCustomSpeakers] = useState<string[]>([]);
+  const [characters, setCharacters] = useState<Character[]>(defaultCharacters);
   
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
@@ -68,12 +66,12 @@ export function useScript() {
   };
 
   const addNewLine = () => {
-    setScriptLines([...scriptLines, createNewScriptLine()]);
+    setScriptLines([...scriptLines, createNewScriptLine("Situation", "새로운 상황")]);
   };
 
   const insertNewLine = (index: number) => {
     const newLines = [...scriptLines];
-    newLines.splice(index + 1, 0, createNewScriptLine());
+    newLines.splice(index, 0, createNewScriptLine("Situation", "새로운 상황"));
     setScriptLines(newLines);
   };
 
@@ -82,21 +80,36 @@ export function useScript() {
   };
 
   const addCustomSpeaker = (speakerName: string) => {
-    if (speakerName.trim() && !customSpeakers.includes(speakerName.trim())) {
-      setCustomSpeakers([...customSpeakers, speakerName.trim()]);
+    if (speakerName.trim()) {
+      const newCharacter: Character = {
+        name: speakerName.trim(),
+        gender: "male",
+        properties: "새로운 캐릭터"
+      };
+      setCharacters([...characters, newCharacter]);
       return true;
     }
     return false;
   };
 
   const removeCustomSpeaker = (speakerName: string) => {
-    setCustomSpeakers(customSpeakers.filter((s) => s !== speakerName));
+    const isSpeakerInUse = scriptLines.some(line => line.type === speakerName);
+    if (isSpeakerInUse) {
+      return false;
+    }
+    setCharacters(characters.filter((c) => c.name !== speakerName));
+    return true;
+  };
+
+  const updateCharacters = (newCharacters: Character[]) => {
+    const fixedCharacters = characters.filter(c => c.name === "Narrator" || c.name === "Situation");
+    setCharacters([...fixedCharacters, ...newCharacters.filter(c => c.name !== "Narrator" && c.name !== "Situation")]);
   };
 
   return {
     scriptLines,
     activeSettingsId,
-    customSpeakers,
+    characters,
     handleDragEnd,
     handleContentChange,
     handleSpeakerChange,
@@ -107,5 +120,7 @@ export function useScript() {
     toggleSettings,
     addCustomSpeaker,
     removeCustomSpeaker,
+    setScriptLines,
+    updateCharacters,
   };
 }

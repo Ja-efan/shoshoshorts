@@ -1,8 +1,5 @@
-// components/script/settings-panel.tsx
-"use client";
-
 import { useState, useEffect } from "react";
-import { ScriptLineType, EmotionSettings } from "@/types/script-editor";
+import { ScriptLineType, EmotionSettings } from "@/types/script-editor/script-editor";
 
 interface SettingsPanelProps {
   line: ScriptLineType;

@@ -28,3 +28,32 @@ export const defaultEmotions: EmotionSettings = {
   neutral: 1,
   speakingRate: 5,
 }
+
+export type Character = {
+  name: string;
+  gender: "male" | "female";
+  properties: string;
+}
+
+export type AudioSettings = {
+  voiceType: string;
+  emotion: EmotionSettings;
+  speakingRate: number;
+  seed: number;
+  languageCode: string;
+}
+
+export type ScriptBlock = {
+  type: "narration" | "dialogue";
+  text: string;
+  character: string | null;
+  emotion: string | null;
+  audio: AudioSettings | null;
+}
+
+export type ScriptData = {
+  id: string;
+  title: string;
+  characters: Character[];
+  blocks: ScriptBlock[];
+}
