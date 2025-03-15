@@ -1,0 +1,10 @@
+FROM sss-frontend-base:latest
+
+# 개발 환경 설정
+ENV NODE_ENV=development
+
+# 개발 모드에서는 소스 코드를 볼륨으로 마운트하므로 여기서는 복사하지 않음
+# 대신 docker-compose.dev.yml에서 볼륨 설정
+
+# 개발 모드 실행 명령
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"] 

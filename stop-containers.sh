@@ -19,9 +19,11 @@ if [ "$1" = "all" ]; then
   stop_and_remove_container "sss-frontend"
   stop_and_remove_container "sss-backend"
   stop_and_remove_container "sss-postgres"
+  stop_and_remove_container "sss-mongo"
   stop_and_remove_container "sss-frontend-dev"
   stop_and_remove_container "sss-backend-dev"
   stop_and_remove_container "sss-postgres-dev"
+  stop_and_remove_container "sss-mongo-dev"
   echo "모든 컨테이너가 삭제되었습니다."
   exit 0
 fi
@@ -32,6 +34,7 @@ if [ "$1" = "prod" ]; then
   stop_and_remove_container "sss-frontend"
   stop_and_remove_container "sss-backend"
   stop_and_remove_container "sss-postgres"
+  stop_and_remove_container "sss-mongo"
   echo "배포 환경 컨테이너가 삭제되었습니다."
   exit 0
 fi
@@ -42,6 +45,7 @@ if [ "$1" = "dev" ]; then
   stop_and_remove_container "sss-frontend-dev"
   stop_and_remove_container "sss-backend-dev"
   stop_and_remove_container "sss-postgres-dev"
+  stop_and_remove_container "sss-mongo-dev"
   echo "개발 환경 컨테이너가 삭제되었습니다."
   exit 0
 fi
@@ -66,8 +70,8 @@ if [ "$1" = "frontend" ] || [ "$1" = "fe" ]; then
   exit 0
 fi
 
-# 데이터베이스 컨테이너 중지 및 삭제
-if [ "$1" = "database" ] || [ "$1" = "db" ]; then
+# PostgreSQL 데이터베이스 컨테이너 중지 및 삭제
+if [ "$1" = "postgres" ] || [ "$1" = "db" ]; then
   if [ "$2" = "dev" ]; then
     stop_and_remove_container "sss-postgres-dev"
   else
@@ -76,8 +80,18 @@ if [ "$1" = "database" ] || [ "$1" = "db" ]; then
   exit 0
 fi
 
+# MongoDB 데이터베이스 컨테이너 중지 및 삭제
+if [ "$1" = "mongo" ]; then
+  if [ "$2" = "dev" ]; then
+    stop_and_remove_container "sss-mongo-dev"
+  else
+    stop_and_remove_container "sss-mongo"
+  fi
+  exit 0
+fi
+
 # 사용법 출력
-echo "사용법: $0 [all|prod|dev|backend|frontend|database] [dev]"
+echo "사용법: $0 [all|prod|dev|backend|frontend|postgres|mongo] [dev]"
 echo ""
 echo "옵션:"
 echo "  all       - 모든 컨테이너 중지 및 삭제"
@@ -85,9 +99,11 @@ echo "  prod      - 배포 환경 컨테이너 중지 및 삭제"
 echo "  dev       - 개발 환경 컨테이너 중지 및 삭제"
 echo "  backend   - 백엔드 컨테이너 중지 및 삭제 (dev 옵션 추가 시 개발 환경)"
 echo "  frontend  - 프론트엔드 컨테이너 중지 및 삭제 (dev 옵션 추가 시 개발 환경)"
-echo "  database  - 데이터베이스 컨테이너 중지 및 삭제 (dev 옵션 추가 시 개발 환경)"
+echo "  postgres  - PostgreSQL 데이터베이스 컨테이너 중지 및 삭제 (dev 옵션 추가 시 개발 환경)"
+echo "  mongo     - MongoDB 데이터베이스 컨테이너 중지 및 삭제 (dev 옵션 추가 시 개발 환경)"
 echo ""
 echo "예시:"
 echo "  $0 all              - 모든 컨테이너 중지 및 삭제"
 echo "  $0 backend dev      - 개발 환경 백엔드 컨테이너 중지 및 삭제"
-echo "  $0 frontend         - 배포 환경 프론트엔드 컨테이너 중지 및 삭제" 
+echo "  $0 frontend         - 배포 환경 프론트엔드 컨테이너 중지 및 삭제"
+echo "  $0 mongo dev        - 개발 환경 MongoDB 컨테이너 중지 및 삭제" 

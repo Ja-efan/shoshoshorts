@@ -1,9 +1,7 @@
 services:
   # 백엔드 서비스
   backend:
-    build:
-      context: ./BE
-      dockerfile: Dockerfile
+    image: sss-backend-dev:latest
     container_name: sss-backend-dev
     ports:
       - "8080:8080"
@@ -12,18 +10,21 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/bta_db
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/sss_db
     volumes:
       - ./BE:/app
-      - gradle-cache:/root/.gradle
+      - ./BE/gradle:/app/gradle
+      - gradle-cache:/gradle_cache
     depends_on:
       - db
+      - mongo
     networks:
       - sss-network
     restart: unless-stopped
 
   # 프론트엔드 서비스
   frontend:
-    image: node:22.12.0
+    image: sss-frontend-dev:latest
     container_name: sss-frontend-dev
     ports:
       - "3000:5173"
@@ -38,7 +39,7 @@ services:
       - sss-network
     restart: unless-stopped
 
-  # 데이터베이스 서비스
+  # PostgreSQL 데이터베이스 서비스
   db:
     image: postgres:16-alpine
     container_name: sss-postgres-dev
@@ -54,10 +55,25 @@ services:
       - sss-network
     restart: unless-stopped
 
+  # MongoDB 데이터베이스 서비스
+  mongo:
+    image: mongo:7.0
+    container_name: sss-mongo-dev
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=sss_db
+    volumes:
+      - mongo-data-dev:/data/db
+    networks:
+      - sss-network
+    restart: unless-stopped
+
 networks:
   sss-network:
     driver: bridge
 
 volumes:
   postgres-data-dev:
+  mongo-data-dev:
   gradle-cache: 
