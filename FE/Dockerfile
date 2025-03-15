@@ -1,5 +1,5 @@
 # 빌드 스테이지
-FROM node:22.12.0 AS build
+FROM sss-frontend-base:latest AS build
 WORKDIR /app
 
 # 패키지 파일 복사 및 의존성 설치
@@ -16,6 +16,9 @@ RUN npm run build
 FROM nginx:stable-alpine
 WORKDIR /usr/share/nginx/html
 
+# ffmpeg 설치 (Alpine Linux용)
+RUN apk add --no-cache ffmpeg
+
 # 빌드 결과물 복사
 COPY --from=build /app/dist .
 
@@ -24,6 +27,9 @@ COPY --from=build /app/dist .
 
 # 포트 노출
 EXPOSE 80
+
+# 환경 변수 설정
+ENV NODE_ENV=production
 
 # Nginx 실행
 CMD ["nginx", "-g", "daemon off;"] 

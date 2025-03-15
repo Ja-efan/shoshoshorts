@@ -5,9 +5,11 @@
 
 ## 기술 스택
 - Java 21
-- Spring Boot 3.2.3
+- Spring Boot 3.4.0
 - Spring Data JPA
+- Spring Data MongoDB
 - PostgreSQL
+- MongoDB 7.0
 - Gradle 8.5
 
 ## 프로젝트 구조

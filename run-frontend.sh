@@ -15,9 +15,14 @@ if ! docker network inspect sss-network &>/dev/null; then
   docker network create sss-network
 fi
 
+# 프론트엔드 배포 이미지가 없으면 빌드
+if ! docker image inspect sss-frontend:latest &>/dev/null; then
+  echo "프론트엔드 배포 이미지가 없습니다. 이미지를 빌드합니다..."
+  ./build-images.sh
+fi
+
 # 프론트엔드 컨테이너 실행
-echo "프론트엔드 컨테이너를 빌드하고 실행합니다..."
-docker build -t sss-frontend:latest ./FE
+echo "프론트엔드 컨테이너를 실행합니다..."
 docker run -d \
   --name sss-frontend \
   -p ${FRONTEND_PORT:-80}:80 \

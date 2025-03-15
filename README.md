@@ -1,4 +1,4 @@
-# 🚀 쇼쇼숓 (ShowShowShoot)
+# 🚀 쇼쇼숓(ShoShoShorts)
 
 ## 📌 프로젝트 개요
 사용자가 입력한 스토리를 기반으로 다양한 AI를 활용하여 숏폼 콘텐츠를 제작하는 웹 플랫폼입니다.
@@ -15,9 +15,11 @@
 
 ### 백엔드
 - Java 21
-- Spring Boot 3.2.3
+- Spring Boot 3.4.0
 - Spring Data JPA
+- Spring Data MongoDB
 - PostgreSQL 16
+- MongoDB 7.0
 - Gradle 8.5
 
 ### 인프라

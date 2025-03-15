@@ -15,6 +15,12 @@ if ! docker network inspect sss-network &>/dev/null; then
   docker network create sss-network
 fi
 
+# 프론트엔드 개발 이미지가 없으면 빌드
+if ! docker image inspect sss-frontend-dev:latest &>/dev/null; then
+  echo "프론트엔드 개발 이미지가 없습니다. 이미지를 빌드합니다..."
+  ./build-images.sh
+fi
+
 # 프론트엔드 개발 컨테이너 실행
 echo "프론트엔드 개발 컨테이너를 실행합니다..."
 docker run -d \
@@ -23,9 +29,7 @@ docker run -d \
   -v $(pwd)/FE:/app \
   -v /app/node_modules \
   --network sss-network \
-  -w /app \
-  node:22.12.0 \
-  bash -c "npm install && npm run dev -- --host 0.0.0.0"
+  sss-frontend-dev:latest
 
 echo "프론트엔드 개발 컨테이너가 시작되었습니다. 서버가 초기화되는 중입니다..."
 echo "소스 코드를 수정하면 자동으로 반영됩니다."
