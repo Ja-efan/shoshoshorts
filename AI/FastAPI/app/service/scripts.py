@@ -80,9 +80,9 @@ async def generate_script_json(request: ScriptRequest) -> ScriptResponse:
                 "type": "array",
                 "description": "씬 목록",
                 "items": {
-                    "audio": {
-                        "type": ["object", "null"],
-                        "description": "TTS나 사운드 재생 등에 필요한 정보를 담는 필드",
+                    "audioArr": {
+                        "type": "array",
+                        "description": "한 장면에 나오는 구분되는 TTS나 사운드 재생에 필요한 정보를 담는 필드",
                         "items": {
                             "text": {
                                 "type": "string",
@@ -179,85 +179,81 @@ async def generate_script_json(request: ScriptRequest) -> ScriptResponse:
             ],
             "sceneArr": [
                 {
-                    "audio": {
+                    "audioArr": [{
                         "text": "외국 여행 갔을 때 기차역에서 있었던 일이야.",
                         "type": "narration",
                         "character": "narration",
                         "emotion": "neutral",
                         "emotionParams": {"neutral": 1.0}
-                    }
+                    }]
                 },
                 {
-                    "audio": {
+                    "audioArr": [{
                         "text": "내 앞에 어떤 여자가 역무원이랑 얘기하다가 진짜 멘붕 온 표정으로 서 있는 거야.",
                         "type": "narration",
                         "character": "narration",
                         "emotion": "surprise",
                         "emotionParams": {"surprise": 1.0}
-                    }
+                    }]
                 },
                 {
-                    "audio": {
+                    "audioArr": [{
                         "text": "듣다 보니까 기차표를 잘못 사서 지금 기차를 못 탄다는 거였는데 문제는 역무원이 영어를 아예 못 한다는 거지.",
                         "type": "narration",
                         "character": "narration",
                         "emotion": "worry",
                         "emotionParams": {"fear": 0.5, "neutral": 0.5}
-                    }
+                    }]
                 },
                 {
-                    "audio": {
+                    "audioArr": [{
                         "text": "내가 그 상황 보다가 좀 답답해서 그냥 끼어들었어.",
                         "type": "narration",
                         "character": "나",
                         "emotion": "neutral",
                         "emotionParams": {"neutral": 1.0}
-                    }
+                    }]
                 },
                 {
-                    "audio": {
+                    "audioArr": [{
                         "text": "현지 언어로 상황 설명 했더니 역무원이 알았다는 듯이 바로 기차표를 바꿔 주더라.",
                         "type": "narration",
                         "character": "narration",
                         "emotion": "relief",
                         "emotionParams": {"happiness": 0.5, "neutral": 0.5}
-                    }
+                    }]
                 },
                 {
-                    "audio": {
+                    "audioArr": [{
                         "text": "땡큐 쏘 머치!",
                         "type": "dialogue",
                         "character": "여자",
                         "emotion": "gratitude",
                         "emotionParams": {"happiness": 1.0}
-                    }
-                },
-                {
-                    "audio": {
+                    },
+                    {
                         "text": "유어 웰컴!",
                         "type": "dialogue",
                         "character": "나",
                         "emotion": "neutral",
                         "emotionParams": {"neutral": 1.0}
-                    }
-                },
-                {
-                    "audio": {
+                    },
+                    {
                         "text": "그렇게 대화하고 이제 가려고 했거든? 그런데 그 여자가 혼잣말을 하는거야.",
                         "type": "narration",
                         "character": "narration",
                         "emotion": "relief",
                         "emotionParams": {"neutral": 1.0}
-                    }
+                    }]
                 },
                 {
-                    "audio": {
+                    "audioArr": [{
                         "text": "와... 진짜 다행이다...",
                         "type": "dialogue",
                         "character": "여자",
                         "emotion": "relief",
                         "emotionParams": {"happiness": 0.5, "neutral": 0.5}
-                    }
+                    }]
                 },
             ]
         }
@@ -268,13 +264,13 @@ async def generate_script_json(request: ScriptRequest) -> ScriptResponse:
             "storyTitle": request.storyTitle,
             "characterArr": characters,
             "sceneArr": [{
-                "audio": {
+                "audioArr": [{
                     "text": "",
                     "type": "",
                     "character": "",
                     "emotion": "",
                     "emotionParams": {"": 0.0}
-                }
+                }]
             }]
         }
 
@@ -300,10 +296,13 @@ async def generate_script_json(request: ScriptRequest) -> ScriptResponse:
                 캐릭터의 감정과 음성 특성을 적절히 추론하여 채워주세요.
                 캐릭터 정보가 없는 경우 모두 나래이션으로 처리해주세요.
                 
-                audio 필드의 emotion 값들 각각 0.0 ~ 1.0이 되도록 설정해주세요.
+                audioArr 필드의 emotion 값들 각각 0.0 ~ 1.0이 되도록 설정해주세요.
+                audioArr는 한 scene 화면에 적절한 오디오들을 담는 배열입니다.
+                character 필드의 값은 characterArr 배열에 있는 이름이어야 합니다.
+                type이 narration일 경우 character 필드는 narration으로 설정해주세요.
 
                 중요한 건 대사와 나레이션을 분리할 때
-                **스토리 내용이 생략되거나 중복되지 않도록 해주세요.**
+                **story 내용이 중복거나 생략되지 않도록 해주세요.**
                 """
             },
             {
@@ -317,6 +316,8 @@ async def generate_script_json(request: ScriptRequest) -> ScriptResponse:
                 {request.story}"""
             }
         ]
+
+        # print(messages)
 
         # OpenAI API 호출
         response = client.chat.completions.create(
@@ -332,8 +333,6 @@ async def generate_script_json(request: ScriptRequest) -> ScriptResponse:
         print(response)
         # API 응답에서 JSON 추출
         response_content = response.choices[0].message.content
-        print("response_content")
-        print(response_content)
         
         # JSON 부분만 추출 (마크다운 코드 블록이 있을 경우 처리)
         if "```json" in response_content:
