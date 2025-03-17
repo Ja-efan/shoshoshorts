@@ -20,7 +20,7 @@ echo "PostgreSQL 데이터베이스 컨테이너를 실행합니다..."
 docker run -d \
   --name sss-postgres \
   -p 5432:5432 \
-  -e POSTGRES_DB=bta_db \
+  -e POSTGRES_DB=sss_db \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=${DB_PASSWORD:-postgres} \
   -v postgres-data:/var/lib/postgresql/data \
@@ -51,7 +51,7 @@ docker run -d \
   --name sss-backend \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=prod \
-  -e SPRING_DATASOURCE_URL=jdbc:postgresql://sss-postgres:5432/bta_db \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://sss-postgres:5432/sss_db \
   -e SPRING_DATASOURCE_USERNAME=postgres \
   -e SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-postgres} \
   -e SPRING_DATA_MONGODB_URI=mongodb://admin:${MONGO_PASSWORD:-mongodb}@sss-mongo:27017/sss_db \
