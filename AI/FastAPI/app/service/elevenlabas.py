@@ -5,6 +5,9 @@ import base64
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+from datetime import datetime
+# S3 모듈 임포트
+from app.service.s3 import upload_binary_to_s3
 
 load_dotenv()
 
@@ -21,36 +24,36 @@ class ElevenLabsTTSRequest(BaseModel):
     text: str = Field(description="변환할 텍스트")
     #남자 목소리: 4JJwo477JUAx3HV0T7n7
     #여자 목소리: uyVNoMrnUku1dZyVEXwD
-    voice_id: str = Field(default="uyVNoMrnUku1dZyVEXwD", description="사용할 음성 ID")
+    voice_code: str = Field(default="uyVNoMrnUku1dZyVEXwD", description="사용할 음성 ID")
     model_id: str = Field(default="eleven_multilingual_v2", description="사용할 모델 ID")
     output_format: str = Field(
         default="mp3", 
         description="출력 포맷 (mp3, pcm, wav, ogg, flac)"
     )
+    script_id: int = Field(default=None, description="스크립트 ID")
+    scene_id: int = Field(default=None, description="씬 번호")
+    audio_id: int = Field(default=None, description="오디오 번호")
+
 
 # 응답 모델 정의
 class ElevenLabsTTSResponse(BaseModel):
-    audio_path: str = Field(description="저장된 오디오 파일 경로")
+    s3_url: str = Field(description="S3에 업로드된 오디오 파일 URL")
     content_type: str = Field(description="오디오 콘텐츠 타입")
     file_size: int = Field(description="오디오 파일 크기 (바이트)")
 
-async def generate_tts_with_elevenlabs(request: ElevenLabsTTSRequest, save_path: str) -> ElevenLabsTTSResponse:
+async def generate_tts_with_elevenlabs(request: ElevenLabsTTSRequest) -> ElevenLabsTTSResponse:
     """
-    ElevenLabs API를 사용하여 텍스트를 음성으로 변환하고 파일로 저장하는 함수
+    ElevenLabs API를 사용하여 텍스트를 음성으로 변환하고 S3에 직접 업로드하는 함수
     
     Args:
         request: TTS 요청 객체
-        save_path: 오디오를 저장할 경로
         
     Returns:
         TTS 응답 객체
     """
     try:
-        # 저장 경로 디렉토리가 존재하는지 확인하고 없으면 생성
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        
         # API 요청 URL 구성
-        url = f"{ELEVENLABS_API_URL}/text-to-speech/{request.voice_id}"
+        url = f"{ELEVENLABS_API_URL}/text-to-speech/{request.voice_code}"
         
         # 요청 헤더 설정
         headers = {
@@ -86,19 +89,23 @@ async def generate_tts_with_elevenlabs(request: ElevenLabsTTSRequest, save_path:
         audio_data = response.content
         content_type = response.headers.get("Content-Type", f"audio/{request.output_format}")
         
-        # 파일로 저장
-        with open(save_path, "wb") as f:
-            f.write(audio_data)
+        # 파일명 생성 (시간 기반)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        object_name = f"elevenlabs/elevenlabs_tts_{timestamp}_{request.script_id}_{request.scene_id}_{request.audio_id}.{request.output_format}"
         
-        # 파일 크기 확인
-        file_size = os.path.getsize(save_path)
+        # S3에 직접 업로드
+        print(f"오디오 데이터를 S3에 업로드 중: {len(audio_data)} 바이트")
+        upload_result = upload_binary_to_s3(audio_data, object_name, content_type)
         
-        print(f"오디오 파일 저장 완료: {save_path} (크기: {file_size} 바이트)")
+        if not upload_result["success"]:
+            raise ValueError(f"S3 업로드 실패: {upload_result.get('error')}")
+        
+        print(f"S3 업로드 완료: {upload_result['url']}")
         
         return ElevenLabsTTSResponse(
-            audio_path=save_path,
+            s3_url=upload_result["url"],
             content_type=content_type,
-            file_size=file_size
+            file_size=len(audio_data)
         )
     
     except Exception as e:
