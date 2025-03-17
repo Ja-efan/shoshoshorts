@@ -35,6 +35,9 @@ from app.service.elevenlabas import (
     get_available_voices,
 )
 
+# S3 모듈 임포트
+from app.service.s3 import upload_file_to_s3
+
 # 전역 변수 선언: 현재 로드된 모델 타입과 모델 인스턴스를 저장
 CURRENT_MODEL_TYPE = None
 CURRENT_MODEL = None
@@ -523,12 +526,27 @@ async def convert_script(request: ScriptRequest):
     스크립트 내용을 JSON 형식으로 변환하는 API 엔드포인트
     """
     try:
+        # 요청 데이터 로깅
+        print("원본 요청 데이터:")
+        print(request)
+        
+        # 요청 객체 필드 로깅
+        print("요청 객체 필드:")
+        print(f"storyId: {request.storyId}, 타입: {type(request.storyId)}")
+        print(f"storyTitle: {request.storyTitle}")
+        print(f"characterArr 길이: {len(request.characterArr)}")
+        print(f"story 길이: {len(request.story)}")
+        
         # 스크립트 변환 함수 호출
         response = await generate_script_json(request)
         return response
     
+    except HTTPException:
+        # 이미 처리된 HTTP 예외는 그대로 전달
+        raise
     except Exception as e:
         import traceback
+        print("스크립트 변환 중 오류 발생:")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"스크립트 변환 중 오류 발생: {str(e)}")
 
@@ -537,38 +555,17 @@ async def convert_script(request: ScriptRequest):
 async def elevenlabs_tts(request: ElevenLabsTTSRequest, background_tasks: BackgroundTasks):
     """
     ElevenLabs API를 사용하여 텍스트를 음성으로 변환하는 API 엔드포인트
-    생성된 오디오는 output/elevenlabs 폴더에 저장됩니다.
+    생성된 오디오는 S3에 직접 업로드됩니다.
     """
     try:
-        # 현재 스크립트 경로 기준으로 output 폴더 생성
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        base_dir = os.path.dirname(script_dir)  # AI 폴더
-        output_dir = os.path.join(base_dir, "output", "elevenlabs")
-        os.makedirs(output_dir, exist_ok=True)
+        print(f"ElevenLabs TTS 생성 시작: {request.text[:50]}...")
         
-        # 파일명 생성 (시간 기반)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        text_short = request.text[:20].replace(" ", "_").replace("/", "_").replace("\\", "_")  # 텍스트 일부를 파일명에 포함 (특수문자 제거)
-        filename = os.path.join(output_dir, f"elevenlabs_tts_{timestamp}_{text_short}.{request.output_format}")
+        # ElevenLabs TTS 생성 함수 호출 (S3에 직접 업로드)
+        response = await generate_tts_with_elevenlabs(request)
         
-        print(f"ElevenLabs TTS 생성 시작: {filename}")
+        print(f"ElevenLabs TTS 생성 및 S3 업로드 완료: {response.s3_url}")
         
-        # ElevenLabs TTS 생성 함수 호출
-        response = await generate_tts_with_elevenlabs(request, save_path=filename)
-        
-        # 상대 경로로 변환 (절대 경로는 보안상 문제가 될 수 있음)
-        relative_path = os.path.relpath(filename, base_dir)
-        
-        # 응답 객체 생성
-        result = ElevenLabsTTSResponse(
-            audio_path=relative_path,
-            content_type=response.content_type,
-            file_size=response.file_size
-        )
-        
-        print(f"ElevenLabs TTS 생성 완료: {relative_path}")
-        
-        return result
+        return response
     
     except Exception as e:
         import traceback
@@ -607,11 +604,11 @@ if __name__ == "__main__":
     
     # 명령행에서 지정한 모델을 환경 변수로 설정
     os.environ["ZONOS_DEFAULT_MODEL"] = args.model
-    
+
     # 서버 실행
     uvicorn.run(
         "__main__:app",  # main:app 대신 __main__:app 사용
         host=args.host, 
         port=args.port, 
         reload=args.reload
-    ) 
+    )
