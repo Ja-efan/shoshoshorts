@@ -19,10 +19,10 @@ fi
 echo "개발용 PostgreSQL 데이터베이스 컨테이너를 실행합니다..."
 docker run -d \
   --name sss-postgres-dev \
-  -p 5432:5432 \
-  -e POSTGRES_DB=bta_db \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
+  -p ${POSTGRES_PORT}:5432 \
+  -e POSTGRES_DB=${POSTGRES_DB} \
+  -e POSTGRES_USER=${POSTGRES_USER} \
+  -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
   -v postgres-data-dev:/var/lib/postgresql/data \
   --network sss-network \
   postgres:16-alpine
@@ -31,8 +31,10 @@ docker run -d \
 echo "개발용 MongoDB 데이터베이스 컨테이너를 실행합니다..."
 docker run -d \
   --name sss-mongo-dev \
-  -p 27017:27017 \
-  -e MONGO_INITDB_DATABASE=sss_db \
+  -p ${MONGO_PORT}:27017 \
+  -e MONGO_INITDB_DATABASE=${MONGO_DB} \
+  -e MONGO_INITDB_ROOT_USERNAME=${MONGO_USER} \
+  -e MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD} \
   -v mongo-data-dev:/data/db \
   --network sss-network \
   mongo:7.0
@@ -55,10 +57,10 @@ docker run -d \
   --name sss-backend-dev \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
-  -e SPRING_DATASOURCE_URL=jdbc:postgresql://sss-postgres-dev:5432/bta_db \
-  -e SPRING_DATASOURCE_USERNAME=postgres \
-  -e SPRING_DATASOURCE_PASSWORD=postgres \
-  -e SPRING_DATA_MONGODB_URI=mongodb://sss-mongo-dev:27017/sss_db \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://sss-postgres-dev:${POSTGRES_PORT}/${POSTGRES_DB} \
+  -e SPRING_DATASOURCE_USERNAME=${POSTGRES_USER} \
+  -e SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD} \
+  -e SPRING_DATA_MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@sss-mongo-dev:${MONGO_PORT}/${MONGO_DB} \
   -v $(pwd)/BE:/app \
   -v $(pwd)/BE/gradle:/app/gradle \
   -v gradle-cache:/gradle_cache \
