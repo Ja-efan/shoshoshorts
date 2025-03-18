@@ -1,8 +1,12 @@
+import { Routes, Route, Link } from "react-router-dom";
+
+import NotFound from "./pages/notFound";
+import Router from "./router";
 function App() {
   return (
-    <>
-      <h1 className="text-3xl font-bold underline"> world!</h1>
-    </>
+    <div className="p-4">
+      <Router />
+    </div>
   );
 }
 
