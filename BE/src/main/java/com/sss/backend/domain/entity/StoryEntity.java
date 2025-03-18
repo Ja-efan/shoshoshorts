@@ -14,6 +14,8 @@ public class StoryEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // User
+
     @Column(nullable = false)
     private String title;
 
