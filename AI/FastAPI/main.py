@@ -24,10 +24,10 @@ from zonos.model import Zonos, DEFAULT_BACKBONE_CLS as ZonosBackbone
 from zonos.conditioning import make_cond_dict, supported_language_codes
 from zonos.utils import DEFAULT_DEVICE as device
 
-# 스크립트 변환 모듈 임포트
-from app.service.scripts import ScriptRequest, ScriptResponse, generate_script_json
+# 라우터 임포트
+from app.routes.script_routes import router as script_router
 
-# ElevenLabs TTS 모듈 임포트
+# 서비스 모듈 임포트 (script 모듈은 라우터를 통해 사용)
 from app.service.elevenlabas import (
     ElevenLabsTTSRequest, 
     ElevenLabsTTSResponse, 
@@ -519,36 +519,8 @@ async def register_speaker(request: RegisterSpeakerRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"화자 등록 중 오류 발생: {str(e)}")
 
-# 스크립트 변환 API 엔드포인트 추가
-@app.post("/script/convert", response_model=ScriptResponse)
-async def convert_script(request: ScriptRequest):
-    """
-    스크립트 내용을 JSON 형식으로 변환하는 API 엔드포인트
-    """
-    try:
-        # 요청 데이터 로깅
-        print("원본 요청 데이터:")
-        print(request)
-        
-        # 요청 객체 필드 로깅
-        print("요청 객체 필드:")
-        print(f"storyId: {request.storyId}, 타입: {type(request.storyId)}")
-        print(f"storyTitle: {request.storyTitle}")
-        print(f"characterArr 길이: {len(request.characterArr)}")
-        print(f"story 길이: {len(request.story)}")
-        
-        # 스크립트 변환 함수 호출
-        response = await generate_script_json(request)
-        return response
-    
-    except HTTPException:
-        # 이미 처리된 HTTP 예외는 그대로 전달
-        raise
-    except Exception as e:
-        import traceback
-        print("스크립트 변환 중 오류 발생:")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"스크립트 변환 중 오류 발생: {str(e)}")
+# 라우터 등록
+app.include_router(script_router)
 
 # ElevenLabs TTS API 엔드포인트 추가
 @app.post("/elevenlabs/tts", response_model=ElevenLabsTTSResponse)
