@@ -1,0 +1,12 @@
+services:
+  ai-image:
+    build: .
+    container_name: ai-image-service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./images:/app/images
+      - ./static:/app/static
+    env_file:
+      - .env
+    restart: unless-stopped
