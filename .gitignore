@@ -213,4 +213,7 @@ psd
 thumb
 sketch
 
+# 생성 이미지 저장 디렉토리
+images/
+
 # End of https://www.toptal.com/developers/gitignore/api/java,react,python
