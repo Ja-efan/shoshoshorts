@@ -9,6 +9,7 @@ from app.services.download_service import download_service
 from app.services.s3_service import s3_service
 import os
 import time
+from app.core.config import settings
 
 # 라우터 생성
 router = APIRouter(prefix="/images", tags=["images"])
@@ -90,7 +91,17 @@ async def generate_scene_image(scene: Scene):
         # S3 자격 증명이 없거나 업로드에 실패한 경우, 로컬 URL 사용
         if not s3_url:
             print("S3 업로드 실패, 로컬 URL 사용")
-            s3_url = f"/static/images/{os.path.basename(local_image_path)}"
+            filename = os.path.basename(local_image_path)
+            formatted_story_id = f"{story_id:08d}"  # 8자리 (예: 00000001)
+            
+            # 버킷 이름 정제
+            s3_bucket_name = settings.S3_BUCKET_NAME
+            if s3_bucket_name and s3_bucket_name.startswith("s3://"):
+                s3_bucket_name = s3_bucket_name.replace("s3://", "")
+            if s3_bucket_name and s3_bucket_name.endswith("/"):
+                s3_bucket_name = s3_bucket_name.rstrip("/")
+                
+            s3_url = f"/AI-IMAGE/{s3_bucket_name}/{formatted_story_id}/images/{filename}"
         
         # 6. 결과 반환
         end_time = time.time()

@@ -5,7 +5,9 @@ import os
 import boto3
 from botocore.exceptions import NoCredentialsError
 from dotenv import load_dotenv
-import uuid
+import time
+from datetime import datetime
+import pytz
 from typing import Optional
 from app.core.config import settings
 
@@ -68,9 +70,31 @@ class S3Service:
             return None
         
         try:
+            # ID를 형식에 맞게 변환 (story_id: 8자리, scene_id: 4자리)
+            formatted_story_id = f"{story_id:08d}"  # 8자리 (예: 00000001)
+            formatted_scene_id = f"{scene_id:04d}"  # 4자리 (예: 0001)
+            
+            # 현재 파일명에서 타임스탬프를 추출하거나 새 타임스탬프 생성
+            base_filename = os.path.basename(image_path)
+            
+            # 이미 타임스탬프가 있는 파일명이면 그대로 사용, 아니면 새로 생성
+            if '_20' in base_filename:  # 타임스탬프가 포함된 파일명인지 확인
+                # 형식에 맞게 scene_id 부분 교체
+                parts = base_filename.split('_', 1)
+                if len(parts) >= 2:
+                    new_filename = f"{formatted_scene_id}_{parts[1]}"
+                else:
+                    new_filename = base_filename
+            else:
+                # 새 타임스탬프 생성 (한국 시간, KST)
+                kst = pytz.timezone('Asia/Seoul')
+                now = datetime.now(kst)
+                timestamp = now.strftime("%Y%m%d_%H%M%S")
+                file_ext = os.path.splitext(base_filename)[1]  # 파일 확장자
+                new_filename = f"{formatted_scene_id}_{timestamp}{file_ext}"
+            
             # S3에 업로드할 객체 키 생성 (경로)
-            file_name = os.path.basename(image_path)
-            object_key = f"stories/{story_id}/scenes/{scene_id}/{file_name}"
+            object_key = f"{formatted_story_id}/images/{new_filename}"
             
             # 파일 업로드
             self.s3_client.upload_file(image_path, self.s3_bucket, object_key)
