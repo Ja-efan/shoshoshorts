@@ -20,6 +20,19 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
     implementation 'org.postgresql:postgresql'
+    
+    // FFmpeg 관련 의존성 추가
+    implementation 'net.bramp.ffmpeg:ffmpeg:0.7.0'
+    implementation 'org.bytedeco:javacv-platform:1.5.9'
+    
+    // Amazon S3 SDK
+    implementation platform('software.amazon.awssdk:bom:2.20.56')
+    implementation 'software.amazon.awssdk:s3'
+    
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }
 
