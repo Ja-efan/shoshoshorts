@@ -51,13 +51,13 @@ class S3Service:
         # 클라이언트 생성 여부 출력
         print(f"S3 클라이언트 생성 성공: {self.s3_client is not None}")
     
-    async def upload_image(self, image_path: str, script_id: int, scene_id: int) -> Optional[str]:
+    async def upload_image(self, image_path: str, story_id: int, scene_id: int) -> Optional[str]:
         """
         이미지를 S3에 업로드합니다.
         
         Args:
             image_path: 로컬 이미지 파일 경로
-            script_id: 스크립트 ID
+            story_id: 스토리 ID
             scene_id: 장면 ID
             
         Returns:
@@ -70,7 +70,7 @@ class S3Service:
         try:
             # S3에 업로드할 객체 키 생성 (경로)
             file_name = os.path.basename(image_path)
-            object_key = f"scripts/{script_id}/scenes/{scene_id}/{file_name}"
+            object_key = f"stories/{story_id}/scenes/{scene_id}/{file_name}"
             
             # 파일 업로드
             self.s3_client.upload_file(image_path, self.s3_bucket, object_key)

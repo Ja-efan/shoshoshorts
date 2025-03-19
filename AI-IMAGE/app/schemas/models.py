@@ -10,10 +10,10 @@ class Character(BaseModel):
     gender: int  # 1: 남자, 2: 여자
     description: str
 
-class ScriptMetadata(BaseModel):
-    """스크립트 메타데이터 모델"""
+class StoryMetadata(BaseModel):
+    """스토리 메타데이터 모델"""
     title: str
-    script_id: int
+    story_id: int
     characters: List[Character]
 
 class Audio(BaseModel):
@@ -25,7 +25,7 @@ class Audio(BaseModel):
 
 class Scene(BaseModel):
     """장면 모델"""
-    script_metadata: ScriptMetadata
+    story_metadata: StoryMetadata
     scene_id: int
     audios: List[Audio]
 

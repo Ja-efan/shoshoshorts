@@ -11,21 +11,21 @@ class DownloadService:
     """이미지 다운로드 서비스"""
     
     @staticmethod
-    async def download_image(image_url: str, script_id: int, scene_id: int) -> Optional[str]:
+    async def download_image(image_url: str, story_id: int, scene_id: int) -> Optional[str]:
         """
         URL에서 이미지를 다운로드하여 로컬에 저장합니다.
         
         Args:
             image_url: 다운로드할 이미지의 URL
-            script_id: 스크립트 ID
+            story_id: 스토리 ID
             scene_id: 장면 ID
             
         Returns:
             저장된 이미지의 로컬 경로 또는 None (실패 시)
         """
         try:
-            # 이미지 저장 디렉토리 생성 (script_id 기준)
-            save_dir = os.path.join("images", str(script_id))
+            # 이미지 저장 디렉토리 생성 (story_id 기준)
+            save_dir = os.path.join("images", str(story_id))
             os.makedirs(save_dir, exist_ok=True)
             
             # 저장할 파일명 생성 (scene_id와 UUID 사용)
