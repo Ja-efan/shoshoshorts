@@ -1,0 +1,47 @@
+{
+    "id": "script-001",
+    "title": "아반떼 N 전손 썰",
+    "characters": [
+      {
+        "name": "종훈",
+        "gender": "male",
+        "properties": "무언가에 쉽게 열광하고 즉흥적인 성격"
+      },
+      {
+        "name": "보험사 직원",
+        "gender": "male",
+        "properties": "차분하고 책임감 있는 성격"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "narration",
+        "text": "N 모드를 켠 뒤, 도산대로를 달리기 시작했다.",
+        "character": null,
+        "emotion": null,
+        "audio": null
+      },
+      {
+        "type": "dialogue",
+        "text": "N은 렌트해서 타는 게 아니었다...",
+        "character": "종훈",
+        "emotion": "후회",
+        "audio": {
+          "voiceType": "male_youth",
+          "emotion": {
+            "happiness": 0.1,
+            "sadness": 0.6,
+            "disgust": 0,
+            "fear": 0,
+            "surprise": 0,
+            "anger": 0,
+            "neutral": 0.3
+          },
+          "speakingRate": 1.0,
+          "seed": 12345,
+          "languageCode": "ko"
+        }
+      }
+    ]
+  }
+  
