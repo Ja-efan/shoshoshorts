@@ -91,7 +91,7 @@ async def generate_tts_with_elevenlabs(request: ElevenLabsTTSRequest) -> ElevenL
         
         # 파일명 생성 (시간 기반)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        object_name = f"elevenlabs/elevenlabs_tts_{timestamp}_{request.script_id}_{request.scene_id}_{request.audio_id}.{request.output_format}"
+        object_name = f"{request.script_id}/audios/{request.scene_id}_{request.audio_id}_{timestamp}.{request.output_format}"
         
         # S3에 직접 업로드
         print(f"오디오 데이터를 S3에 업로드 중: {len(audio_data)} 바이트")
