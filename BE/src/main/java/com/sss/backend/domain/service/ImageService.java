@@ -1,0 +1,110 @@
+package com.sss.backend.domain.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sss.backend.api.dto.SceneImageRequest;
+import com.sss.backend.api.dto.SceneImageResponse;
+import com.sss.backend.config.AppProperties;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+
+@Service
+@Slf4j
+public class ImageService {
+
+    private final WebClient webClient;
+    private final AppProperties appProperties;
+    private final MongoTemplate mongoTemplate;
+    private final ObjectMapper objectMapper; //JSON 데이터 변환에 사용
+
+    public ImageService(WebClient webClient, AppProperties appProperties,
+                        MongoTemplate mongoTemplate, ObjectMapper objectMapper) {
+        this.webClient = webClient;
+        this.appProperties = appProperties;
+        this.mongoTemplate = mongoTemplate;
+        this.objectMapper = objectMapper;
+    }
+
+    //이미지 생성 API 호출
+    @Async("imageTaskExecutor")
+    public CompletableFuture<SceneImageResponse> generateImage(SceneImageRequest sceneRequest, String storyId) {
+        log.info("이미지 생성 API 호출 - 씬 ID: {}", sceneRequest.getSceneId());
+
+        try {
+            // 이미지 생성 API URL
+            String apiUrl = "http://35.216.58.38:8001/api/v1/images/generations/external";
+
+            // API 호출 (오류 응답 로깅 추가)
+            return webClient
+                    .post()
+                    .uri(apiUrl)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(sceneRequest)
+                    .exchangeToMono(response -> {
+                        if (response.statusCode().is4xxClientError()) {
+                            return response.bodyToMono(String.class)
+                                    .flatMap(errorBody -> {
+                                        log.error("API 오류 응답: {}", errorBody);
+                                        return Mono.error(new RuntimeException("API 요청 실패: " + errorBody));
+                                    });
+                        } else {
+                            return response.bodyToMono(SceneImageResponse.class);
+                        }
+                    })
+                    .doOnNext(response -> {
+                        log.info("이미지 생성 완료 - 씬 ID: {}, URL: {}, 응답:{}",
+                                sceneRequest.getSceneId(), response.getImage_url(), response);
+
+                        // 이미지 정보를 MongoDB에 저장
+                        saveImageToMongoDB(storyId, response);
+                    })
+                    .doOnError(e ->
+                            log.error("이미지 생성 API 호출 중 오류 발생 - 씬 ID: {}, 오류: {}",
+                                    sceneRequest.getSceneId(), e.getMessage(), e)
+                    )
+                    .toFuture();
+
+        } catch (Exception e) {
+            log.error("이미지 생성 요청 처리 중 예외 발생 - 씬 ID: {}, 오류: {}",
+                    sceneRequest.getSceneId(), e.getMessage(), e);
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    //이미지 MongoDB에 저장
+    private void saveImageToMongoDB(String storyId, SceneImageResponse response) {
+        try {
+            // 씬 ID에 해당하는 씬 찾기
+            Query query = Query.query(Criteria.where("storyId").is(storyId));
+            query.addCriteria(Criteria.where("sceneArr.sceneId").is(response.getScene_id()));
+
+            // MongoDB에 이미지 정보 저장 (해당 씬에 이미지 정보 추가)
+            Update update = new Update(); //특정 필드를 업데이트할 객체 생성
+
+            // $를 사용하여 배열 내 조건에 맞는 요소 업데이트
+            update.set("sceneArr.$.image_prompt", response.getImage_prompt());
+            update.set("sceneArr.$.image_url", response.getImage_url());
+
+            mongoTemplate.updateFirst(query, update, "scenes");
+
+            log.info("이미지 정보 MongoDB 저장 완료 - 스토리 ID: {}, 씬 ID: {}",
+                    storyId, response.getScene_id());
+        } catch (Exception e) {
+            log.error("이미지 정보 MongoDB 저장 중 오류 발생 - 씬 ID: {}, 오류: {}",
+                    response.getScene_id(), e.getMessage(), e);
+        }
+    }
+
+}
