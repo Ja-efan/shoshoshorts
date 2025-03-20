@@ -232,7 +232,15 @@ public class VideoService {
             File videoFile = createFinalVideo(storyId, outputPath);
             
             // S3에 업로드할 키 생성
-            String s3Key = "videos/" + UUID.randomUUID() + ".mp4";
+            // 날짜 형식의 타임스탬프 생성 (YYYYMMDD_HHMMSS)
+            String timestamp = java.time.format.DateTimeFormatter
+                .ofPattern("yyyyMMdd_HHmmss")
+                .format(java.time.LocalDateTime.now());
+            
+            // storyId 패딩 적용 (8자리로 맞추기)
+            String paddedStoryId = String.format("%08d", Integer.parseInt(storyId));
+            
+            String s3Key = paddedStoryId + "/videos/" + paddedStoryId + "_" + timestamp + ".mp4";
             
             // S3에 업로드
             s3Config.uploadToS3(videoFile.getPath(), s3Key);
