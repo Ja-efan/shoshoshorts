@@ -1,7 +1,24 @@
-*
-!.gitkeep
-
+# IDE 설정 파일 (IntelliJ IDEA)
 .idea/
-.idea/workspace.xml
-.idea/vcs.xml
-.idea/libraries/
+*.iml
+*.xml
+*.class
+
+# 빌드/캐시 파일
+.gradle/
+build/
+out/
+target/
+
+# 로그 파일
+*.log
+
+# 환경설정 파일 (개발 환경별로 다를 수 있음)
+*.env
+*.properties
+application.yml
+application.properties
+
+# DB 관련 파일
+*.db
+*.sqlite

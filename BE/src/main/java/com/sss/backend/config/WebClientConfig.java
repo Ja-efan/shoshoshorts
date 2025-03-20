@@ -11,7 +11,7 @@ public class WebClientConfig {
     public WebClient webClient(WebClient.Builder builder) {
         return builder
 //                .baseUrl("http://localhost:8000")  // FastAPI 기본 URL
-                .baseUrl("http://ai-api-1:8000")  // 컨테이너 네트워크에서 접속
+                .baseUrl("http://35.216.58.38:8000")  // 컨테이너 네트워크에서 접속
                 .defaultHeader("Content-Type", "application/json")
                 .build();
     }

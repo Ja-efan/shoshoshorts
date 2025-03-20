@@ -27,6 +27,7 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class StoryService {
@@ -420,8 +421,11 @@ public class StoryService {
         jsonData.put("story", formatStory(story)); // " 변환 처리, 줄바꿈이 필요한가?
 
         // MongoDB에서 캐릭터 정보 조회
-        CharacterDocument characterDocument = getCharacterDocument(storyId);
-        jsonData.put("characterArr", characterDocument != null ? characterDocument.getCharacterArr() : List.of());
+//        CharacterDocument characterDocument = getCharacterDocument(storyId);
+//        jsonData.put("characterArr", characterDocument != null ? characterDocument.getCharacterArr() : List.of());
+        Optional<CharacterDocument> characterDocument = characterRepository.findByStoryId(String.valueOf(storyId));
+        jsonData.put("characterArr", characterDocument.map(CharacterDocument::getCharacterArr).orElse(List.of()));
+
         return jsonData;
     }
     // 쌍따옴표 처리 메소드
@@ -430,10 +434,14 @@ public class StoryService {
     }
 
     // MongoDB에서 storyId로 characterArr 조회
-    public CharacterDocument getCharacterDocument(Long storyId){
-        return characterRepository.findByStoryId(String.valueOf(storyId))
-                .orElseThrow(() -> new IllegalArgumentException("해당 storyId에 해당하는 캐릭터 정보가 존재하지 않습니다."));
-    }
+//    public CharacterDocument getCharacterDocument(Long storyId){
+//        return characterRepository.findByStoryId(String.valueOf(storyId))
+////                .orElse(new CharacterDocument(String.valueOf(storyId), List.of()));
+//                    // 항상 객체 생성. 일단 생성하고 봄.
+//                .orElseGet(() -> new CharacterDocument(String.valueOf(storyId), List.of()));
+//                    // Optional이 비어 있을 때만 객체 생성
+////                .orElseThrow(() -> new IllegalArgumentException("해당 storyId에 해당하는 캐릭터 정보가 존재하지 않습니다."));
+//    }
 
     // 유효성 검사 메서드
     private void validateRequest(StoryRequestDTO request){
