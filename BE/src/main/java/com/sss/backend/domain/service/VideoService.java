@@ -232,10 +232,10 @@ public class VideoService {
             File videoFile = createFinalVideo(storyId, outputPath);
             
             // S3에 업로드할 키 생성
-            // 날짜 형식의 타임스탬프 생성 (YYYYMMDD_HHMMSS)
+            // 날짜 형식의 타임스탬프 생성 (YYYYMMDD_HHMMSS) - 한국 시간(KST) 적용
             String timestamp = java.time.format.DateTimeFormatter
                 .ofPattern("yyyyMMdd_HHmmss")
-                .format(java.time.LocalDateTime.now());
+                .format(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul")));
             
             // storyId 패딩 적용 (8자리로 맞추기)
             String paddedStoryId = String.format("%08d", Integer.parseInt(storyId));
