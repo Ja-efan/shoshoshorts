@@ -60,7 +60,11 @@ docker run -d \
   -e SPRING_DATASOURCE_URL=jdbc:postgresql://sss-postgres-dev:${POSTGRES_PORT}/${POSTGRES_DB} \
   -e SPRING_DATASOURCE_USERNAME=${POSTGRES_USER} \
   -e SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD} \
-  -e SPRING_DATA_MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@sss-mongo-dev:${MONGO_PORT}/${MONGO_DB} \
+  -e SPRING_DATA_MONGODB_URI="mongodb://${MONGO_USER}:${MONGO_PASSWORD}@sss-mongo-dev:27017/${MONGO_DB}?authSource=admin" \
+  -e AWS_ACCESS_KEY=${AWS_ACCESS_KEY} \
+  -e AWS_SECRET_KEY=${AWS_SECRET_KEY} \
+  -e FFMPEG_PATH=/usr/bin/ffmpeg \
+  -e TEMP_DIRECTORY=/tmp \
   -v $(pwd)/BE:/app \
   -v $(pwd)/BE/gradle:/app/gradle \
   -v gradle-cache:/gradle_cache \
