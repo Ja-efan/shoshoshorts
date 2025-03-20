@@ -23,8 +23,6 @@ class ImageService:
         Args:
             prompt: 이미지 생성을 위한 텍스트 프롬프트
             negative_prompt: 이미지에 포함하지 않을 요소를 지정하는 텍스트
-            width: 이미지 너비
-            height: 이미지 높이
             
         Returns:
             생성된 이미지 URL이 포함된 딕셔너리

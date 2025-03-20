@@ -20,7 +20,7 @@ class OpenAIService:
     @staticmethod
     async def generate_image_prompt(scene: Scene, style: str="cartoon") -> str:
         """
-        장면 정보를 바탕으로 DALL·E에 사용할 이미지 프롬프트를 생성합니다.
+        장면 정보를 바탕으로 이미지 생성(KLING AI)에 사용할 이미지 프롬프트를 생성합니다.
         
         Args:
             scene: 장면 정보
@@ -31,14 +31,14 @@ class OpenAIService:
         """
         # 프롬프트 생성을 위한 컨텍스트 구성
         context = {
-            "title": scene.script_metadata.title,
+            "title": scene.story_metadata.title,
             "characters": [],
             "audios": [],
             "style": style
         }
         
         # 등장인물 정보 추가
-        for character in scene.script_metadata.characters:
+        for character in scene.story_metadata.characters:
             character_info = {
                 "name": character.name,
                 "gender": "남자" if character.gender == 1 else "여자",

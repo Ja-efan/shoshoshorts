@@ -9,6 +9,7 @@ from app.services.download_service import download_service
 from app.services.s3_service import s3_service
 import os
 import time
+from app.core.config import settings
 
 # 라우터 생성
 router = APIRouter(prefix="/images", tags=["images"])
@@ -31,20 +32,20 @@ async def generate_scene_image(scene: Scene):
         # 1. 장면 정보 검증
         if not scene.scene_id:
             raise HTTPException(status_code=400, detail="장면 ID가 누락되었습니다.")
-        if not scene.script_metadata:
-            raise HTTPException(status_code=400, detail="장면 메타데이터가 누락되었습니다.")
-        if not scene.script_metadata.script_id:
-            raise HTTPException(status_code=400, detail="스크립트 ID가 누락되었습니다.")
+        if not scene.story_metadata:
+            raise HTTPException(status_code=400, detail="스토리 메타데이터가 누락되었습니다.")
+        if not scene.story_metadata.story_id:
+            raise HTTPException(status_code=400, detail="스토리 ID가 누락되었습니다.")
         if not scene.audios or len(scene.audios) == 0:
             raise HTTPException(status_code=400, detail="장면 오디오 정보가 누락되었습니다.")
         
         # 필요한 ID 추출
-        script_id = scene.script_metadata.script_id
+        story_id = scene.story_metadata.story_id
         scene_id = scene.scene_id
         
         # 2. OpenAI를 사용하여 이미지 프롬프트 생성
         image_prompt_start_time = time.time()
-        print(f"스크립트 {script_id}, 장면 {scene_id}에 대한 이미지 프롬프트 생성 중...")
+        print(f"스토리 {story_id}, 장면 {scene_id}에 대한 이미지 프롬프트 생성 중...")
         image_prompt = await openai_service.generate_image_prompt(scene)
         print(f"생성된 이미지 프롬프트: {image_prompt}")
         image_prompt_end_time = time.time()
@@ -71,7 +72,7 @@ async def generate_scene_image(scene: Scene):
         # 4. 생성된 이미지를 로컬에 저장
         download_start_time = time.time()   
         print(f"이미지 다운로드 중...")
-        local_image_path = await download_service.download_image(image_url, script_id, scene_id)
+        local_image_path = await download_service.download_image(image_url, story_id, scene_id)
         download_end_time = time.time()
         download_time = download_end_time - download_start_time
         print(f"이미지 다운로드 시간: {download_time}초")
@@ -82,7 +83,7 @@ async def generate_scene_image(scene: Scene):
         # 5. 이미지를 S3에 업로드
         image_upload_start_time = time.time()
         print(f"이미지 S3 업로드 중...")
-        s3_url = await s3_service.upload_image(local_image_path, script_id, scene_id)
+        s3_url = await s3_service.upload_image(local_image_path, story_id, scene_id)
         image_upload_end_time = time.time()
         image_upload_time = image_upload_end_time - image_upload_start_time
         print(f"이미지 S3 업로드 시간: {image_upload_time}초")
@@ -90,7 +91,17 @@ async def generate_scene_image(scene: Scene):
         # S3 자격 증명이 없거나 업로드에 실패한 경우, 로컬 URL 사용
         if not s3_url:
             print("S3 업로드 실패, 로컬 URL 사용")
-            s3_url = f"/static/images/{os.path.basename(local_image_path)}"
+            filename = os.path.basename(local_image_path)
+            formatted_story_id = f"{story_id:08d}"  # 8자리 (예: 00000001)
+            
+            # 버킷 이름 정제
+            s3_bucket_name = settings.S3_BUCKET_NAME
+            if s3_bucket_name and s3_bucket_name.startswith("s3://"):
+                s3_bucket_name = s3_bucket_name.replace("s3://", "")
+            if s3_bucket_name and s3_bucket_name.endswith("/"):
+                s3_bucket_name = s3_bucket_name.rstrip("/")
+                
+            s3_url = f"/AI-IMAGE/{s3_bucket_name}/{formatted_story_id}/images/{filename}"
         
         # 6. 결과 반환
         end_time = time.time()
