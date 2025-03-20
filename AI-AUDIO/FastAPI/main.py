@@ -8,7 +8,7 @@ import base64
 import uvicorn
 import argparse
 import asyncio
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Union
@@ -45,6 +45,12 @@ CURRENT_MODEL = None
 # 화자 임베딩 캐시를 저장하는 딕셔너리
 SPEAKER_EMBEDDING_CACHE = {}
 
+#화이트 리스트 IP 정의
+WHITELIST = {
+    "127.0.0.1", #개발용 로컬
+    "172.26.9.106", #EC2 서버
+}
+
 # 서버 시작 이벤트 핸들러 추가
 async def startup_event():
     """
@@ -71,6 +77,14 @@ app = FastAPI(
 
 # 시작 이벤트 핸들러 등록
 # app.add_event_handler("startup", startup_event)
+
+# @app.middleware("http")
+# async def ip_whitelist_middleware(request: Request, call_next):
+#     client_ip = request.client.host
+#     if client_ip not in WHITELIST:
+#         raise HTTPException(status_code=403, detail="Forbidden: IP not allowed")
+#     response = await call_next(request)
+#     return response
 
 # CORS 설정
 app.add_middleware(
