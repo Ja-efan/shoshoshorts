@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 # S3 모듈 임포트
 from app.service.s3 import upload_binary_to_s3
+import pytz
 
 load_dotenv()
 
@@ -90,8 +91,13 @@ async def generate_tts_with_elevenlabs(request: ElevenLabsTTSRequest) -> ElevenL
         content_type = response.headers.get("Content-Type", f"audio/{request.output_format}")
         
         # 파일명 생성 (시간 기반)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        object_name = f"{request.script_id}/audios/{request.scene_id}_{request.audio_id}_{timestamp}.{request.output_format}"
+        kst = pytz.timezone('Asia/Seoul')
+        timestamp = datetime.now(kst).strftime("%Y%m%d_%H%M%S")
+
+        formatted_script_id = f"{request.script_id:08d}"  # 8자리 (예: 00000001)
+        formatted_scene_id = f"{request.scene_id:04d}"  # 4자리 (예: 0001)
+        formatted_audio_id = f"{request.audio_id:04d}"  # 4자리 (예: 0001)
+        object_name = f"{formatted_script_id}/audios/{formatted_scene_id}_{formatted_audio_id}_{timestamp}.{request.output_format}"
         
         # S3에 직접 업로드
         print(f"오디오 데이터를 S3에 업로드 중: {len(audio_data)} 바이트")
