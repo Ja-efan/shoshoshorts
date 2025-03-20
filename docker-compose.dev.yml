@@ -10,7 +10,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/sss_db
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
-      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/sss_db
+      - SPRING_DATA_MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/${MONGO_DB}?authSource=admin
     volumes:
       - ./BE:/app
       - ./BE/gradle:/app/gradle
@@ -63,6 +63,8 @@ services:
       - "27017:27017"
     environment:
       - MONGO_INITDB_DATABASE=sss_db
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
     volumes:
       - mongo-data-dev:/data/db
     networks:
