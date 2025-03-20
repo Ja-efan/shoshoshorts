@@ -33,4 +33,4 @@ class ImageGenerationResponse(BaseModel):
     """이미지 생성 응답 모델"""
     scene_id: int
     image_prompt: str
-    image_s3url: str 
+    image_url: str 

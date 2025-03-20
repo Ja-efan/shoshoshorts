@@ -110,7 +110,7 @@ async def generate_scene_image(scene: Scene):
         return ImageGenerationResponse(
             scene_id=scene_id,
             image_prompt=image_prompt,
-            image_s3url=s3_url
+            image_url=s3_url
         )
     
         
