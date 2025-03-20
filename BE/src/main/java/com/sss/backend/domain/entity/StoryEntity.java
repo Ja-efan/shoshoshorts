@@ -21,4 +21,5 @@ public class StoryEntity {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String story;
+
 }
