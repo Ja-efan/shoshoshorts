@@ -2,12 +2,16 @@ package com.sss.backend.domain.document;
 
 import jakarta.persistence.Id;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.List;
 import java.util.Map;
 
-@Data
+//@Data
+@Getter
+@Setter
 @Document(collection = "scenes")
 public class SceneDocument {
 
