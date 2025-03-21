@@ -2,7 +2,7 @@ package com.sss.backend.domain.service;
 
 import com.sss.backend.domain.entity.Scene;
 import com.sss.backend.domain.entity.Story;
-import com.sss.backend.domain.repository.StoryRepository;
+import com.sss.backend.domain.repository.Story1Repository;
 import com.sss.backend.config.S3Config;
 import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFmpegExecutor;
@@ -32,7 +32,7 @@ public class VideoService {
     @Value("${temp.directory}")
     private String tempDirectory;
     
-    private final StoryRepository storyRepository;
+    private final Story1Repository storyRepository;
     private final S3Config s3Config;
     private final FFmpeg ffmpeg;
     

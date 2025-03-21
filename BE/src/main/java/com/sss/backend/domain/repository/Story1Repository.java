@@ -5,6 +5,6 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface StoryRepository extends MongoRepository<Story, String> {
+public interface Story1Repository extends MongoRepository<Story, String> {
     Story findByStoryId(String storyId);
 } 
