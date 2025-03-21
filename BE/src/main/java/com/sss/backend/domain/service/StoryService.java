@@ -2,7 +2,6 @@ package com.sss.backend.domain.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sss.backend.api.dto.StoryRequestDTO;
-import com.sss.backend.config.WebClientConfig;
 import com.sss.backend.domain.document.CharacterDocument;
 import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.entity.StoryEntity;
@@ -10,15 +9,12 @@ import com.sss.backend.infrastructure.repository.CharacterRepository;
 import com.sss.backend.infrastructure.repository.SceneRepository;
 import com.sss.backend.infrastructure.repository.StoryRepository;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Null;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -29,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @Service
 public class StoryService {
 
@@ -55,7 +52,7 @@ public class StoryService {
     }
 
     @Transactional
-    public StoryEntity saveStory(StoryRequestDTO request) {
+    public Long saveStory(StoryRequestDTO request) {
         // 1. 유효성 검사 메서드 호출
         validateRequest(request);
 
@@ -63,6 +60,7 @@ public class StoryService {
         StoryEntity storyEntity = convertToEntity(request);
         storyEntity = storyRepository.save(storyEntity);
         System.out.println("사용자 입력 인풋 :"+request);
+        log.info("사용자 입력 인풋 :{}",request);
 
         Long storyId = storyEntity.getId();
         System.out.println("저장된 storyId: "+storyId);
@@ -72,36 +70,32 @@ public class StoryService {
             saveCharactersToMongoDB(storyId, request.getCharacterArr());
         }
         System.out.println("몽고디비 저장완료..");
+        log.info("몽고 디비 저장완료");
 
         // 4. FastAPI로 보낼 JSON 데이터 생성
         Map<String, Object> jsonData = createFastAPIJson(storyId, request.getTitle(), request.getStory());
         System.out.println("json변환까지 완료 : "+jsonData);
-
+        log.info("json변환까지 완료 {}",jsonData);
 
         // 5. FastAPI에 요청 및 응답 처리 // http://localhost:8000/script/convert/
 
             // 아래 reactive programming에서는 파이프라인이 구성될 뿐 실제 실행은 subscribe에서..
-        sendToFastAPI(jsonData)
-                // onerror : 에러가 발생하면 DummyJson 호출.
-                .onErrorResume(error -> {
-                    System.err.println("FastAPI 요청 실패: "+error.getMessage());
-                    System.out.println("로컬 script.json 파일을 불러옵니다.");
-                    return Mono.just(getDummyJson()); // Mono로 감싸줌.
-                })
-                    // flatMap :앞단계의 response를 받아서 새로운 Mono 반환
-                    // Mono를 반환하려면 Map 대신 flatMap을 써야 함.
-                .flatMap(response -> {
-                    Map<String, Object> transformedJson = scriptTransformService.transformScriptJson(response);
-                    return Mono.just(transformedJson);  // 변환된 JSON을 Mono로 감싸서 넘김.
-                })
-                .subscribe(response -> {
-                    System.out.println("FastAPI 응답 :"+ response);
-                    saveScenesToMongoDB(response); // MongoDB 저장하기.
-                    // 정현씨 service 호출..
-                    // ####### ho chuuuuu L ;
-                });
+        try {
+            Map<String, Object> response = sendToFastAPI(jsonData).block();
+            System.out.println("FastAPI 응답 : "+response);
+            log.info("FastAPI 응답 {}",response);
 
-        return storyEntity;
+            // 변환 작업 실행
+            Map<String, Object> transformedJson = scriptTransformService.transformScriptJson(response);
+
+
+            saveScenesToMongoDB(transformedJson);
+        } catch (Exception e) {
+            System.out.println("FastAPI 요청 실패 :"+ e.getMessage());
+            log.info("fastapi 에러 {}",e.getMessage());
+        }
+
+        return storyId;
     }
 
     // Dummy json getter
@@ -163,230 +157,7 @@ public class StoryService {
                             }
                           }
                         ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "내가 그 상황 보다가 좀 답답해서 그냥 끼어들었어.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "neutral",
-                            "emotionParams": {
-                              "neutral": 1
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "현지 언어로 상황 설명 했더니 역무원이 알았다는 듯이 바로 기차표를 바꿔 주더라.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "relief",
-                            "emotionParams": {
-                              "happiness": 0.5,
-                              "neutral": 0.5
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "땡큐 쏘 머치!",
-                            "type": "dialogue",
-                            "character": "아내",
-                            "emotion": "gratitude",
-                            "emotionParams": {
-                              "happiness": 1
-                            }
-                          },
-                          {
-                            "text": "유어 웰컴!",
-                            "type": "dialogue",
-                            "character": "나",
-                            "emotion": "neutral",
-                            "emotionParams": {
-                              "neutral": 1
-                            }
-                          },
-                          {
-                            "text": "이제 가려는데, 그 여자가 혼잣말로 와... 진짜 다행이다... 라고 하는거야.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "relief",
-                            "emotionParams": {
-                              "happiness": 0.5,
-                              "neutral": 0.5
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "어? 한국분이세요?",
-                            "type": "dialogue",
-                            "character": "나",
-                            "emotion": "surprise",
-                            "emotionParams": {
-                              "surprise": 1
-                            }
-                          },
-                          {
-                            "text": "헐! 한국 분이셨구나! 진짜 감사해요!",
-                            "type": "dialogue",
-                            "character": "아내",
-                            "emotion": "surprise",
-                            "emotionParams": {
-                              "surprise": 0.5,
-                              "happiness": 0.5
-                            }
-                          },
-                          {
-                            "text": "뭔가 급 친해진 느낌?",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "happiness",
-                            "emotionParams": {
-                              "happiness": 0.7,
-                              "neutral": 0.3
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "그러다 어쩌다 보니 같이 기차 타고 얘기하면서 진짜 재밌는 시간을 보냈어.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "happiness",
-                            "emotionParams": {
-                              "happiness": 0.8,
-                              "neutral": 0.2
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "내릴 때 여자가 한국 돌아가면 꼭 한번 만나요 하면서 연락처를 주더라고.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "anticipation",
-                            "emotionParams": {
-                              "happiness": 0.6,
-                              "neutral": 0.4
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "솔직히 그냥 별 생각 없었는데, 한국 들어오는 날 카톡이 딱 온 거야.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "surprise",
-                            "emotionParams": {
-                              "surprise": 0.7,
-                              "neutral": 0.3
-                            }
-                          },
-                          {
-                            "text": "혹시 오늘 한국 들어오시는 날 맞죠? 그때 진짜 감사했어요! 시간 괜찮으시면 밥 같이 먹을래요?",
-                            "type": "dialogue",
-                            "character": "아내",
-                            "emotion": "gratitude",
-                            "emotionParams": {
-                              "happiness": 0.6,
-                              "neutral": 0.4
-                            }
-                          },
-                          {
-                            "text": "뭔가 싶어서 일단 나갔지.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "curiosity",
-                            "emotionParams": {
-                              "neutral": 0.8,
-                              "surprise": 0.2
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "근데 그게 밥 한끼가 두끼 되고, 영화 한 편이 두 편되고 결론은???",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "happiness",
-                            "emotionParams": {
-                              "happiness": 0.9,
-                              "neutral": 0.1
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "지금 같이 살고 있고, 애도 있어.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "happiness",
-                            "emotionParams": {
-                              "happiness": 1
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "아내가 가끔 그때 얘기하면 그때 당신, 나한테 백마탄 왕자님이였어! 이러는데, 내가 먼저 꼬셨다고 주장하더라.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "amusement",
-                            "emotionParams": {
-                              "happiness": 0.7,
-                              "neutral": 0.3
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "여행에서 이렇게 인생 파트너 만날 줄 누가 알았겠냐?",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "wonder",
-                            "emotionParams": {
-                              "surprise": 0.6,
-                              "neutral": 0.4
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "바뀌었나요!!?!?!",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "advice",
-                            "emotionParams": {
-                              "neutral": 0.8,
-                              "happiness": 0.2
-                            }
-                          }
-                        ]
-                      }
+                      }                   
                     ]
                   }
                 }
@@ -419,12 +190,15 @@ public class StoryService {
         jsonData.put("storyId", storyId);
         jsonData.put("storyTitle", title);
         jsonData.put("story", formatStory(story)); // " 변환 처리, 줄바꿈이 필요한가?
+        System.out.println("좀 안되나??"+jsonData);
 
         // MongoDB에서 캐릭터 정보 조회
 //        CharacterDocument characterDocument = getCharacterDocument(storyId);
 //        jsonData.put("characterArr", characterDocument != null ? characterDocument.getCharacterArr() : List.of());
         Optional<CharacterDocument> characterDocument = characterRepository.findByStoryId(String.valueOf(storyId));
+
         jsonData.put("characterArr", characterDocument.map(CharacterDocument::getCharacterArr).orElse(List.of()));
+        System.out.println("여기가 문제인가");
 
         return jsonData;
     }
@@ -432,16 +206,6 @@ public class StoryService {
     private String formatStory(@NotBlank String story) {
         return story.replace("\"","\\\"");
     }
-
-    // MongoDB에서 storyId로 characterArr 조회
-//    public CharacterDocument getCharacterDocument(Long storyId){
-//        return characterRepository.findByStoryId(String.valueOf(storyId))
-////                .orElse(new CharacterDocument(String.valueOf(storyId), List.of()));
-//                    // 항상 객체 생성. 일단 생성하고 봄.
-//                .orElseGet(() -> new CharacterDocument(String.valueOf(storyId), List.of()));
-//                    // Optional이 비어 있을 때만 객체 생성
-////                .orElseThrow(() -> new IllegalArgumentException("해당 storyId에 해당하는 캐릭터 정보가 존재하지 않습니다."));
-//    }
 
     // 유효성 검사 메서드
     private void validateRequest(StoryRequestDTO request){

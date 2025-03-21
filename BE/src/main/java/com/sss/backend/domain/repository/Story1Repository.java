@@ -7,4 +7,4 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface Story1Repository extends MongoRepository<Story, String> {
     Story findByStoryId(String storyId);
-} 
+}
