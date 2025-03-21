@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sss.backend.api.dto.SceneImageRequest;
 import com.sss.backend.api.dto.SceneImageResponse;
 import com.sss.backend.config.AppProperties;
+import com.sss.backend.domain.document.SceneDocument;
+import com.sss.backend.infrastructure.repository.SceneDocumentRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -18,6 +20,7 @@ import reactor.core.publisher.Mono;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -28,16 +31,120 @@ public class ImageService {
     private final AppProperties appProperties;
     private final MongoTemplate mongoTemplate;
     private final ObjectMapper objectMapper; //JSON 데이터 변환에 사용
+    private final SceneDocumentRepository sceneDocumentRepository;
 
     public ImageService(WebClient webClient, AppProperties appProperties,
-                        MongoTemplate mongoTemplate, ObjectMapper objectMapper) {
+                        MongoTemplate mongoTemplate, ObjectMapper objectMapper,
+                        SceneDocumentRepository sceneDocumentRepository) {
         this.webClient = webClient;
         this.appProperties = appProperties;
         this.mongoTemplate = mongoTemplate;
         this.objectMapper = objectMapper;
+        this.sceneDocumentRepository = sceneDocumentRepository;
     }
 
-    //이미지 생성 API 호출
+
+    //씬 이미지 생성 요청
+    @Async("imageTaskExecutor")
+    public CompletableFuture<SceneImageResponse> generateImageForScene(String storyId, Integer sceneId) {
+        log.info("씬 이미지 생성 시작: storyId={}, sceneId={}", storyId, sceneId);
+
+        try {
+
+//            try {
+//                Thread.sleep(500); // 500ms 지연
+//            } catch (InterruptedException e) {
+//                Thread.currentThread().interrupt();
+//                throw new RuntimeException("이미지 생성 지연 중 중단됨", e);
+//            }
+
+
+            // 스토리 문서 조회
+            Optional<SceneDocument> sceneDocumentOpt = sceneDocumentRepository.findByStoryId(storyId);
+            if (sceneDocumentOpt.isEmpty()) {
+                return CompletableFuture.failedFuture(
+                        new RuntimeException("해당 스토리를 찾을 수 없습니다: " + storyId));
+            }
+
+            SceneDocument sceneDocument = sceneDocumentOpt.get();
+
+            // 해당 씬 찾기
+            Map<String, Object> targetScene = findScene(sceneDocument, sceneId);
+
+            // 요청 객체 준비
+            SceneImageRequest imageRequest = prepareImageRequest(sceneDocument, targetScene, sceneId);
+
+            // 이미지 생성 API 호출
+            return generateImage(imageRequest, storyId);
+        } catch (Exception e) {
+            log.error("씬 이미지 생성 준비 중 오류 발생: storyId={}, sceneId={}, error={}",
+                    storyId, sceneId, e.getMessage(), e);
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    //해당하는 씬 찾기
+    private Map<String, Object> findScene(SceneDocument sceneDocument, Integer sceneId) {
+        return sceneDocument.getSceneArr().stream()
+                .filter(scene -> ((Number) scene.get("sceneId")).intValue() == sceneId)
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("해당 씬을 찾을 수 없습니다: sceneId=" + sceneId));
+    }
+
+
+    //이미지 생성 요청 객체 준비
+    private SceneImageRequest prepareImageRequest(SceneDocument sceneDocument, Map<String, Object> targetScene, Integer sceneId) {
+
+        // 이미지 생성 요청 객체 생성
+        SceneImageRequest imageRequest = new SceneImageRequest();
+        imageRequest.setSceneId(sceneId);
+
+        // StoryMetadata 설정
+        SceneImageRequest.StoryMetadata storyMetadata = new SceneImageRequest.StoryMetadata();
+        storyMetadata.setStory_id(Integer.parseInt(sceneDocument.getStoryId()));
+        storyMetadata.setTitle(sceneDocument.getStoryTitle());
+
+        // Characters 설정
+        List<Map<String, Object>> characterMapList = sceneDocument.getCharacterArr();
+        List<SceneImageRequest.Character> characters = new ArrayList<>();
+
+        for (Map<String, Object> charMap : characterMapList) {
+            SceneImageRequest.Character character = new SceneImageRequest.Character();
+            character.setName((String) charMap.get("name"));
+
+            // gender가 String이면 Integer로 변환 (예: "남자" -> 1)
+            String genderStr = (String) charMap.get("gender");
+            character.setGender("남자".equals(genderStr) ? 1 : 2);
+
+            character.setDescription((String) charMap.get("properties"));
+            characters.add(character);
+        }
+
+        storyMetadata.setCharacters(characters);
+        imageRequest.setStoryMetadata(storyMetadata);
+
+        // Audios 설정
+        List<Map<String, Object>> audioMapList = (List<Map<String, Object>>) targetScene.get("audioArr");
+        List<SceneImageRequest.Audio> audios = new ArrayList<>();
+
+        for (Map<String, Object> audioMap : audioMapList) {
+            SceneImageRequest.Audio audio = new SceneImageRequest.Audio();
+            audio.setType((String) audioMap.get("type"));
+            audio.setCharacter((String) audioMap.get("character"));
+            audio.setText((String) audioMap.get("text"));
+            audio.setEmotion((String) audioMap.get("emotion"));
+            audios.add(audio);
+        }
+
+        imageRequest.setAudios(audios);
+
+        return imageRequest;
+    }
+
+
+
+
+    //이미지 생성 모델 API 호출
     @Async("imageTaskExecutor")
     public CompletableFuture<SceneImageResponse> generateImage(SceneImageRequest sceneRequest, String storyId) {
         log.info("이미지 생성 API 호출 - 씬 ID: {}", sceneRequest.getSceneId());
