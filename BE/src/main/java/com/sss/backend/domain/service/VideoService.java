@@ -2,7 +2,7 @@ package com.sss.backend.domain.service;
 
 import com.sss.backend.domain.entity.Scene;
 import com.sss.backend.domain.entity.Story;
-import com.sss.backend.domain.repository.StoryRepository;
+import com.sss.backend.domain.repository.Story1Repository;
 import com.sss.backend.config.S3Config;
 import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFmpegExecutor;
@@ -32,7 +32,7 @@ public class VideoService {
     @Value("${temp.directory}")
     private String tempDirectory;
     
-    private final StoryRepository storyRepository;
+    private final Story1Repository story1Repository;
     private final S3Config s3Config;
     private final FFmpeg ffmpeg;
     
@@ -159,7 +159,7 @@ public class VideoService {
             logger.info("스토리 ID {} 에 대한 비디오 생성 시작", storyId);
             
             // 1. 스토리 조회 및 유효성 검사
-            Story story = storyRepository.findByStoryId(storyId);
+            Story story = story1Repository.findByStoryId(storyId);
             if (story == null) {
                 logger.error("스토리를 찾을 수 없음: {}", storyId);
                 throw new RuntimeException("스토리를 찾을 수 없음: " + storyId);
