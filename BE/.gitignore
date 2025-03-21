@@ -4,6 +4,9 @@
 *.xml
 *.class
 
+# IDE 설정 파일 (vscode)
+.vscode/
+
 # 빌드/캐시 파일
 .gradle/
 build/

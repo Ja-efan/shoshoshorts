@@ -40,11 +40,12 @@ dependencies {
     //WebClient 의존성 추가
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
-    //
+    //Validation
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    // Jackson
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.0'
+    //Jackson 라이브러리 의존성
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    implementation 'org.springframework.boot:spring-boot-starter-json'
 
     // Swagger 의존성
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
