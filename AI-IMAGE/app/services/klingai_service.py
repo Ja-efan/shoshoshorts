@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 import jwt
 
 from app.core.config import settings
+from app.core.api_config import klingai_config
 
 class ImageService:
     """Kling AI를 사용한 이미지 생성 서비스"""
@@ -55,11 +56,11 @@ class ImageService:
             
             # API 요청 데이터
             payload = {
-                "model": "kling-v1",
+                "model": klingai_config.MODEL,
                 "prompt": prompt,
                 "negative_prompt": negative_prompt if negative_prompt else "",
-                "n": 1,
-                "aspect_ratio": "1:1"
+                "n": klingai_config.N,
+                "aspect_ratio": klingai_config.ASPECT_RATIO
             }
             
             # API 요청 보내기 (이미지 생성 요청)
