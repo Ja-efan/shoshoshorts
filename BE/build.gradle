@@ -22,6 +22,9 @@ dependencies {
     implementation 'org.postgresql:postgresql'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 
+    //env
+    implementation 'me.paulschwarz:spring-dotenv:3.0.0'
+
     // FFmpeg 관련 의존성 추가
     implementation 'net.bramp.ffmpeg:ffmpeg:0.7.0'
     implementation 'org.bytedeco:javacv-platform:1.5.9'
