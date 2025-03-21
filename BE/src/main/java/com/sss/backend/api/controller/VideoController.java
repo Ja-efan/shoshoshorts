@@ -40,15 +40,9 @@ public class VideoController {
         public MediaProcessResponse processAllScenes(String storyId) {
             log.info("스토리 전체 씬 미디어 처리 요청: storyId={}", storyId);
 
-            try {
                 // MediaService의 processAllScenes 메서드 호출
                 CompletableFuture<Void> future = mediaService.processAllScenes(storyId);
 
-            } catch (Exception e) {
-                log.error("스토리 전체 씬 미디어 처리 요청 중 오류 발생: storyId={}, error={}",
-                        storyId, e.getMessage(), e);
-                throw e;
-            }
         }
 
         // 비디오 생성 및 S3 업로드
