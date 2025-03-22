@@ -114,7 +114,7 @@ docker compose down
 {
   "scene_id": 1,
   "image_prompt": "생성된 이미지 프롬프트",
-  "image_s3url": "생성된 이미지의 S3 URL"
+  "image_url": "생성된 이미지의 S3 URL"
 }
 ```
 
