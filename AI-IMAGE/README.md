@@ -88,7 +88,7 @@ docker compose down
     "characters": [
       {
         "name": "캐릭터명",
-        "gender": 1,  // 1: 남성, 2: 여성
+        "gender": 1,  // 0: 남성, 1: 여성
         "description": "캐릭터 설명"
       }
     ]
@@ -114,7 +114,7 @@ docker compose down
 {
   "scene_id": 1,
   "image_prompt": "생성된 이미지 프롬프트",
-  "image_s3url": "생성된 이미지의 S3 URL"
+  "image_url": "생성된 이미지의 S3 URL"
 }
 ```
 

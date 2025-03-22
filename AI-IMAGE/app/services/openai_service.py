@@ -4,6 +4,7 @@ OpenAI 서비스
 from openai import OpenAI
 from app.schemas.models import Scene
 from app.core.config import settings    
+from app.core.api_config import openai_config
 
 # OpenAI API 키 가져오기
 api_key = settings.OPENAI_API_KEY
@@ -18,7 +19,7 @@ class OpenAIService:
     """OpenAI API를 활용하여 이미지 프롬프트를 생성하는 서비스"""
     
     @staticmethod
-    async def generate_image_prompt(scene: Scene, style: str="cartoon") -> str:
+    async def generate_image_prompt(scene: Scene, style: str="disney") -> str:
         """
         장면 정보를 바탕으로 이미지 생성(KLING AI)에 사용할 이미지 프롬프트를 생성합니다.
         
@@ -41,7 +42,7 @@ class OpenAIService:
         for character in scene.story_metadata.characters:
             character_info = {
                 "name": character.name,
-                "gender": "남자" if character.gender == 1 else "여자",
+                "gender": "남자" if character.gender == 0 else "여자",
                 "description": character.description
             }
             context["characters"].append(character_info)
@@ -112,13 +113,13 @@ class OpenAIService:
         try:
             # OpenAI API 호출
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=openai_config.MODEL,
                 messages=[
                     {"role": "system", "content": f"당신은 이미지 생성 프롬프트를 작성하는 전문가입니다. 주어진 장면을 '{style}' 스타일로 시각적으로 묘사하는 영어 프롬프트를 작성해주세요. {style_instruction}"},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=500,
-                temperature=0.7
+                max_tokens=openai_config.MAX_TOKENS,
+                temperature=openai_config.TEMPERATURE
             )
             
             # 생성된 프롬프트 반환

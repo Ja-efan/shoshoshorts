@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 import jwt
 
 from app.core.config import settings
+from app.core.api_config import klingai_config
 
 class ImageService:
     """Kling AI를 사용한 이미지 생성 서비스"""
@@ -55,11 +56,11 @@ class ImageService:
             
             # API 요청 데이터
             payload = {
-                "model": "kling-v1",
+                "model": klingai_config.MODEL,
                 "prompt": prompt,
                 "negative_prompt": negative_prompt if negative_prompt else "",
-                "n": 1,
-                "aspect_ratio": "1:1"
+                "n": klingai_config.N,
+                "aspect_ratio": klingai_config.ASPECT_RATIO
             }
             
             # API 요청 보내기 (이미지 생성 요청)
@@ -78,9 +79,45 @@ class ImageService:
                 except:
                     error_message = response.text
                 
+                # Kling API의 응답 코드를 표준 HTTP 상태 코드로 변환
+                http_status_code = 500  # 기본적으로 서버 오류로 설정
+                
+                # Kling AI 응답 코드에 따른 HTTP 상태 코드 매핑
+                kling_to_http = {
+                    # 200 OK
+                    0: 200,
+                    
+                    # 401 Unauthorized
+                    1000: 401, 1001: 401, 1002: 401, 1003: 401, 1004: 401,
+                    
+                    # 429 Too Many Requests
+                    1100: 429, 1101: 429, 1102: 429, 1302: 429, 1303: 429, 1304: 429,
+                    
+                    # 403 Forbidden
+                    1103: 403,
+                    
+                    # 400 Bad Request
+                    1200: 400, 1201: 400, 1300: 400, 1301: 400,
+                    
+                    # 404 Not Found
+                    1202: 404, 1203: 404,
+                    
+                    # 500 Internal Server Error
+                    5000: 500,
+                    
+                    # 503 Service Unavailable
+                    5001: 503,
+                    
+                    # 504 Gateway Timeout
+                    5002: 504
+                }
+                
+                if response_code in kling_to_http:
+                    http_status_code = kling_to_http[response_code]
+                
                 raise HTTPException(
-                    status_code=response_code,  
-                    detail=f"Kling AI API 오류: {error_message}"
+                    status_code=http_status_code,  
+                    detail=f"Kling AI API 오류 (코드: {response_code}): {error_message}"
                 )
             
             # 응답 데이터
