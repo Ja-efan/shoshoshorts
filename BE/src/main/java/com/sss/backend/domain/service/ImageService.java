@@ -112,9 +112,9 @@ public class ImageService {
             SceneImageRequest.Character character = new SceneImageRequest.Character();
             character.setName((String) charMap.get("name"));
 
-            // gender가 String이면 Integer로 변환 (예: "남자" -> 1)
+            // gender가 String이면 Integer로 변환 (예: "남자" :0, "여자":1)
             String genderStr = (String) charMap.get("gender");
-            character.setGender("남자".equals(genderStr) ? 1 : 2);
+            character.setGender("남자".equals(genderStr) ? 0 : 1);
 
             character.setDescription((String) charMap.get("properties"));
             characters.add(character);
