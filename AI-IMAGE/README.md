@@ -88,7 +88,7 @@ docker compose down
     "characters": [
       {
         "name": "캐릭터명",
-        "gender": 1,  // 1: 남성, 2: 여성
+        "gender": 1,  // 0: 남성, 1: 여성
         "description": "캐릭터 설명"
       }
     ]
