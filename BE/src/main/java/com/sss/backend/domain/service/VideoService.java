@@ -1,6 +1,5 @@
 package com.sss.backend.domain.service;
 
-import com.sss.backend.domain.repository.SceneDocumentRepository;
 import com.sss.backend.config.S3Config;
 import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFmpegExecutor;
@@ -11,6 +10,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import com.sss.backend.domain.document.SceneDocument;
+import com.sss.backend.domain.repository.SceneDocumentRepository;
+import com.sss.backend.domain.entity.Story;
+import com.sss.backend.domain.entity.Video;
+import com.sss.backend.domain.repository.StoryRepository;
+import com.sss.backend.domain.repository.VideoRepository;
+import com.sss.backend.domain.entity.Video.VideoStatus;
+import com.sss.backend.api.dto.VideoStatusResponseDto;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +43,8 @@ public class VideoService {
     private final SceneDocumentRepository sceneDocumentRepository;
     private final S3Config s3Config;
     private final FFmpeg ffmpeg;
+    private final StoryRepository storyRepository;
+    private final VideoRepository videoRepository;
     
     public File mergeAudioFiles(List<String> audioUrls, String outputPath) {
         try {
@@ -268,5 +277,59 @@ public class VideoService {
             throw new IllegalArgumentException("잘못된 S3 URL 형식: " + url);
         }
         return parts[1]; // project1/audios/file.mp3 부분만 반환
+    }
+
+    // 비디오 엔티티 초기화
+    public void initVideoEntity(String storyId) {
+        Story story = storyRepository.findById(Long.parseLong(storyId))
+                .orElseThrow(() -> new RuntimeException("스토리를 찾을 수 없음: " + storyId));
+        
+        Video video = new Video();
+        video.setStory(story);
+        video.setStatus(VideoStatus.PENDING);
+        video.setCreatedAt(LocalDateTime.now());
+        
+        videoRepository.save(video);
+    }
+    
+    // 비디오 상태 업데이트
+    public void updateVideoStatus(String storyId, VideoStatus status, String message) {
+        Video video = videoRepository.findByStoryId(Long.parseLong(storyId))
+                .orElseThrow(() -> new RuntimeException("비디오 엔티티를 찾을 수 없음: " + storyId));
+        
+        video.setStatus(status);
+        
+        if (status == VideoStatus.COMPLETED) {
+            video.setVideo_url(message); // 완료 시 URL 저장
+            video.setCompletedAt(LocalDateTime.now());
+        } else if (status == VideoStatus.FAILED) {
+            video.setErrorMessage(message); // 실패 시 에러 메시지 저장
+        }
+        
+        videoRepository.save(video);
+    }
+    
+    // 비디오 상태 조회
+    public VideoStatusResponseDto getVideoStatus(String storyId) {
+        Video video = videoRepository.findByStoryId(Long.parseLong(storyId))
+                .orElseThrow(() -> new RuntimeException("비디오 엔티티를 찾을 수 없음: " + storyId));
+        
+        VideoStatusResponseDto dto = new VideoStatusResponseDto();
+        dto.setStoryId(storyId);
+        dto.setStatus(video.getStatus());
+        
+        // 날짜 변환
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        dto.setCreatedAt(video.getCreatedAt() != null ? video.getCreatedAt().format(formatter) : null);
+        
+        // status에 따라 필요한 필드만 설정
+        if (video.getStatus() == VideoStatus.COMPLETED) {
+            dto.setVideoUrl(video.getVideo_url());
+            dto.setCompletedAt(video.getCompletedAt() != null ? video.getCompletedAt().format(formatter) : null);
+        } else if (video.getStatus() == VideoStatus.FAILED) {
+            dto.setErrorMessage(video.getErrorMessage());
+        }
+        
+        return dto;
     }
 } 
