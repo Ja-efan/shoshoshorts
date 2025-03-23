@@ -1,4 +1,4 @@
-package com.sss.backend.infrastructure.repository;
+package com.sss.backend.domain.repository;
 
 
 import com.sss.backend.domain.entity.StoryEntity;

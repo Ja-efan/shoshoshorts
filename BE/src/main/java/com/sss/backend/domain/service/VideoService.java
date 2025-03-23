@@ -1,8 +1,6 @@
 package com.sss.backend.domain.service;
 
-import com.sss.backend.domain.entity.Scene;
-import com.sss.backend.domain.entity.Story;
-import com.sss.backend.domain.repository.Story1Repository;
+import com.sss.backend.domain.repository.SceneDocumentRepository;
 import com.sss.backend.config.S3Config;
 import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFmpegExecutor;
@@ -12,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
+import com.sss.backend.domain.document.SceneDocument;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,6 +19,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.nio.file.StandardCopyOption;
 
@@ -32,7 +33,7 @@ public class VideoService {
     @Value("${temp.directory}")
     private String tempDirectory;
     
-    private final Story1Repository story1Repository;
+    private final SceneDocumentRepository sceneDocumentRepository;
     private final S3Config s3Config;
     private final FFmpeg ffmpeg;
     
@@ -159,13 +160,15 @@ public class VideoService {
             logger.info("스토리 ID {} 에 대한 비디오 생성 시작", storyId);
             
             // 1. 스토리 조회 및 유효성 검사
-            Story story = story1Repository.findByStoryId(storyId);
-            if (story == null) {
+            Optional<SceneDocument> sceneDocumentOpt = sceneDocumentRepository.findByStoryId(storyId);
+            if (sceneDocumentOpt.isEmpty()) {
                 logger.error("스토리를 찾을 수 없음: {}", storyId);
                 throw new RuntimeException("스토리를 찾을 수 없음: " + storyId);
             }
             
-            List<Scene> scenes = story.getSceneArr();
+            SceneDocument sceneDocument = sceneDocumentOpt.get();
+            List<Map<String, Object>> scenes = sceneDocument.getSceneArr();
+            
             if (scenes == null || scenes.isEmpty()) {
                 logger.error("스토리에 씬이 없음: {}", storyId);
                 throw new RuntimeException("스토리에 씬이 없음: " + storyId);
@@ -175,11 +178,11 @@ public class VideoService {
             
             // 2. 각 Scene별로 처리
             for (int i = 0; i < scenes.size(); i++) {
-                Scene scene = scenes.get(i);
+                Map<String, Object> scene = scenes.get(i);
                 logger.debug("씬 처리 중 {}/{}", i + 1, scenes.size());
                 
                 // 씬 데이터 유효성 검사
-                if (scene.getImageUrl() == null || scene.getAudioArr() == null) {
+                if (scene.get("image_url") == null || scene.get("audioArr") == null) {
                     logger.error("씬 {}의 데이터가 유효하지 않음", i);
                     throw new RuntimeException("씬 " + i + "의 데이터가 유효하지 않음");
                 }
@@ -191,8 +194,10 @@ public class VideoService {
                 try {
                     // 오디오 URL 목록 수집
                     List<String> audioUrls = new ArrayList<>();
-                    for (int j = 0; j < scene.getAudioArr().size(); j++) {
-                        String audioUrl = scene.getAudioArr().get(j).getAudioUrl();
+                    List<Map<String, Object>> audioArr = (List<Map<String, Object>>) scene.get("audioArr");
+                    
+                    for (int j = 0; j < audioArr.size(); j++) {
+                        String audioUrl = (String) audioArr.get(j).get("audio_url");
                         logger.debug("오디오 URL 처리 중: {}", audioUrl);
                         
                         if (audioUrl == null) {
@@ -208,7 +213,7 @@ public class VideoService {
                     
                     // 이미지와 병합된 오디오로 비디오 생성
                     String sceneVideoPath = tempSceneDir + "/scene_video.mp4";
-                    createVideoFromImageAndAudio(scene.getImageUrl(), mergedAudioPath, sceneVideoPath);
+                    createVideoFromImageAndAudio((String) scene.get("image_url"), mergedAudioPath, sceneVideoPath);
                     
                     sceneVideoPaths.add(sceneVideoPath);
                     

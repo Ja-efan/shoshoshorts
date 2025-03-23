@@ -7,7 +7,7 @@ import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.entity.StoryEntity;
 import com.sss.backend.infrastructure.repository.CharacterRepository;
 import com.sss.backend.infrastructure.repository.SceneRepository;
-import com.sss.backend.infrastructure.repository.StoryRepository;
+import com.sss.backend.domain.repository.StoryRepository;
 import jakarta.validation.constraints.NotBlank;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;

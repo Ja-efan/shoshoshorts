@@ -1,4 +1,4 @@
-package com.sss.backend.infrastructure.repository;
+package com.sss.backend.domain.repository;
 
 import com.sss.backend.domain.document.CharacterDocument;
 import org.springframework.data.mongodb.repository.MongoRepository;
