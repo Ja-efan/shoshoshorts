@@ -27,7 +27,6 @@ dependencies {
 
     // FFmpeg 관련 의존성 추가
     implementation 'net.bramp.ffmpeg:ffmpeg:0.7.0'
-    implementation 'org.bytedeco:javacv-platform:1.5.9'
 
     // Amazon S3 SDK
     implementation platform('software.amazon.awssdk:bom:2.20.56')
