@@ -4,10 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sss.backend.api.dto.StoryRequestDTO;
 import com.sss.backend.domain.document.CharacterDocument;
 import com.sss.backend.domain.document.SceneDocument;
-import com.sss.backend.domain.entity.StoryEntity;
-import com.sss.backend.infrastructure.repository.CharacterRepository;
-import com.sss.backend.infrastructure.repository.SceneRepository;
+import com.sss.backend.domain.entity.Story;
+import com.sss.backend.domain.repository.CharacterRepository;
+import com.sss.backend.domain.repository.SceneRepository;
 import com.sss.backend.domain.repository.StoryRepository;
+
 import jakarta.validation.constraints.NotBlank;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
@@ -57,7 +58,7 @@ public class StoryService {
         validateRequest(request);
 
         // 2. RDBMS에 스토리 저장.
-        StoryEntity storyEntity = convertToEntity(request);
+        Story storyEntity = convertToEntity(request);
         storyEntity = storyRepository.save(storyEntity);
         System.out.println("사용자 입력 인풋 :"+request);
         log.info("사용자 입력 인풋 :{}",request);
@@ -219,8 +220,8 @@ public class StoryService {
     }
 
     // DTO -> Entity 변환 메소드
-    private StoryEntity convertToEntity(StoryRequestDTO request) {
-        StoryEntity entity = new StoryEntity();
+    private Story convertToEntity(StoryRequestDTO request) {
+        Story entity = new Story();
         entity.setTitle(request.getTitle());
         entity.setStory(request.getStory());
         return entity;

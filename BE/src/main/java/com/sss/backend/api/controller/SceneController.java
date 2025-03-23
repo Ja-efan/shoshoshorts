@@ -1,7 +1,8 @@
 package com.sss.backend.api.controller;
 
 import com.sss.backend.domain.document.SceneDocument;
-import com.sss.backend.infrastructure.repository.SceneRepository;
+import com.sss.backend.domain.repository.SceneRepository;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
