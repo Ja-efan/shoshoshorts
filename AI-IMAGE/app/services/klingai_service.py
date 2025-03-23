@@ -57,7 +57,7 @@ class ImageService:
             # API 요청 데이터
             payload = {
                 "model": klingai_config.MODEL,
-                "prompt": prompt,
+                "prompt": "{{{A cheerful character in the style of a classic Disney animated movie, with large expressive eyes, soft lighting, vibrant colors, smooth outlines, and a magical fairytale background, highly detailed and whimsical, 2D animation style}}}, "+prompt,
                 "negative_prompt": negative_prompt if negative_prompt else "",
                 "n": klingai_config.N,
                 "aspect_ratio": klingai_config.ASPECT_RATIO
