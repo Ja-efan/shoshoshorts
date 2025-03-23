@@ -1,7 +1,6 @@
 package com.sss.backend.api.controller;
 
 import com.sss.backend.api.dto.StoryRequestDTO;
-import com.sss.backend.api.dto.MediaProcessResponse;
 import com.sss.backend.api.dto.VideoResponseDto;
 import com.sss.backend.domain.service.StoryService;
 import com.sss.backend.domain.service.MediaService;
@@ -18,7 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-@Async
+//@Async
 @RestController
 @Slf4j
 @RequestMapping("/api/videos")
@@ -40,22 +39,15 @@ public class VideoController {
 
     @PostMapping("/generate-sync")
     public ResponseEntity<VideoResponseDto> generateVideoSync(@Valid @RequestBody StoryRequestDTO request) throws Exception{
-        // TODO: 입력 데이터 json 파싱
-        /** Request Body
-         * title	String	필수	쇼츠 제목 (최대 n자)
-         * story	String	필수	쇼츠 스크립트 생성을 위한 스토리 (최대 3000자)
-         * characters	Array	선택	등장인물 목록.
-         *
-         */
+        // 입력 데이터 json 파싱
         Long storyId = storyService.saveStory(request);
         System.out.println("스토리 생성 완료: " + storyId);
 
-        // TODO: 이미지, 음성 생성
+        // 이미지, 음성 생성
         // MediaService의 processAllScenes 메서드 호출
-
-            CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
-            future.get(30, TimeUnit.MINUTES); // 타임아웃 설정 (예: 30분)
-            System.out.println("미디어 생성 완료: " + storyId);
+        CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
+        future.get(30, TimeUnit.MINUTES); // 타임아웃 설정 (예: 30분)
+        System.out.println("미디어 생성 완료: " + storyId);
 
 
         // 비디오 생성 및 S3 업로드
