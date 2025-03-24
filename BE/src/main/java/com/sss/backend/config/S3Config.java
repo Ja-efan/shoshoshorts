@@ -132,4 +132,17 @@ public class S3Config {
             
         s3Client.putObject(request, Paths.get(localPath));
     }
+
+    // URL에서 S3 키를 추출하는 헬퍼 메소드 추가
+    // Todo S3config로 옮기기.. 완료.
+    public String extractS3KeyFromUrl(String url) {
+        // URL 형식: https://shoshoshorts.s3.ap-northeast-2.amazonaws.com/project1/audios/file.mp3
+        String[] parts = url.split(".amazonaws.com/");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("잘못된 S3 URL 형식: " + url);
+        }
+        return parts[1]; // project1/audios/file.mp3 부분만 반환
+    }
+
+
 } 
