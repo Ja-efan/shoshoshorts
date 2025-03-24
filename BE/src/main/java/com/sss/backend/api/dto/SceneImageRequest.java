@@ -16,6 +16,8 @@ public class SceneImageRequest {
 
     private List<Audio> audios;
 
+    private String apiPwd;
+
     @Data
     public static class StoryMetadata {
 
@@ -38,5 +40,13 @@ public class SceneImageRequest {
         private String character;  // type이 dialogue인 경우만 필수
         private String text;
         private String emotion;
+    }
+
+    public String getApiPwd() {
+        return apiPwd;
+    }
+
+    public void setApiPwd(String apiPwd) {
+        this.apiPwd = apiPwd;
     }
 }

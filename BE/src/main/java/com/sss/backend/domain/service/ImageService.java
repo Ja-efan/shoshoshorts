@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import org.springframework.beans.factory.annotation.Value;
+
 @Service
 @Slf4j
 public class ImageService {
@@ -33,6 +35,12 @@ public class ImageService {
     private final MongoTemplate mongoTemplate;
     private final ObjectMapper objectMapper; //JSON 데이터 변환에 사용
     private final SceneDocumentRepository sceneDocumentRepository;
+
+    @Value("${api.password}")
+    private String apiPassword;
+    
+    @Value("${spring.profiles.active:dev}")
+    private String activeProfile;
 
     public ImageService(WebClient webClient, AppProperties appProperties,
                         MongoTemplate mongoTemplate, ObjectMapper objectMapper,
@@ -153,6 +161,9 @@ public class ImageService {
         try {
             // 이미지 생성 API URL
             String apiUrl = "http://35.216.58.38:8001/api/v1/images/generations/external";
+
+            // apiPwd 추가
+            sceneRequest.setApiPwd(activeProfile + apiPassword);
 
             // API 호출 (오류 응답 로깅 추가)
             return webClient
