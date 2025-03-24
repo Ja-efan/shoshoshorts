@@ -56,22 +56,24 @@ public class StoryService {
     public Long saveBasicStory(StoryRequestDTO request) {
         // 1. 유효성 검사 메서드 호출
         validateRequest(request);
+        log.info("사용자 입력 인풋 :{}",request);
 
         // 2. RDBMS에 스토리 저장.
         Story storyEntity = convertToEntity(request);
         storyEntity = storyRepository.save(storyEntity);
-        System.out.println("사용자 입력 인풋 :"+request);
-        log.info("사용자 입력 인풋 :{}",request);
+        log.info("엔티티 :{}",storyEntity);
 
         Long storyId = storyEntity.getId();
-        System.out.println("저장된 storyId: "+storyId);
+        log.info("저장된 storyId :{}",storyId);
+
 
         // 3. 캐릭터 정보가 있을 경우 MongoDB에 저장
         if (request.getCharacterArr() != null && !request.getCharacterArr().isEmpty()) {
             saveCharactersToMongoDB(storyId, request.getCharacterArr());
+            log.info("Character 정보 몽고 디비 저장완료");
+        } else {
+            log.info("Character 정보가 없습니다.");
         }
-        System.out.println("몽고디비 저장완료..");
-        log.info("몽고 디비 저장완료");
 
         return storyId;
 
