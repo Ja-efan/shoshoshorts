@@ -1,5 +1,6 @@
 package com.sss.backend.domain.service;
 
+import com.sss.backend.api.dto.VideoListResponseDTO;
 import com.sss.backend.api.dto.VideoStatusAllDTO;
 import com.sss.backend.config.S3Config;
 import lombok.extern.slf4j.Slf4j;
@@ -335,7 +336,7 @@ public class VideoService {
      * sumnail_url :    썸네일(00:00) -> 첫번째 이미지 보여주자! => 첫 번째 scene의 image URL을 pre-signed url 로 변경해서 반환
      * storyId :        story.story_id
      */
-    public List<VideoStatusAllDTO> getAllVideoStatus() {
+    public VideoListResponseDTO getAllVideoStatus() {
         // 모든 비디오 엔티티 가져옴
         List<Video> videos = videoRepository.findAll();
 
@@ -370,7 +371,7 @@ public class VideoService {
             //결과 list에 추가
             result.add(dto);
         }
-        return result;
+        return new VideoListResponseDTO(result);
     }
 
     //이미지 presigned URL 생성 메소드
