@@ -1,6 +1,8 @@
 package com.sss.backend.domain.service;
 
+import com.sss.backend.api.dto.VideoStatusAllDTO;
 import com.sss.backend.config.S3Config;
+import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFmpegExecutor;
 import net.bramp.ffmpeg.builder.FFmpegBuilder;
@@ -23,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,7 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class VideoService {
 
@@ -53,7 +57,7 @@ public class VideoService {
             }
             
             // 첫 번째 오디오를 출력 파일로 복사
-            String firstS3Key = extractS3KeyFromUrl(audioUrls.get(0));
+            String firstS3Key = s3Config.extractS3KeyFromUrl(audioUrls.get(0));
             String firstPresignedUrl = s3Config.generatePresignedUrl(firstS3Key);
             
             // 첫 번째 파일 처리
@@ -70,7 +74,7 @@ public class VideoService {
             // 추가 오디오 파일이 있으면 하나씩 병합
             for (int i = 1; i < audioUrls.size(); i++) {
                 String tempOutput = tempDirectory + "/" + UUID.randomUUID() + ".mp3";
-                String s3Key = extractS3KeyFromUrl(audioUrls.get(i));
+                String s3Key = s3Config.extractS3KeyFromUrl(audioUrls.get(i));
                 String presignedUrl = s3Config.generatePresignedUrl(s3Key);
                 
                 // 현재 출력 파일과 다음 오디오 파일을 병합
@@ -99,7 +103,7 @@ public class VideoService {
     public File createVideoFromImageAndAudio(String imageUrl, String audioPath, String outputPath) {
         try {
             // S3 pre-signed URL 생성
-            String imageS3Key = extractS3KeyFromUrl(imageUrl);
+            String imageS3Key = s3Config.extractS3KeyFromUrl(imageUrl);
             String presignedImageUrl = s3Config.generatePresignedUrl(imageS3Key);
 
             // FFmpeg 명령 구성 (이미지 URL 직접 사용)
@@ -253,7 +257,7 @@ public class VideoService {
             
             // storyId 패딩 적용 (8자리로 맞추기)
             String paddedStoryId = String.format("%08d", Integer.parseInt(storyId));
-            
+
             String s3Key = paddedStoryId + "/videos/" + paddedStoryId + "_" + timestamp + ".mp4";
             
             // S3에 업로드
@@ -269,15 +273,6 @@ public class VideoService {
         }
     }
 
-    // URL에서 S3 키를 추출하는 헬퍼 메소드 추가
-    private String extractS3KeyFromUrl(String url) {
-        // URL 형식: https://shoshoshorts.s3.ap-northeast-2.amazonaws.com/project1/audios/file.mp3
-        String[] parts = url.split(".amazonaws.com/");
-        if (parts.length != 2) {
-            throw new IllegalArgumentException("잘못된 S3 URL 형식: " + url);
-        }
-        return parts[1]; // project1/audios/file.mp3 부분만 반환
-    }
 
     // 비디오 엔티티 초기화
     public void initVideoEntity(String storyId) {
@@ -331,5 +326,75 @@ public class VideoService {
         }
         
         return dto;
+    }
+
+    /**
+     * title :          story.title
+     * status :         video.status
+     * completedAt :    생성 완료 시간 : video.completedAt
+     * sumnail_url :    썸네일(00:00) -> 첫번째 이미지 보여주자! => 첫 번째 scene의 image URL을 pre-signed url 로 변경해서 반환
+     * storyId :        story.story_id
+     */
+    public List<VideoStatusAllDTO> getAllVideoStatus() {
+        List<Video> videos = videoRepository.findAll();
+        List<VideoStatusAllDTO> result = new ArrayList<>(); // 출력을 저장할 result
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        // Story 각각 생성
+        for (Video video : videos) {
+            System.out.println("비디오 엔티티 :"+video);
+            Story story = video.getStory();
+
+            String title = story.getTitle();
+            String storyId = String.valueOf(story.getId());
+            String completedAt = video.getCompletedAt() != null
+                    ? video.getCompletedAt().format(formatter)
+                    : null;
+            //PresignedUrl 가져오기
+            String thumbnailUrl = getFirstImageURL(storyId);
+
+
+            String sumnailUrl = "주소 들어갈겨";
+            VideoStatusAllDTO dto = new VideoStatusAllDTO(
+                    title,
+                    video.getStatus(),
+                    completedAt,
+                    thumbnailUrl,
+                    storyId
+            );
+            result.add(dto);
+        }
+        return result;
+    }
+
+    private String getFirstImageURL(String storyId) {
+        // 스토리 id 가져오기
+        Optional<SceneDocument> sceneOpt = sceneDocumentRepository.findByStoryId(storyId);
+
+        // Todo 예외 처리 추가하기
+        if (sceneOpt.isEmpty()) {
+            log.warn("해당 story에 해당하는 SceneDocument가 없음", storyId);
+            return null;
+        }
+
+        SceneDocument sceneDocument = sceneOpt.get();
+        System.out.println("scenedoc : "+sceneDocument);
+
+        // SceneArr 가져오기.
+        List<Map<String, Object>> sceneArr = sceneDocument.getSceneArr();
+
+        if (sceneArr == null || sceneArr.isEmpty()) {
+            log.warn("sceneDocument에는 sceneArr가 비어있음.",storyId);
+            return null;
+        }
+        Map<String, Object> firstScene = sceneArr.getFirst();
+        String imageUrl = (String) firstScene.get("image_url");
+
+        String S3Key = s3Config.extractS3KeyFromUrl(imageUrl);
+        String PresignedUrl = s3Config.generatePresignedUrl(S3Key);
+
+        return PresignedUrl;
+
     }
 } 

@@ -2,6 +2,7 @@ package com.sss.backend.api.controller;
 
 import com.sss.backend.api.dto.StoryRequestDTO;
 import com.sss.backend.api.dto.VideoResponseDto;
+import com.sss.backend.api.dto.VideoStatusAllDTO;
 import com.sss.backend.api.dto.VideoStatusResponseDto;
 import com.sss.backend.domain.entity.Video.VideoStatus;
 import com.sss.backend.domain.service.MediaService;
@@ -14,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -93,6 +95,19 @@ public class VideoController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    // 전체 비디오 상태 조회 API
+    @GetMapping("/status/allstory")
+    public ResponseEntity<List<VideoStatusAllDTO>> getAllVideoStatus() {
+        try {
+            List<VideoStatusAllDTO> statuses = videoService.getAllVideoStatus();
+            return ResponseEntity.ok(statuses);
+        } catch (Exception e) {
+            log.error("비디오 상태 조회 중 오류 {} ", e.getMessage(), e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
 
     /**
     // 동기 메서드
