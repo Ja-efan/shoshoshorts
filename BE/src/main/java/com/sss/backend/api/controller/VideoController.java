@@ -3,6 +3,7 @@ package com.sss.backend.api.controller;
 import com.sss.backend.api.dto.StoryRequestDTO;
 import com.sss.backend.api.dto.VideoResponseDto;
 import com.sss.backend.api.dto.VideoStatusResponseDto;
+import com.sss.backend.config.S3Config;
 import com.sss.backend.domain.entity.Video.VideoStatus;
 import com.sss.backend.domain.service.MediaService;
 import com.sss.backend.domain.service.StoryService;
@@ -11,6 +12,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +30,7 @@ public class VideoController {
     private final MediaService mediaService;
     private final VideoService videoService;
     private final StoryService storyService;
+    private final S3Config s3Config;
 
     @Value("${temp.directory}")
     private String tempDirectory;
@@ -126,5 +129,41 @@ public class VideoController {
         VideoResponseDto response = new VideoResponseDto(storyId, videoUrl);
         
         return ResponseEntity.ok(response);
+    }
+
+    // 영상 다운로드
+    @GetMapping("/download/{storyId}")
+    public ResponseEntity<Object> downloadVideo(@PathVariable String storyId) {
+        try {
+            // 비디오 상태 조회
+            VideoStatusResponseDto videoStatus = videoService.getVideoStatus(storyId);
+            
+            // 비디오가 완료 상태가 아니거나 URL이 없는 경우
+            if (videoStatus.getStatus() != VideoStatus.COMPLETED || videoStatus.getVideoUrl() == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // S3 키 추출
+            // TODO: extractS3KeyFromUrl 메서드 위치 확인
+            String s3Key = videoService.extractS3KeyFromUrl(videoStatus.getVideoUrl());
+            
+            // 파일명 설정
+            String fileName = "shoshoshorts_" + 
+                java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul"))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + 
+                ".mp4";
+            
+            // 다운로드용 Presigned URL
+            String presignedUrl = s3Config.generateDownloadPresignedUrl(s3Key, fileName);
+            
+            // Presigned URL로 리다이렉트
+            return ResponseEntity.status(302)
+                    .header(HttpHeaders.LOCATION, presignedUrl)
+                    .build();
+                    
+        } catch (Exception e) {
+            log.error("비디오 다운로드 중 오류: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 } 
