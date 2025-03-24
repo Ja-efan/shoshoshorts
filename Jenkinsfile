@@ -1,9 +1,9 @@
 pipeline {
     agent any
     
-    environment {
-        DB_PASSWORD = credentials('db-password')
-    }
+    // environment {
+    //     DB_PASSWORD = credentials('db-password')
+    // }
     
     stages {
         stage('Checkout') {
