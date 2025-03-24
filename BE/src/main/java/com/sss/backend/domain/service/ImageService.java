@@ -5,7 +5,8 @@ import com.sss.backend.api.dto.SceneImageRequest;
 import com.sss.backend.api.dto.SceneImageResponse;
 import com.sss.backend.config.AppProperties;
 import com.sss.backend.domain.document.SceneDocument;
-import com.sss.backend.infrastructure.repository.SceneDocumentRepository;
+import com.sss.backend.domain.repository.SceneDocumentRepository;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;

@@ -2,7 +2,8 @@ package com.sss.backend.domain.service;
 
 import com.sss.backend.api.dto.SceneImageRequest;
 import com.sss.backend.domain.document.SceneDocument;
-import com.sss.backend.infrastructure.repository.*;
+import com.sss.backend.domain.repository.*;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;

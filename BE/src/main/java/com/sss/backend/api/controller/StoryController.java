@@ -1,7 +1,7 @@
 package com.sss.backend.api.controller;
 
 import com.sss.backend.api.dto.StoryRequestDTO;
-import com.sss.backend.domain.entity.StoryEntity;
+import com.sss.backend.domain.entity.Story;
 import com.sss.backend.domain.service.StoryService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;

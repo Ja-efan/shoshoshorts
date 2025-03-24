@@ -1,61 +1,108 @@
 package com.sss.backend.api.controller;
 
 import com.sss.backend.api.dto.StoryRequestDTO;
-import com.sss.backend.api.dto.MediaProcessResponse;
 import com.sss.backend.api.dto.VideoResponseDto;
-import com.sss.backend.domain.service.StoryService;
+import com.sss.backend.api.dto.VideoStatusResponseDto;
+import com.sss.backend.domain.entity.Video.VideoStatus;
 import com.sss.backend.domain.service.MediaService;
+import com.sss.backend.domain.service.StoryService;
 import com.sss.backend.domain.service.VideoService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-@Async
+//@Async
 @RestController
 @Slf4j
+@RequiredArgsConstructor
 @RequestMapping("/api/videos")
 public class VideoController {
 
-    @Autowired
-    private MediaService mediaService;
-
-    @Autowired
-    private VideoService videoService;
+    private final MediaService mediaService;
+    private final VideoService videoService;
+    private final StoryService storyService;
 
     @Value("${temp.directory}")
     private String tempDirectory;
-    private StoryService storyService;
 
-    public VideoController(StoryService storyService) {
-        this.storyService = storyService;
+    // 비동기 비디오 생성 요청
+    @PostMapping("/generate")
+    public ResponseEntity<VideoStatusResponseDto> generateVideoAsync(@Valid @RequestBody StoryRequestDTO request) {
+        try {
+            // 스토리 저장
+            Long storyId = storyService.saveStory(request);
+            log.info("스토리 생성 완료: {}", storyId);
+            
+            // 비디오 엔티티 초기 상태로 저장
+            videoService.initVideoEntity(storyId.toString());
+            
+            // 비동기 처리 시작
+            CompletableFuture.runAsync(() -> {
+                try {
+                    // 상태 업데이트: 처리 중
+                    videoService.updateVideoStatus(storyId.toString(), VideoStatus.PROCESSING, null);
+                    
+                    // 미디어 생성 처리
+                    CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
+                    future.get(30, TimeUnit.MINUTES);
+                    
+                    // 비디오 생성 및 업로드
+                    String outputPath = tempDirectory + "/" + UUID.randomUUID() + "_final.mp4";
+                    String videoUrl = videoService.createAndUploadVideo(storyId.toString(), outputPath);
+                    
+                    // 상태 업데이트: 완료
+                    videoService.updateVideoStatus(storyId.toString(), VideoStatus.COMPLETED, videoUrl);
+                    
+                } catch (Exception e) {
+                    log.error("비디오 생성 중 오류 발생: {}", e.getMessage(), e);
+                    // 상태 업데이트: 실패
+                    videoService.updateVideoStatus(storyId.toString(), VideoStatus.FAILED, e.getMessage());
+                }
+            });
+            
+            // 초기 응답 반환 (storyId, status, createdAt 포함)
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            String createdAt = java.time.LocalDateTime.now().format(formatter);
+            VideoStatusResponseDto response = new VideoStatusResponseDto(storyId.toString(), VideoStatus.PENDING, createdAt);
+            return ResponseEntity.accepted().body(response);
+            
+        } catch (Exception e) {
+            log.error("비디오 생성 요청 처리 중 오류: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+    
+    // 비디오 상태 조회 API
+    @GetMapping("/status/{storyId}")
+    public ResponseEntity<VideoStatusResponseDto> getVideoStatus(@PathVariable String storyId) {
+        try {
+            VideoStatusResponseDto status = videoService.getVideoStatus(storyId);
+            return ResponseEntity.ok(status);
+        } catch (Exception e) {
+            log.error("비디오 상태 조회 중 오류: {}", e.getMessage(), e);
+            return ResponseEntity.notFound().build();
+        }
     }
 
+    // 동기 메서드
     @PostMapping("/generate-sync")
-    public ResponseEntity<VideoResponseDto> generateVideoSync(@Valid @RequestBody StoryRequestDTO request) throws Exception{
-        // TODO: 입력 데이터 json 파싱
-        /** Request Body
-         * title	String	필수	쇼츠 제목 (최대 n자)
-         * story	String	필수	쇼츠 스크립트 생성을 위한 스토리 (최대 3000자)
-         * characters	Array	선택	등장인물 목록.
-         *
-         */
+    public ResponseEntity<VideoResponseDto> generateVideoSync(@Valid @RequestBody StoryRequestDTO request) throws Exception {
+        // 입력 데이터 json 파싱
         Long storyId = storyService.saveStory(request);
         System.out.println("스토리 생성 완료: " + storyId);
 
-        // TODO: 이미지, 음성 생성
+        // 이미지, 음성 생성
         // MediaService의 processAllScenes 메서드 호출
-
-            CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
-            future.get(30, TimeUnit.MINUTES); // 타임아웃 설정 (예: 30분)
-            System.out.println("미디어 생성 완료: " + storyId);
+        CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
+        future.get(30, TimeUnit.MINUTES); // 타임아웃 설정 (예: 30분)
+        System.out.println("미디어 생성 완료: " + storyId);
 
 
         // 비디오 생성 및 S3 업로드

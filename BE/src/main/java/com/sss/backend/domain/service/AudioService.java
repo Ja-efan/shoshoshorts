@@ -1,7 +1,8 @@
 package com.sss.backend.domain.service;
 
 import com.sss.backend.domain.document.SceneDocument;
-import com.sss.backend.infrastructure.repository.SceneDocumentRepository;
+import com.sss.backend.domain.repository.SceneDocumentRepository;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
