@@ -132,4 +132,22 @@ public class S3Config {
             
         s3Client.putObject(request, Paths.get(localPath));
     }
+
+    /**
+     * S3 객체에 대한 다운로드용 pre-signed URL 생성
+     */
+    public String generateDownloadPresignedUrl(String s3Key, String fileName) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+            .bucket(bucketName)
+            .key(s3Key)
+            .responseContentDisposition("attachment; filename=\"" + fileName + "\"")
+            .build();
+            
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+            .signatureDuration(Duration.ofMinutes(10))
+            .getObjectRequest(getObjectRequest)
+            .build();
+            
+        return s3Presigner.presignGetObject(presignRequest).url().toString();
+    }
 } 
