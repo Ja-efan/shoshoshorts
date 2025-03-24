@@ -336,14 +336,17 @@ public class VideoService {
      * storyId :        story.story_id
      */
     public List<VideoStatusAllDTO> getAllVideoStatus() {
+        // 모든 비디오 엔티티 가져옴
         List<Video> videos = videoRepository.findAll();
-        List<VideoStatusAllDTO> result = new ArrayList<>(); // 출력을 저장할 result
+
+        // 메소드 결과를 담을 리스트
+        List<VideoStatusAllDTO> result = new ArrayList<>();
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-        // Story 각각 생성
+        // 각 비디오에 대해 반복
         for (Video video : videos) {
-            System.out.println("비디오 엔티티 :"+video);
+            // Video 연관된 story 정보 가져옴
             Story story = video.getStory();
 
             String title = story.getTitle();
@@ -351,11 +354,11 @@ public class VideoService {
             String completedAt = video.getCompletedAt() != null
                     ? video.getCompletedAt().format(formatter)
                     : null;
-            //PresignedUrl 가져오기
+
+            //썸네일용 Presigned Url 생성
             String thumbnailUrl = getFirstImageURL(storyId);
 
-
-            String sumnailUrl = "주소 들어갈겨";
+            //DTO 생성
             VideoStatusAllDTO dto = new VideoStatusAllDTO(
                     title,
                     video.getStatus(),
@@ -363,21 +366,25 @@ public class VideoService {
                     thumbnailUrl,
                     storyId
             );
+
+            //결과 list에 추가
             result.add(dto);
         }
         return result;
     }
 
+    //이미지 presigned URL 생성 메소드
     private String getFirstImageURL(String storyId) {
-        // 스토리 id 가져오기
+        // 스토리 id로 MongoDB에서 ScenceDocument 조회
         Optional<SceneDocument> sceneOpt = sceneDocumentRepository.findByStoryId(storyId);
+        log.info("sceneDocument : {}",sceneOpt);
 
-        // Todo 예외 처리 추가하기
         if (sceneOpt.isEmpty()) {
-            log.warn("해당 story에 해당하는 SceneDocument가 없음", storyId);
+            log.warn("해당 story에 해당하는 SceneDocument가 없음 {}", storyId);
             return null;
         }
 
+        // SceneDocument 꺼내기
         SceneDocument sceneDocument = sceneOpt.get();
         System.out.println("scenedoc : "+sceneDocument);
 
@@ -385,12 +392,15 @@ public class VideoService {
         List<Map<String, Object>> sceneArr = sceneDocument.getSceneArr();
 
         if (sceneArr == null || sceneArr.isEmpty()) {
-            log.warn("sceneDocument에는 sceneArr가 비어있음.",storyId);
+            log.warn("sceneDocument에는 sceneArr가 비어있음. {}",storyId);
             return null;
         }
+
+        // 썸네일용 첫번째 scene 가져오기 + url 꺼내기
         Map<String, Object> firstScene = sceneArr.getFirst();
         String imageUrl = (String) firstScene.get("image_url");
 
+        //Presigned URL 생성
         String S3Key = s3Config.extractS3KeyFromUrl(imageUrl);
         String PresignedUrl = s3Config.generatePresignedUrl(S3Key);
 
