@@ -16,6 +16,7 @@ import numpy as np
 from io import BytesIO
 import soundfile as sf
 from datetime import datetime
+from dotenv import load_dotenv
 
 # zonos 모듈 경로 수정 (상위 디렉토리 참조)
 import sys
@@ -37,6 +38,9 @@ from app.service.elevenlabas import (
 
 # S3 모듈 임포트
 from app.service.s3 import upload_file_to_s3
+
+load_dotenv()
+ENV = os.getenv("ENV", "development")  # 기본값은 development
 
 # 전역 변수 선언: 현재 로드된 모델 타입과 모델 인스턴스를 저장
 CURRENT_MODEL_TYPE = None
@@ -69,10 +73,24 @@ async def startup_event():
         print(f"모델 로드 중 오류 발생: {str(e)}")
         print("서버는 시작되지만, 첫 요청 시 모델을 로드해야 합니다.")
 
+
+
+if ENV == "release":
+    docs_url = None
+    redoc_url = None
+    openapi_url = None
+else:
+    docs_url = "/docs"
+    redoc_url = "/redoc"
+    openapi_url = "/openapi.json"
+
 app = FastAPI(
     title="Zonos TTS API",
     description="텍스트를 음성으로 변환하는 Zonos TTS 모델 API",
     version="1.0.0",
+    docs_url = docs_url,
+    redoc_url = redoc_url,
+    openapi_url = openapi_url
 )
 
 # 시작 이벤트 핸들러 등록
