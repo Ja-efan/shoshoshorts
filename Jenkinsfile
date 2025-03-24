@@ -36,7 +36,7 @@ pipeline {
                     docker rm -f sss-mongo sss-postgres sss-backend sss-frontend || true
 
                     echo "[INFO] Starting new containers..."
-                    docker compose -f BE/docker-compose.yml up -d
+                    docker compose -f docker-compose.yml up -d
                 '''
             }
         }
