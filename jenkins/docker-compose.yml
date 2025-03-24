@@ -1,6 +1,9 @@
 services:
   jenkins:
-    build: .
+    build: 
+      context: .
+      args: 
+        - DOCKER_GID=122
     container_name: sss-jenkins
     user: jenkins
     ports:
