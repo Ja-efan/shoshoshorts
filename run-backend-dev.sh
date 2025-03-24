@@ -73,8 +73,8 @@ docker run -d \
   -e AWS_BUCKET=${AWS_BUCKET} \
   -e FFMPEG_PATH=${FFMPEG_PATH} \
   -e TEMP_DIRECTORY=${TEMP_DIRECTORY} \
-  -v $(pwd)/BE:/app \
-  -v $(pwd)/BE/gradle:/app/gradle \
+  -v $(pwd -W)/BE:/app \
+  -v $(pwd -W)/BE/gradle:/app/gradle \
   -v gradle-cache:/gradle_cache \
   --network sss-network \
   sss-backend-dev:latest
