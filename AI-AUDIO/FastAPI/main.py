@@ -17,6 +17,7 @@ from io import BytesIO
 import soundfile as sf
 from datetime import datetime
 from dotenv import load_dotenv
+from starlette.responses import JSONResponse
 
 # zonos 모듈 경로 수정 (상위 디렉토리 참조)
 import sys
@@ -37,10 +38,11 @@ from app.service.elevenlabas import (
 )
 
 # S3 모듈 임포트
-from app.service.s3 import upload_file_to_s3
+from app.service.s3 import upload_file_to_s3, set_environment
 
 load_dotenv()
 ENV = os.getenv("ENV", "development")  # 기본값은 development
+API_PWD = os.getenv("API_PWD")
 
 # 전역 변수 선언: 현재 로드된 모델 타입과 모델 인스턴스를 저장
 CURRENT_MODEL_TYPE = None
@@ -96,6 +98,7 @@ app = FastAPI(
 # 시작 이벤트 핸들러 등록
 # app.add_event_handler("startup", startup_event)
 
+# 화이트리스트 관련 미들웨어
 # @app.middleware("http")
 # async def ip_whitelist_middleware(request: Request, call_next):
 #     client_ip = request.client.host
@@ -103,6 +106,50 @@ app = FastAPI(
 #         raise HTTPException(status_code=403, detail="Forbidden: IP not allowed")
 #     response = await call_next(request)
 #     return response
+
+# 비밀번호호 관련 middleware
+@app.middleware("http")
+async def check_pwd_middleware(request: Request, call_next):
+    # POST 요청에만 적용
+    if request.method == "POST":
+        # 요청 바디에서 apiPwd 확인
+        body = await request.json()
+        api_pwd = body.get("apiPwd")
+        
+        # 비밀번호가 없거나 유효하지 않은 경우
+        if not api_pwd:
+            return JSONResponse(
+                status_code=401,
+                content={"message": "Missing API pwd"}
+            )
+        
+        # 개발 환경 비밀번호 확인 (dev로 시작하는 비밀번호는 개발 환경으로 인식)
+        if api_pwd.startswith("dev"):
+            # 개발 환경으로 설정
+            set_environment(is_dev_environment=True)
+            # 유효한 개발 환경 비밀번호인지 확인
+            if api_pwd != "dev"+API_PWD:
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid development API pwd"}
+                )
+        elif api_pwd.startswith("release"):
+            # 프로덕션 환경으로 설정
+            set_environment(is_dev_environment=False)
+            # 유효한 프로덕션 비밀번호인지 확인
+            if api_pwd != "release"+API_PWD:
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid production API pwd"}
+                )
+        else:
+            return JSONResponse(
+                    status_code=401,
+                    content={"message": "API pwd 앞에 dev 또는 release가 없습니다."}
+                )
+
+    response = await call_next(request)
+    return response
 
 # CORS 설정
 app.add_middleware(
