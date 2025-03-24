@@ -1,4 +1,4 @@
-import ScriptEditor from "@/components/script-editor/scriptEditor"
+import ScriptEditor from "@/components/script-editor/ScriptEditor"
 
 export default function ScriptEditorPage() {
   return (
