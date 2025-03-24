@@ -30,12 +30,16 @@ import java.util.Optional;
 import java.util.UUID;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import jakarta.annotation.PostConstruct;
 
 @Service
 @RequiredArgsConstructor
 public class VideoService {
 
     private static final Logger logger = LoggerFactory.getLogger(VideoService.class);
+    
+    // Docker 내부 경로 직접 지정
+    private static final String DOCKER_TEMP_DIR = "/app/temp/videos";
     
     @Value("${temp.directory}")
     private String tempDirectory;
@@ -46,20 +50,94 @@ public class VideoService {
     private final StoryRepository storyRepository;
     private final VideoRepository videoRepository;
     
+    @PostConstruct
+    public void init() {
+        logger.info("TEMP_DIRECTORY 환경변수: {}", tempDirectory);
+        // Docker 임시 디렉토리 생성
+        createDockerTempDir();
+    }
+    
+    // Docker 임시 디렉토리 생성
+    private void createDockerTempDir() {
+        File dir = new File(DOCKER_TEMP_DIR);
+        if (!dir.exists()) {
+            boolean created = dir.mkdirs();
+            logger.info("Docker 임시 디렉토리 생성: {} (성공: {})", DOCKER_TEMP_DIR, created);
+            if (!created) {
+                logger.error("Docker 임시 디렉토리 생성 실패. 권한 또는 경로 문제가 있을 수 있습니다: {}", DOCKER_TEMP_DIR);
+                // 상위 디렉토리 생성 시도
+                File parentDir = new File("/app/temp");
+                if (!parentDir.exists()) {
+                    boolean parentCreated = parentDir.mkdirs();
+                    logger.info("상위 디렉토리 생성: {} (성공: {})", parentDir.getAbsolutePath(), parentCreated);
+                    
+                    // 다시 시도
+                    created = dir.mkdirs();
+                    logger.info("Docker 임시 디렉토리 재시도 생성: {} (성공: {})", DOCKER_TEMP_DIR, created);
+                }
+            }
+        } else {
+            logger.info("Docker 임시 디렉토리가 이미 존재합니다: {}", DOCKER_TEMP_DIR);
+        }
+        
+        // 디렉토리 쓰기 권한 확인
+        if (dir.exists() && dir.isDirectory()) {
+            boolean canWrite = dir.canWrite();
+            logger.info("Docker 임시 디렉토리 쓰기 권한: {}", canWrite);
+            if (!canWrite) {
+                logger.error("Docker 임시 디렉토리에 쓰기 권한이 없습니다: {}", DOCKER_TEMP_DIR);
+            }
+        }
+    }
+    
     public File mergeAudioFiles(List<String> audioUrls, String outputPath) {
         try {
             if (audioUrls.isEmpty()) {
                 throw new RuntimeException("병합할 오디오 URL이 없습니다");
             }
             
+            // 항상 먼저 임시 디렉토리 생성 확인
+            createDockerTempDir();
+            
+            // Docker 볼륨 내부 경로로 직접 지정
+            String dockerOutputPath = DOCKER_TEMP_DIR + "/merged_" + UUID.randomUUID() + ".mp3";
+            logger.info("Docker 볼륨 내부 오디오 출력 경로: {}", dockerOutputPath);
+            
+            // 출력 디렉토리 생성
+            File outputDir = new File(new File(dockerOutputPath).getParent());
+            if (!outputDir.exists()) {
+                boolean created = outputDir.mkdirs();
+                logger.info("출력 디렉토리 생성: {} (성공: {})", outputDir.getAbsolutePath(), created);
+            }
+            
+            // 디렉토리가 존재하는지 한번 더 확인
+            if (!outputDir.exists() || !outputDir.isDirectory()) {
+                logger.error("출력 디렉토리가 여전히 존재하지 않습니다: {}", outputDir.getAbsolutePath());
+                
+                // 직접 명령어로 디렉토리 생성 시도
+                try {
+                    Process process = Runtime.getRuntime().exec("mkdir -p " + DOCKER_TEMP_DIR);
+                    int exitCode = process.waitFor();
+                    logger.info("직접 명령으로 디렉토리 생성 시도. 종료 코드: {}", exitCode);
+                } catch (Exception e) {
+                    logger.error("직접 명령으로 디렉토리 생성 실패: {}", e.getMessage());
+                }
+            }
+            
             // 첫 번째 오디오를 출력 파일로 복사
             String firstS3Key = extractS3KeyFromUrl(audioUrls.get(0));
             String firstPresignedUrl = s3Config.generatePresignedUrl(firstS3Key);
+            logger.info("첫 번째 오디오 URL: {}", firstPresignedUrl);
+            
+            // 따옴표를 제거하고 경로 문자열을 직접 전달
+            String cleanDockerOutputPath = dockerOutputPath.replace("\"", "");
             
             // 첫 번째 파일 처리
             FFmpegBuilder firstBuilder = new FFmpegBuilder()
                 .setInput(firstPresignedUrl)
-                .addOutput(outputPath)
+                .addExtraArgs("-y") // 파일이 이미 존재하면 덮어쓰기
+                .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls") // HTTPS 프로토콜 허용
+                .addOutput(cleanDockerOutputPath) // 따옴표 없이 경로 전달
                 .setAudioCodec("libmp3lame")
                 .setFormat("mp3")
                 .done();
@@ -67,17 +145,26 @@ public class VideoService {
             FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
             executor.createJob(firstBuilder).run();
             
+            // 파일이 생성됐는지 확인
+            File outputFile = new File(cleanDockerOutputPath);
+            logger.info("첫 번째 오디오 파일 생성 확인: {} (존재함: {})", cleanDockerOutputPath, outputFile.exists());
+            
             // 추가 오디오 파일이 있으면 하나씩 병합
             for (int i = 1; i < audioUrls.size(); i++) {
-                String tempOutput = tempDirectory + "/" + UUID.randomUUID() + ".mp3";
+                String tempOutput = DOCKER_TEMP_DIR + "/temp_" + UUID.randomUUID() + ".mp3";
+                String cleanTempOutput = tempOutput.replace("\"", "");
+                
                 String s3Key = extractS3KeyFromUrl(audioUrls.get(i));
                 String presignedUrl = s3Config.generatePresignedUrl(s3Key);
+                logger.info("추가 오디오 URL ({}): {}", i, presignedUrl);
                 
                 // 현재 출력 파일과 다음 오디오 파일을 병합
                 FFmpegBuilder appendBuilder = new FFmpegBuilder()
-                    .addInput(outputPath)
+                    .addInput(cleanDockerOutputPath)
                     .addInput(presignedUrl)
-                    .addOutput(tempOutput)
+                    .addExtraArgs("-y") // 파일이 이미 존재하면 덮어쓰기
+                    .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls") // HTTPS 프로토콜 허용
+                    .addOutput(cleanTempOutput) // 따옴표 없이 경로 전달
                     .addExtraArgs("-filter_complex", "[0:a][1:a]concat=n=2:v=0:a=1[outa]")
                     .addExtraArgs("-map", "[outa]")
                     .setAudioCodec("libmp3lame")
@@ -87,26 +174,56 @@ public class VideoService {
                 executor.createJob(appendBuilder).run();
                 
                 // 임시 파일을 출력 파일로 이동
-                Files.move(Paths.get(tempOutput), Paths.get(outputPath), StandardCopyOption.REPLACE_EXISTING);
+                Files.move(Paths.get(cleanTempOutput), Paths.get(cleanDockerOutputPath), StandardCopyOption.REPLACE_EXISTING);
             }
+            
+            // 원래 요청된 출력 경로에 복사
+            Files.copy(Paths.get(cleanDockerOutputPath), Paths.get(outputPath), StandardCopyOption.REPLACE_EXISTING);
             
             return new File(outputPath);
         } catch (Exception e) {
+            logger.error("오디오 파일 병합 중 오류 발생: {}", e.getMessage(), e);
             throw new RuntimeException("오디오 파일 병합 중 오류 발생: " + e.getMessage(), e);
         }
     }
     
     public File createVideoFromImageAndAudio(String imageUrl, String audioPath, String outputPath) {
         try {
+            // 항상 먼저 임시 디렉토리 생성 확인
+            createDockerTempDir();
+            
+            // Docker 볼륨 내부 경로로 직접 지정
+            String dockerOutputPath = DOCKER_TEMP_DIR + "/video_" + UUID.randomUUID() + ".mp4";
+            String dockerAudioPath = DOCKER_TEMP_DIR + "/audio_" + UUID.randomUUID() + ".mp3";
+            
+            // 따옴표 제거
+            String cleanDockerOutputPath = dockerOutputPath.replace("\"", "");
+            String cleanDockerAudioPath = dockerAudioPath.replace("\"", "");
+            
+            logger.info("Docker 볼륨 내부 비디오 출력 경로: {}", cleanDockerOutputPath);
+            
+            // 오디오 파일 복사
+            Files.copy(Paths.get(audioPath), Paths.get(cleanDockerAudioPath), StandardCopyOption.REPLACE_EXISTING);
+            
+            // 출력 디렉토리 생성
+            File outputDir = new File(new File(cleanDockerOutputPath).getParent());
+            if (!outputDir.exists()) {
+                boolean created = outputDir.mkdirs();
+                logger.info("출력 디렉토리 생성: {} (성공: {})", outputDir.getAbsolutePath(), created);
+            }
+            
             // S3 pre-signed URL 생성
             String imageS3Key = extractS3KeyFromUrl(imageUrl);
             String presignedImageUrl = s3Config.generatePresignedUrl(imageS3Key);
+            logger.info("이미지 URL: {}", presignedImageUrl);
 
             // FFmpeg 명령 구성 (이미지 URL 직접 사용)
             FFmpegBuilder builder = new FFmpegBuilder()
                 .setInput(presignedImageUrl)  // pre-signed URL 직접 사용
-                .addInput(audioPath)
-                .addOutput(outputPath)
+                .addInput(cleanDockerAudioPath)
+                .addExtraArgs("-y") // 파일이 이미 존재하면 덮어쓰기
+                .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls") // HTTPS 프로토콜 허용
+                .addOutput(cleanDockerOutputPath) // 따옴표 없이 경로 전달
                 .addExtraArgs("-filter_complex", 
                     "[0:v]scale=iw*min(1080/iw\\,1920/ih):ih*min(1080/iw\\,1920/ih)," +
                     "pad=1080:1920:(1080-iw*min(1080/iw\\,1920/ih))/2:(1920-ih*min(1080/iw\\,1920/ih))/2:white[v];" +
@@ -122,20 +239,58 @@ public class VideoService {
             FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
             executor.createJob(builder).run();
             
+            // 원래 요청된 출력 경로에 복사
+            Files.copy(Paths.get(cleanDockerOutputPath), Paths.get(outputPath), StandardCopyOption.REPLACE_EXISTING);
+            
             return new File(outputPath);
         } catch (Exception e) {
-            throw new RuntimeException("이미지와 오디오 합성 중 오류 발생", e);
+            logger.error("이미지와 오디오 합성 중 오류 발생: {}", e.getMessage(), e);
+            throw new RuntimeException("이미지와 오디오 합성 중 오류 발생: " + e.getMessage(), e);
         }
     }
     
     public File mergeVideos(List<String> videoPaths, String outputPath) {
         try {
+            // 항상 먼저 임시 디렉토리 생성 확인
+            createDockerTempDir();
+            
+            // Docker 볼륨 내부 경로로 직접 지정
+            String dockerOutputPath = DOCKER_TEMP_DIR + "/merged_video_" + UUID.randomUUID() + ".mp4";
+            String cleanDockerOutputPath = dockerOutputPath.replace("\"", "");
+            logger.info("Docker 볼륨 내부 병합 비디오 출력 경로: {}", cleanDockerOutputPath);
+            
+            // 출력 디렉토리 생성
+            File outputDir = new File(new File(cleanDockerOutputPath).getParent());
+            if (!outputDir.exists()) {
+                boolean created = outputDir.mkdirs();
+                logger.info("출력 디렉토리 생성: {} (성공: {})", outputDir.getAbsolutePath(), created);
+            }
+            
+            // 비디오 파일을 Docker 볼륨으로 복사
+            List<String> dockerVideoPaths = new ArrayList<>();
+            for (int i = 0; i < videoPaths.size(); i++) {
+                String dockerVideoPath = DOCKER_TEMP_DIR + "/scene_video_" + i + "_" + UUID.randomUUID() + ".mp4";
+                String cleanDockerVideoPath = dockerVideoPath.replace("\"", "");
+                Files.copy(Paths.get(videoPaths.get(i)), Paths.get(cleanDockerVideoPath), StandardCopyOption.REPLACE_EXISTING);
+                dockerVideoPaths.add(cleanDockerVideoPath);
+                logger.info("비디오 파일 복사: {} -> {}", videoPaths.get(i), cleanDockerVideoPath);
+            }
+            
             // 임시 파일 생성 (파일 목록)
-            Path listFilePath = Paths.get(tempDirectory, UUID.randomUUID() + ".txt");
+            Path listFilePath = Paths.get(DOCKER_TEMP_DIR, "video_list_" + UUID.randomUUID() + ".txt");
+            logger.info("비디오 목록 파일 경로: {}", listFilePath);
             
             StringBuilder fileList = new StringBuilder();
-            for (String videoPath : videoPaths) {
+            for (String videoPath : dockerVideoPaths) {
                 fileList.append("file '").append(videoPath).append("'\n");
+                logger.info("비디오 목록에 추가: {}", videoPath);
+            }
+            
+            // 목록 파일 디렉토리 생성
+            File listDir = new File(listFilePath.getParent().toString());
+            if (!listDir.exists()) {
+                boolean created = listDir.mkdirs();
+                logger.info("목록 파일 디렉토리 생성: {} (성공: {})", listDir.getAbsolutePath(), created);
             }
             
             Files.write(listFilePath, fileList.toString().getBytes());
@@ -143,9 +298,10 @@ public class VideoService {
             // FFmpeg 명령 구성
             FFmpegBuilder builder = new FFmpegBuilder()
                 .setInput(listFilePath.toString())
+                .addExtraArgs("-y") // 파일이 이미 존재하면 덮어쓰기
                 .addExtraArgs("-f", "concat")  // concat 형식 명시
                 .addExtraArgs("-safe", "0")    // 안전하지 않은 파일 경로 허용
-                .addOutput(outputPath)
+                .addOutput(cleanDockerOutputPath) // 따옴표 없이 경로 전달
                 .setVideoCodec("libx264")
                 .setAudioCodec("aac")
                 .setFormat("mp4")
@@ -158,15 +314,21 @@ public class VideoService {
             // 임시 파일 삭제
             Files.delete(listFilePath);
             
+            // 원래 요청된 출력 경로에 복사
+            Files.copy(Paths.get(cleanDockerOutputPath), Paths.get(outputPath), StandardCopyOption.REPLACE_EXISTING);
+            
             return new File(outputPath);
         } catch (IOException e) {
-            throw new RuntimeException("비디오 병합 중 오류 발생", e);
+            logger.error("비디오 병합 중 오류 발생: {}", e.getMessage(), e);
+            throw new RuntimeException("비디오 병합 중 오류 발생: " + e.getMessage(), e);
         }
     }
     
     public File createFinalVideo(String storyId, String outputPath) {
         try {
-            logger.info("스토리 ID {} 에 대한 비디오 생성 시작", storyId);
+            // Docker 볼륨 내부 경로로 직접 지정
+            String dockerOutputPath = DOCKER_TEMP_DIR + "/final_" + UUID.randomUUID() + ".mp4";
+            logger.info("스토리 ID {} 에 대한 비디오 생성 시작 (Docker 출력 경로: {})", storyId, dockerOutputPath);
             
             // 1. 스토리 조회 및 유효성 검사
             Optional<SceneDocument> sceneDocumentOpt = sceneDocumentRepository.findByStoryId(storyId);
@@ -188,7 +350,7 @@ public class VideoService {
             // 2. 각 Scene별로 처리
             for (int i = 0; i < scenes.size(); i++) {
                 Map<String, Object> scene = scenes.get(i);
-                logger.debug("씬 처리 중 {}/{}", i + 1, scenes.size());
+                logger.info("씬 처리 중 {}/{}", i + 1, scenes.size());
                 
                 // 씬 데이터 유효성 검사
                 if (scene.get("image_url") == null || scene.get("audioArr") == null) {
@@ -196,9 +358,15 @@ public class VideoService {
                     throw new RuntimeException("씬 " + i + "의 데이터가 유효하지 않음");
                 }
                 
-                // 임시 파일 경로 생성
-                String tempSceneDir = tempDirectory + "/scene_" + i;
-                new File(tempSceneDir).mkdirs();
+                // 임시 파일 경로 생성 - Docker 볼륨 내부 경로로 직접 지정
+                String tempSceneDir = DOCKER_TEMP_DIR + "/scene_" + i + "_" + UUID.randomUUID();
+                logger.info("씬 임시 디렉토리 (Docker 볼륨): {}", tempSceneDir);
+                
+                File sceneDir = new File(tempSceneDir);
+                if (!sceneDir.exists()) {
+                    boolean created = sceneDir.mkdirs();
+                    logger.info("씬 디렉토리 생성: {} (성공: {})", sceneDir.getAbsolutePath(), created);
+                }
                 
                 try {
                     // 오디오 URL 목록 수집
@@ -207,7 +375,7 @@ public class VideoService {
                     
                     for (int j = 0; j < audioArr.size(); j++) {
                         String audioUrl = (String) audioArr.get(j).get("audio_url");
-                        logger.debug("오디오 URL 처리 중: {}", audioUrl);
+                        logger.info("오디오 URL 처리 중: {}", audioUrl);
                         
                         if (audioUrl == null) {
                             throw new RuntimeException("Missing audio URL in scene " + i + ", audio " + j);
@@ -216,23 +384,33 @@ public class VideoService {
                         audioUrls.add(audioUrl);
                     }
                     
-                    // 오디오 파일 병합 (pre-signed URL 사용)
+                    // 오디오 파일 병합 - Docker 볼륨 내부 경로로 직접 지정
                     String mergedAudioPath = tempSceneDir + "/merged_audio.mp3";
                     mergeAudioFiles(audioUrls, mergedAudioPath);
+                    logger.info("오디오 파일 병합 완료: {}", mergedAudioPath);
                     
                     // 이미지와 병합된 오디오로 비디오 생성
                     String sceneVideoPath = tempSceneDir + "/scene_video.mp4";
                     createVideoFromImageAndAudio((String) scene.get("image_url"), mergedAudioPath, sceneVideoPath);
+                    logger.info("씬 비디오 생성 완료: {}", sceneVideoPath);
                     
                     sceneVideoPaths.add(sceneVideoPath);
                     
                 } catch (Exception e) {
+                    logger.error("씬 {} 처리 중 오류 발생: {}", i, e.getMessage(), e);
                     throw new RuntimeException("Failed to process scene " + i, e);
                 }
             }
             
-            // 3. 모든 씬 비디오 병합하여 최종 비디오 생성 (순서대로)
-            return mergeVideos(sceneVideoPaths, outputPath);
+            // 3. 모든 씬 비디오 병합하여 최종 비디오 생성
+            File finalVideo = mergeVideos(sceneVideoPaths, dockerOutputPath);
+            logger.info("최종 비디오 생성 완료: {}", dockerOutputPath);
+            
+            // 원래 요청된 출력 경로에 복사
+            Files.copy(finalVideo.toPath(), Paths.get(outputPath), StandardCopyOption.REPLACE_EXISTING);
+            logger.info("최종 비디오 복사 완료: {} -> {}", dockerOutputPath, outputPath);
+            
+            return new File(outputPath);
             
         } catch (Exception e) {
             logger.error("최종 비디오 생성 실패: {}", e.getMessage(), e);
@@ -242,8 +420,12 @@ public class VideoService {
 
     public String createAndUploadVideo(String storyId, String outputPath) {
         try {
+            // Docker 볼륨 내부 경로로 직접 지정
+            String dockerOutputPath = DOCKER_TEMP_DIR + "/upload_" + UUID.randomUUID() + ".mp4";
+            logger.info("비디오 생성 및 업로드 시작 (Docker 출력 경로: {})", dockerOutputPath);
+            
             // 비디오 생성
-            File videoFile = createFinalVideo(storyId, outputPath);
+            File videoFile = createFinalVideo(storyId, dockerOutputPath);
             
             // S3에 업로드할 키 생성
             // 날짜 형식의 타임스탬프 생성 (YYYYMMDD_HHMMSS) - 한국 시간(KST) 적용
@@ -257,14 +439,20 @@ public class VideoService {
             String s3Key = paddedStoryId + "/videos/" + paddedStoryId + "_" + timestamp + ".mp4";
             
             // S3에 업로드
+            logger.info("S3 업로드 시작: {} -> {}", dockerOutputPath, s3Key);
             s3Config.uploadToS3(videoFile.getPath(), s3Key);
+            logger.info("S3 업로드 완료: {}", s3Key);
             
             // 임시 파일 삭제
             videoFile.delete();
             
              // S3 url 반환
-            return "https://" + s3Config.getBucketName() + ".s3." + s3Config.getRegion() + ".amazonaws.com/" + s3Key;
+            String s3Url = "https://" + s3Config.getBucketName() + ".s3." + s3Config.getRegion() + ".amazonaws.com/" + s3Key;
+            logger.info("S3 URL 생성: {}", s3Url);
+            
+            return s3Url;
         } catch (Exception e) {
+            logger.error("비디오 생성 및 업로드 중 오류 발생: {}", e.getMessage(), e);
             throw new RuntimeException("비디오 생성 및 업로드 중 오류 발생", e);
         }
     }
