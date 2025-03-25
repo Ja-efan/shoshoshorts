@@ -20,6 +20,7 @@ public class SceneDocument {
 
     private String storyId;
     private String storyTitle;
+    private String narVoiceCode;
     private List<Map<String,Object>> characterArr;
     private List<Map<String,Object>> sceneArr;
 }

@@ -1,5 +1,6 @@
 package com.sss.backend.domain.service;
 
+import com.sss.backend.domain.document.CharacterDocument;
 import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.repository.SceneDocumentRepository;
 
@@ -48,7 +49,6 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
 //    private final String defaultVoiceCode = "uyVNoMrnUku1dZyVEXwD";
     private final String defaultModelId = "eleven_multilingual_v2";
     private final String defaultOutputFormat = "mp3";
-
 
 
 
@@ -118,17 +118,22 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
         // 해당 오디오 찾기
         Map<String, Object> targetAudio = findSceneAndAudio(sceneDocument, sceneId, audioId);
 
-        //오디오의 text만 찾기 -> request에 넣어야함
+        //오디오의 text와 character 찾기 -> request에 넣어야함
         String text = (String) targetAudio.get("text");
+        String character = (String) targetAudio.get("character");
 
         if (text == null || text.trim().isEmpty()) {
             throw new RuntimeException("오디오 텍스트가 비어있습니다: audioId=" + audioId);
         }
 
+        // character에 따른 voicecode 찾기
+        String voiceCode = findVoiceCodeByCharacter(sceneDocument,character);
+
+
         // API 요청 데이터 준비
         Map<String, Object> requestData = new HashMap<>();
         requestData.put("text", text);
-//        requestData.put("voice_code", defaultVoiceCode);
+        requestData.put("voice_code", voiceCode);
         requestData.put("model_id", defaultModelId);
         requestData.put("output_format", defaultOutputFormat);
         requestData.put("script_id", Integer.parseInt(storyId));
@@ -156,6 +161,7 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
             targetAudio.put("file_size", responseBody.get("file_size"));
             targetAudio.put("base_model", defaultModelId);
             targetAudio.put("audio_settings", defaultOutputFormat);
+            targetAudio.put("voice_code", voiceCode);
 
             // SceneDocument 저장
             SceneDocument updatedDocument = sceneDocumentRepository.save(sceneDocument);
@@ -205,5 +211,29 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
         throw new RuntimeException("해당 오디오를 찾을 수 없습니다: audioId=" + audioId);
     }
 
+    //character로 따른 voiceCode를 찾는 새로운 메서드
+    private String findVoiceCodeByCharacter(SceneDocument sceneDocument, String characterName){
+
+        // narration이면 narvoicecode 사용
+        if ("narration".equals(characterName)) {
+            return sceneDocument.getNarVoiceCode();
+        }
+
+        //characterArr에서 해당 이름의 캐릭터 찾기
+        List<Map<String, Object>> characterArr = sceneDocument.getCharacterArr();
+        if(characterArr != null){
+            for(Map<String,Object> character : characterArr){
+                String name = (String) character.get("name");
+                if(characterName.equals(name)){
+                    return (String) character.get("voiceCode");
+                }
+            }
+        }
+
+        // 일치하는 캐릭터가 없으면 narvoicecode 사용
+        log.info("캐릭터 '{}' 에 대한 voicecode를 찾을 수 없어 narvoicecode를 사용합니다.", characterName);
+        return sceneDocument.getNarVoiceCode();
+
+    }
 
 }
