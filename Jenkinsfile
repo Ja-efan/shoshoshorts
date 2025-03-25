@@ -32,13 +32,13 @@ pipeline {
             steps {
                 sh '''
                     echo "[INFO] Copying .env..."
-                    cp .env docker-compose.yml
+                    cp /Users/jaehwan/SSAFY/workspace/S12P21B106/.env docker-compose.env
                     echo "[INFO] Stopping and removing any existing containers..."
                     docker compose -f docker-compose.yml down || true
                     docker rm -f sss-mongo sss-postgres sss-backend sss-frontend || true
 
                     echo "[INFO] Starting new containers..."
-                    docker compose -f docker-compose.yml up -d
+                    docker compose --env-file docker-compose.env -f docker-compose.yml up -d
                 '''
             }
         }
