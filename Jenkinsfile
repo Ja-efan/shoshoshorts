@@ -31,8 +31,6 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                    echo "[INFO] Copying .env..."
-                    cp /home/ubuntu/S12P21B106/.env docker-compose.env
                     echo "[INFO] Stopping and removing any existing containers..."
                     docker compose -f docker-compose.yml down || true
                     docker rm -f sss-mongo sss-postgres sss-backend sss-frontend || true
