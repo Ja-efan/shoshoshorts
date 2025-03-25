@@ -17,4 +17,7 @@ public class CharacterDTO {
 
 
     private String properties;
+
+
+    private String voicecode;
 }

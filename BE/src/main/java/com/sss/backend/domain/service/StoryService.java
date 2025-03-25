@@ -211,7 +211,6 @@ public class StoryService {
         Optional<CharacterDocument> characterDocument = characterRepository.findByStoryId(String.valueOf(storyId));
 
         jsonData.put("characterArr", characterDocument.map(CharacterDocument::getCharacterArr).orElse(List.of()));
-        System.out.println("여기가 문제인가");
 
         return jsonData;
     }
