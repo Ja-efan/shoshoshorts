@@ -2,19 +2,77 @@
 애플리케이션 실행 파일
 """
 import os
-from dotenv import load_dotenv
 
-# 환경 변수 로드
-load_dotenv()
-
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
+from app.services.s3_service import s3_service
 
 # app 패키지에서 라우터 가져오기
 from app.api.routes import image_routes
+from app.core.config import settings
 
-app = FastAPI(title="Kling AI 이미지 생성 API")
+# 배포 환경인가, 개발 환경인가에 따른 docs_url, redoc_url, openapi_url을 볼 수 없도록 설정
+if settings.ENV == "prod":
+    docs_url = None
+    redoc_url = None
+    openapi_url = None
+else:
+    docs_url = "/docs"
+    redoc_url = "/redoc"
+    openapi_url = "/openapi.json"
+
+app = FastAPI(
+    title="Kling AI 이미지 생성 API",
+    docs_url = docs_url,
+    redoc_url = redoc_url,
+    openapi_url = openapi_url
+)
+
+@app.middleware("http")
+async def check_pwd_middleware(request: Request, call_next):
+    # POST 요청에만 적용
+    if request.method == "POST":
+        print("post 요청 시작")
+        # 요청 headers에서 apiPwd 확인
+        api_pwd = request.headers.get("apiPwd")
+        
+        # 비밀번호가 없거나 유효하지 않은 경우
+        if not api_pwd:
+            return JSONResponse(
+                status_code=401,
+                content={"message": "Missing API pwd"}
+            )
+        
+        # 개발 환경 비밀번호 확인 (dev로 시작하는 비밀번호는 개발 환경으로 인식)
+        if api_pwd.startswith("dev"):
+            # 개발 환경으로 설정
+            s3_service._set_environment(is_dev_environment=True)
+            # 유효한 개발 환경 비밀번호인지 확인
+            if api_pwd != "dev"+settings.API_PWD:
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid development API pwd"}
+                )
+        elif api_pwd.startswith("prod"):
+            # 프로덕션 환경으로 설정
+            s3_service._set_environment(is_dev_environment=False)
+            # 유효한 프로덕션 비밀번호인지 확인
+            if api_pwd != "prod"+settings.API_PWD:
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid production API pwd"}
+                )
+        else:
+            return JSONResponse(
+                    status_code=401,
+                    content={"message": "API pwd 앞에 dev 또는 prod가 없습니다."}
+                )
+    print("다음으로")
+    response = await call_next(request)
+    return response
+
 
 # CORS 설정
 app.add_middleware(

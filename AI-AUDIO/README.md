@@ -73,7 +73,7 @@ CPU 환경에서 도커 컴포즈를 사용하려면 docker-compose.cpu.yml 파�
 
 ```bash
 # CPU 환경에서 실행
-docker-compose -f docker-compose.cpu.yml up
+docker compose -f docker-compose.cpu.yml up
 ```
 
 로그 확인 방법
@@ -164,11 +164,11 @@ ZONOS_DEFAULT_MODEL=Zyphra/Zonos-v0.1-transformer
 
 ## 6. CPU와 GPU 환경 비교
 
-| 기능 | GPU 환경 | CPU 환경 |
-|------|---------|---------|
-| OpenAI API 기반 스크립트 생성 | ✅ 지원 | ✅ 지원 |
-| ElevenLabs TTS API | ✅ 지원 | ✅ 지원 |
-| Zonos TTS 모델 | ✅ 지원 (빠른 처리) | ⚠️ 제한적 지원 (느린 처리) |
-| 기타 GPU 가속 기능 | ✅ 지원 | ❌ 미지원 |
+| 기능                          | GPU 환경            | CPU 환경                   |
+| ----------------------------- | ------------------- | -------------------------- |
+| OpenAI API 기반 스크립트 생성 | ✅ 지원             | ✅ 지원                    |
+| ElevenLabs TTS API            | ✅ 지원             | ✅ 지원                    |
+| Zonos TTS 모델                | ✅ 지원 (빠른 처리) | ⚠️ 제한적 지원 (느린 처리) |
+| 기타 GPU 가속 기능            | ✅ 지원             | ❌ 미지원                  |
 
 CPU 환경에서는 주로 API 기반 기능(OpenAI, ElevenLabs)을 사용하는 것이 권장됩니다.

@@ -28,6 +28,7 @@ async def generate_scene_image(scene: Scene):
     6. 결과 반환
     """
     start_time = time.time()
+    print("이미지 생성 함수 시작")
     try:
         # 1. 장면 정보 검증
         if not scene.scene_id:
@@ -95,7 +96,8 @@ async def generate_scene_image(scene: Scene):
             formatted_story_id = f"{story_id:08d}"  # 8자리 (예: 00000001)
             
             # 버킷 이름 정제
-            s3_bucket_name = settings.S3_BUCKET_NAME
+            # s3_bucket_name = settings.S3_BUCKET_NAME # 이전 경로로
+            s3_bucket_name = s3_service.s3_bucket
             if s3_bucket_name and s3_bucket_name.startswith("s3://"):
                 s3_bucket_name = s3_bucket_name.replace("s3://", "")
             if s3_bucket_name and s3_bucket_name.endswith("/"):

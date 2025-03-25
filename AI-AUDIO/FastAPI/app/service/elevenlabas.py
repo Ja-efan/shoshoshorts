@@ -24,7 +24,11 @@ ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1"
 class ElevenLabsTTSRequest(BaseModel):
     text: str = Field(description="변환할 텍스트")
     #남자 목소리: 4JJwo477JUAx3HV0T7n7
+    # PLfpgtLkFW07fDYbUiRJ
+    # v1jVu1Ky28piIPEJqRrm
     #여자 목소리: uyVNoMrnUku1dZyVEXwD
+    # xi3rF0t7dg7uN2M0WUhr
+    # z6Kj0hecH20CdetSElRT
     voice_code: str = Field(default="uyVNoMrnUku1dZyVEXwD", description="사용할 음성 ID")
     model_id: str = Field(default="eleven_multilingual_v2", description="사용할 모델 ID")
     output_format: str = Field(

@@ -16,6 +16,8 @@ import numpy as np
 from io import BytesIO
 import soundfile as sf
 from datetime import datetime
+from dotenv import load_dotenv
+from starlette.responses import JSONResponse
 
 # zonos 모듈 경로 수정 (상위 디렉토리 참조)
 import sys
@@ -36,7 +38,11 @@ from app.service.elevenlabas import (
 )
 
 # S3 모듈 임포트
-from app.service.s3 import upload_file_to_s3
+from app.service.s3 import upload_file_to_s3, set_environment
+
+load_dotenv()
+ENV = os.getenv("ENV", "development")  # 기본값은 development
+API_PWD = os.getenv("API_PWD")
 
 # 전역 변수 선언: 현재 로드된 모델 타입과 모델 인스턴스를 저장
 CURRENT_MODEL_TYPE = None
@@ -69,15 +75,30 @@ async def startup_event():
         print(f"모델 로드 중 오류 발생: {str(e)}")
         print("서버는 시작되지만, 첫 요청 시 모델을 로드해야 합니다.")
 
+
+
+if ENV == "prod":
+    docs_url = None
+    redoc_url = None
+    openapi_url = None
+else:
+    docs_url = "/docs"
+    redoc_url = "/redoc"
+    openapi_url = "/openapi.json"
+
 app = FastAPI(
     title="Zonos TTS API",
     description="텍스트를 음성으로 변환하는 Zonos TTS 모델 API",
     version="1.0.0",
+    docs_url = docs_url,
+    redoc_url = redoc_url,
+    openapi_url = openapi_url
 )
 
 # 시작 이벤트 핸들러 등록
 # app.add_event_handler("startup", startup_event)
 
+# 화이트리스트 관련 미들웨어
 # @app.middleware("http")
 # async def ip_whitelist_middleware(request: Request, call_next):
 #     client_ip = request.client.host
@@ -85,6 +106,48 @@ app = FastAPI(
 #         raise HTTPException(status_code=403, detail="Forbidden: IP not allowed")
 #     response = await call_next(request)
 #     return response
+
+# 비밀번호 관련 middleware
+@app.middleware("http")
+async def check_pwd_middleware(request: Request, call_next):
+    # POST 요청에만 적용
+    if request.method == "POST":
+        api_pwd = request.headers.get("apiPwd")
+        
+        # 비밀번호가 없거나 유효하지 않은 경우
+        if not api_pwd:
+            return JSONResponse(
+                status_code=401,
+                content={"message": "Missing API pwd"}
+            )
+        
+        # 개발 환경 비밀번호 확인 (dev로 시작하는 비밀번호는 개발 환경으로 인식)
+        if api_pwd.startswith("dev"):
+            # 개발 환경으로 설정
+            set_environment(is_dev_environment=True)
+            # 유효한 개발 환경 비밀번호인지 확인
+            if api_pwd != "dev"+API_PWD:
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid development API pwd"}
+                )
+        elif api_pwd.startswith("prod"):
+            # 프로덕션 환경으로 설정
+            set_environment(is_dev_environment=False)
+            # 유효한 프로덕션 비밀번호인지 확인
+            if api_pwd != "prod"+API_PWD:
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid production API pwd"}
+                )
+        else:
+            return JSONResponse(
+                    status_code=401,
+                    content={"message": "API pwd 앞에 dev 또는 prod가 없습니다."}
+                )
+
+    response = await call_next(request)
+    return response
 
 # CORS 설정
 app.add_middleware(
