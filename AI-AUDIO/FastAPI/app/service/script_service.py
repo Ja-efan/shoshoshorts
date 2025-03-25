@@ -37,6 +37,10 @@ class ScriptService:
                     "type": "string",
                     "description": "스토리 제목"
                 },
+                "narVoiceCode": {
+                    "type": "string",
+                    "description": "나레이션 보이스 코드"
+                },
                 "characterArr": {
                     "type": "array",
                     "description": "스토리에 등장하는 캐릭터 목록",
@@ -127,7 +131,8 @@ class ScriptService:
                 characters.append({
                     "name": character.name,
                     "gender": character.gender,
-                    "properties": character.properties
+                    "properties": character.properties,
+                    "voiceCode": character.voiceCode
                 })
 
             # 예시 스토리 제공
@@ -327,7 +332,9 @@ class ScriptService:
             # ID와 제목은 요청에서 받은 값으로 설정
             script_json["storyId"] = request.storyId
             script_json["storyTitle"] = request.storyTitle
+            script_json["narVoiceCode"] = request.narVoiceCode
             script_json["characterArr"] = characters
+            
             
             return ScriptResponse(script_json=script_json)
         

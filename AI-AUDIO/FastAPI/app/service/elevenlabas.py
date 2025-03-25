@@ -26,10 +26,12 @@ class ElevenLabsTTSRequest(BaseModel):
     #남자 목소리: 4JJwo477JUAx3HV0T7n7
     # PLfpgtLkFW07fDYbUiRJ
     # v1jVu1Ky28piIPEJqRrm
+    # WqVy7827vjE2r3jWvbnP
     #여자 목소리: uyVNoMrnUku1dZyVEXwD
     # xi3rF0t7dg7uN2M0WUhr
     # z6Kj0hecH20CdetSElRT
-    voice_code: str = Field(default="uyVNoMrnUku1dZyVEXwD", description="사용할 음성 ID")
+    # DMkRitQrfpiddSQT5adl
+    voice_code: Optional[str] = Field(default="uyVNoMrnUku1dZyVEXwD", description="사용할 음성 ID")
     model_id: str = Field(default="eleven_multilingual_v2", description="사용할 모델 ID")
     output_format: str = Field(
         default="mp3", 
@@ -57,8 +59,13 @@ async def generate_tts_with_elevenlabs(request: ElevenLabsTTSRequest) -> ElevenL
         TTS 응답 객체
     """
     try:
+        if request.voice_code is None:
+            cur_voice_code = "uyVNoMrnUku1dZyVEXwD"
+        else:
+            cur_voice_code = request.voice_code
+
         # API 요청 URL 구성
-        url = f"{ELEVENLABS_API_URL}/text-to-speech/{request.voice_code}"
+        url = f"{ELEVENLABS_API_URL}/text-to-speech/{cur_voice_code}"
         
         # 요청 헤더 설정
         headers = {
