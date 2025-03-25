@@ -73,6 +73,7 @@ docker run -d \
   -e AWS_BUCKET=${AWS_BUCKET} \
   -e FFMPEG_PATH=${FFMPEG_PATH} \
   -e TEMP_DIRECTORY=/app/temp/videos \
+  -e API_PASSWORD=${API_PASSWORD} \
   -v temp-videos:/app/temp/videos \
   -v $(pwd -W)/BE:/app \
   -v $(pwd -W)/BE/gradle:/app/gradle \
