@@ -6,6 +6,7 @@ import com.sss.backend.domain.repository.SceneDocumentRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +20,11 @@ public class AudioService {
     private final SceneDocumentRepository sceneDocumentRepository;
     private final WebClient webClient;
 
+    @Value("${api.password}")
+    private String apiPassword;
+    
+    @Value("${spring.profiles.active:dev}")
+    private String activeProfile;
 
     public AudioService(SceneDocumentRepository sceneDocumentRepository, WebClient webClient){
         this.sceneDocumentRepository = sceneDocumentRepository;
@@ -128,7 +134,8 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
         requestData.put("script_id", Integer.parseInt(storyId));
         requestData.put("scene_id", sceneId);
         requestData.put("audio_id", audioId);
-
+        requestData.put("apiPwd", activeProfile + apiPassword);
+        
         try {
             // WebClient를 사용하여 API 호출
             Map<String, Object> responseBody =
