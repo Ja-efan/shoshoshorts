@@ -18,6 +18,8 @@ public class AudioDocument {
     private String storyId;
     private Integer sceneId;
     private Integer audioId;
+    private String character;
+    private String voiceCode;
     private Integer sequence;
     private String type;
     private String emotion;
