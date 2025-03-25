@@ -76,6 +76,7 @@ docker run -d \
   -v temp-videos:/app/temp/videos \
   -v $(pwd -W)/BE:/app \
   -v $(pwd -W)/BE/gradle:/app/gradle \
+  -v API_PASSWORD=${API_PASSWORD} \
   -v gradle-cache:/gradle_cache \
   --network sss-network \
   sss-backend-dev:latest
