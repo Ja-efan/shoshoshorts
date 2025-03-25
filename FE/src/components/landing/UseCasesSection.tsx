@@ -1,5 +1,5 @@
 import React from "react";
-import { Section, SectionHeader } from "@/components/common/Section";
+import { SectionHeader } from "@/components/common/Section";
 
 interface UseCaseCardProps {
   title: string;
