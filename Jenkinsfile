@@ -1,9 +1,9 @@
 pipeline {
     agent any
     
-    environment {
-        DB_PASSWORD = credentials('db-password')
-    }
+    // environment {
+    //     DB_PASSWORD = credentials('db-password')
+    // }
     
     stages {
         stage('Checkout') {
@@ -30,8 +30,14 @@ pipeline {
         
         stage('Deploy') {
             steps {
-                sh 'docker compose down || true'
-                sh 'docker compose up -d'
+                sh '''
+                    echo "[INFO] Stopping and removing any existing containers..."
+                    docker compose -f docker-compose.yml down || true
+                    docker rm -f sss-mongo sss-postgres sss-backend sss-frontend || true
+
+                    echo "[INFO] Starting new containers..."
+                    docker compose --env-file .env -f docker-compose.yml up -d
+                '''
             }
         }
         
