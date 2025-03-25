@@ -1,4 +1,3 @@
-import React from "react";
 import { Layout } from "@/components/common/Layout";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { WhatIsSection } from "@/components/landing/WhatIsSection";
