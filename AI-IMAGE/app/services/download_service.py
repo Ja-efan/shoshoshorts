@@ -9,6 +9,7 @@ from datetime import datetime
 import pytz
 from typing import Optional
 from app.core.config import settings
+from app.services.s3_service import s3_service
 
 class DownloadService:
     """이미지 다운로드 서비스"""
@@ -32,7 +33,9 @@ class DownloadService:
             formatted_scene_id = f"{scene_id:04d}"  # 4자리 (예: 0001)
             
             # 기본 디렉토리 설정 (AI-IMAGE/{bucket_name})
-            s3_bucket_name = settings.S3_BUCKET_NAME
+            # s3_bucket_name = settings.S3_BUCKET_NAME #이전 경로로
+            s3_bucket_name = s3_service.s3_bucket
+
             # 버킷 이름에서 프로토콜과 슬래시 제거
             if s3_bucket_name and s3_bucket_name.startswith("s3://"):
                 s3_bucket_name = s3_bucket_name.replace("s3://", "")

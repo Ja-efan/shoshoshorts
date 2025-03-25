@@ -11,36 +11,35 @@ import pytz
 from typing import Optional
 from app.core.config import settings
 
-# 환경 변수 로드 (강제 재로드)
-load_dotenv(override=True)
-
 class S3Service:
     """AWS S3에 이미지를 업로드하는 서비스"""
     
     def __init__(self):
         """S3 클라이언트 초기화"""
+        ### 기존 저장 코드 수정
+        # self.aws_access_key = settings.S3_ACCESS_KEY
+        # self.aws_secret_key = settings.S3_SECRET_KEY
+        # 환경에 따라 S3 관련 정보를 설정한다.
         self.aws_access_key = settings.S3_ACCESS_KEY
         self.aws_secret_key = settings.S3_SECRET_KEY
-        
-        # 버킷 이름 가져오기 및 정제
-        s3_bucket = settings.S3_BUCKET_NAME
-        
-        # 버킷 이름 디버깅 출력
-        print(f"원본 S3_BUCKET_NAME: {s3_bucket}")
-        
-        # 버킷 이름에서 프로토콜과 슬래시 제거
-        if s3_bucket and s3_bucket.startswith("s3://"):
-            s3_bucket = s3_bucket.replace("s3://", "")
-        
-        # 끝의 슬래시 제거
-        if s3_bucket and s3_bucket.endswith("/"):
-            s3_bucket = s3_bucket.rstrip("/")
-            
-        # 정제된 버킷 이름 저장
-        self.s3_bucket = s3_bucket
         self.s3_region = settings.S3_REGION
-            
-        print(f"정제된 S3_BUCKET_NAME: {self.s3_bucket}")
+        self.s3_bucket = settings.S3_BUCKET_NAME
+
+        # 위에서 dev 환경으로 한번 선언 함.
+        # self._set_environment(True)
+        
+        # 버킷 이름 정제하는 코드인데 필요 없는듯?
+        # print(f"원본 S3_BUCKET_NAME: {self.s3_bucket}")
+        
+        # # 버킷 이름에서 프로토콜과 슬래시 제거
+        # if s3_bucket and s3_bucket.startswith("s3://"):
+        #     s3_bucket = s3_bucket.replace("s3://", "")
+        
+        # # 끝의 슬래시 제거
+        # if s3_bucket and s3_bucket.endswith("/"):
+        #     s3_bucket = s3_bucket.rstrip("/")
+
+        # print(f"정제된 S3_BUCKET_NAME: {self.s3_bucket}")
         
         # S3 클라이언트 생성
         self.s3_client = boto3.client(
@@ -53,6 +52,30 @@ class S3Service:
         # 클라이언트 생성 여부 출력
         print(f"S3 클라이언트 생성 성공: {self.s3_client is not None}")
     
+    def _set_environment(self, is_dev_environment: bool):
+        """
+        개발 환경 또는 프로덕션 환경에 따라 S3 관련 환경 변수를 설정한다.
+        """
+        if is_dev_environment:
+            self.aws_access_key = settings.S3_ACCESS_KEY
+            self.aws_secret_key = settings.S3_SECRET_KEY
+            self.s3_bucket = settings.S3_BUCKET_NAME
+            self.s3_region = settings.S3_REGION
+            print("개발 환경 S3 설정이 적용되었습니다.")
+        else:
+            self.aws_access_key = settings.RELEASE_S3_ACCESS_KEY
+            self.aws_secret_key = settings.RELEASE_S3_SECRET_KEY
+            self.s3_bucket = settings.RELEASE_S3_BUCKET_NAME
+            self.s3_region = settings.RELEASE_S3_REGION
+            print("프로덕션 환경 S3 설정이 적용되었습니다.")
+        # S3 클라이언트 재초기화
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=self.aws_access_key,
+            aws_secret_access_key=self.aws_secret_key,
+            region_name=self.s3_region
+        )
+
     async def upload_image(self, image_path: str, story_id: int, scene_id: int) -> Optional[str]:
         """
         이미지를 S3에 업로드합니다.
