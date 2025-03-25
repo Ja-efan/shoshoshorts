@@ -1,8 +1,6 @@
 package com.sss.backend.api.controller;
 
-import com.sss.backend.api.dto.StoryRequestDTO;
-import com.sss.backend.api.dto.VideoResponseDto;
-import com.sss.backend.api.dto.VideoStatusResponseDto;
+import com.sss.backend.api.dto.*;
 import com.sss.backend.config.S3Config;
 import com.sss.backend.domain.entity.Video.VideoStatus;
 import com.sss.backend.domain.service.MediaService;
@@ -40,8 +38,9 @@ public class VideoController {
     public ResponseEntity<VideoStatusResponseDto> generateVideoAsync(@Valid @RequestBody StoryRequestDTO request) {
         try {
             // 스토리 저장
-            Long storyId = storyService.saveStory(request);
-            log.info("스토리 생성 완료: {}", storyId);
+            log.info("안녀안녕");
+            Long storyId = storyService.saveBasicStory(request);
+            log.info("스토리 엔티티 생성 완료: {}", storyId);
             
             // 비디오 엔티티 초기 상태로 저장
             videoService.initVideoEntity(storyId.toString());
@@ -49,6 +48,8 @@ public class VideoController {
             // 비동기 처리 시작
             CompletableFuture.runAsync(() -> {
                 try {
+                    storyService.saveStory(storyId, request);
+                    log.info("스토리 스크립트 생성 완료");
                     // 상태 업데이트: 처리 중
                     videoService.updateVideoStatus(storyId.toString(), VideoStatus.PROCESSING, null);
                     
@@ -94,12 +95,28 @@ public class VideoController {
         }
     }
 
+    // 전체 비디오 상태 조회 API
+    @GetMapping("/status/allstory")
+    public ResponseEntity<VideoListResponseDTO> getAllVideoStatus() {
+        try {
+            VideoListResponseDTO response = videoService.getAllVideoStatus();
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("비디오 상태 조회 중 오류 {} ", e.getMessage(), e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+
+    /**
     // 동기 메서드
     @PostMapping("/generate-sync")
     public ResponseEntity<VideoResponseDto> generateVideoSync(@Valid @RequestBody StoryRequestDTO request) throws Exception {
         // 입력 데이터 json 파싱
-        Long storyId = storyService.saveStory(request);
+        // 스토리 저장 로직 불러오기
+        Long storyId = 1;
         System.out.println("스토리 생성 완료: " + storyId);
+
 
         // 이미지, 음성 생성
         // MediaService의 processAllScenes 메서드 호출
@@ -115,19 +132,19 @@ public class VideoController {
         VideoResponseDto response = new VideoResponseDto(storyId.toString(), videoUrl);
         return ResponseEntity.ok(response);
     }
-
+*/
 
     @GetMapping("/{storyId}")
     public ResponseEntity<VideoResponseDto> generateVideo(@PathVariable String storyId) {
         // 임시 출력 파일 경로 생성
         String outputPath = tempDirectory + "/" + UUID.randomUUID() + "_final.mp4";
-        
+
         // 비디오 생성 및 S3 업로드
         String videoUrl = videoService.createAndUploadVideo(storyId, outputPath);
-        
+
         // DTO 응답 생성
         VideoResponseDto response = new VideoResponseDto(storyId, videoUrl);
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -137,33 +154,32 @@ public class VideoController {
         try {
             // 비디오 상태 조회
             VideoStatusResponseDto videoStatus = videoService.getVideoStatus(storyId);
-            
+
             // 비디오가 완료 상태가 아니거나 URL이 없는 경우
             if (videoStatus.getStatus() != VideoStatus.COMPLETED || videoStatus.getVideoUrl() == null) {
                 return ResponseEntity.notFound().build();
             }
-            
+
             // S3 키 추출
-            // TODO: extractS3KeyFromUrl 메서드 위치 확인
-            String s3Key = videoService.extractS3KeyFromUrl(videoStatus.getVideoUrl());
-            
+            String s3Key = s3Config.extractS3KeyFromUrl(videoStatus.getVideoUrl());
+
             // 파일명 설정
-            String fileName = "shoshoshorts_" + 
+            String fileName = "shoshoshorts_" +
                 java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul"))
-                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + 
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) +
                 ".mp4";
-            
+
             // 다운로드용 Presigned URL
             String presignedUrl = s3Config.generateDownloadPresignedUrl(s3Key, fileName);
-            
+
             // Presigned URL로 리다이렉트
             return ResponseEntity.status(302)
                     .header(HttpHeaders.LOCATION, presignedUrl)
                     .build();
-                    
+
         } catch (Exception e) {
             log.error("비디오 다운로드 중 오류: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }
-} 
+}

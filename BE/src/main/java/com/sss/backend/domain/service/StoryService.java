@@ -53,50 +53,53 @@ public class StoryService {
     }
 
     @Transactional
-    public Long saveStory(StoryRequestDTO request) {
+    public Long saveBasicStory(StoryRequestDTO request) {
         // 1. 유효성 검사 메서드 호출
         validateRequest(request);
+        log.info("사용자 입력 인풋 :{}",request);
 
         // 2. RDBMS에 스토리 저장.
         Story storyEntity = convertToEntity(request);
         storyEntity = storyRepository.save(storyEntity);
-        System.out.println("사용자 입력 인풋 :"+request);
-        log.info("사용자 입력 인풋 :{}",request);
+        log.info("엔티티 :{}",storyEntity);
 
         Long storyId = storyEntity.getId();
-        System.out.println("저장된 storyId: "+storyId);
+        log.info("저장된 storyId :{}",storyId);
+
 
         // 3. 캐릭터 정보가 있을 경우 MongoDB에 저장
         if (request.getCharacterArr() != null && !request.getCharacterArr().isEmpty()) {
             saveCharactersToMongoDB(storyId, request.getCharacterArr());
+            log.info("Character 정보 몽고 디비 저장완료");
+        } else {
+            log.info("Character 정보가 없습니다.");
         }
-        System.out.println("몽고디비 저장완료..");
-        log.info("몽고 디비 저장완료");
+
+        return storyId;
+
+    }
+
+    @Transactional
+    public void saveStory(Long storyId, StoryRequestDTO request) {
 
         // 4. FastAPI로 보낼 JSON 데이터 생성
         Map<String, Object> jsonData = createFastAPIJson(storyId, request.getTitle(), request.getStory());
-        System.out.println("json변환까지 완료 : "+jsonData);
         log.info("json변환까지 완료 {}",jsonData);
 
         // 5. FastAPI에 요청 및 응답 처리 // http://localhost:8000/script/convert/
 
-            // 아래 reactive programming에서는 파이프라인이 구성될 뿐 실제 실행은 subscribe에서..
         try {
             Map<String, Object> response = sendToFastAPI(jsonData).block();
-            System.out.println("FastAPI 응답 : "+response);
             log.info("FastAPI 응답 {}",response);
 
             // 변환 작업 실행
             Map<String, Object> transformedJson = scriptTransformService.transformScriptJson(response);
-
 
             saveScenesToMongoDB(transformedJson);
         } catch (Exception e) {
             System.out.println("FastAPI 요청 실패 :"+ e.getMessage());
             log.info("fastapi 에러 {}",e.getMessage());
         }
-
-        return storyId;
     }
 
     // Dummy json getter

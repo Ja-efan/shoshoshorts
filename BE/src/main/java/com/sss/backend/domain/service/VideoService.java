@@ -1,6 +1,9 @@
 package com.sss.backend.domain.service;
 
+import com.sss.backend.api.dto.VideoListResponseDTO;
+import com.sss.backend.api.dto.VideoStatusAllDTO;
 import com.sss.backend.config.S3Config;
+import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFmpegExecutor;
 import net.bramp.ffmpeg.builder.FFmpegBuilder;
@@ -22,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +36,7 @@ import java.time.LocalDateTime;
 import jakarta.annotation.PostConstruct;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class VideoService {
 
@@ -48,7 +53,7 @@ public class VideoService {
     public void init() {
         createTempDir();
     }
-    
+
     private void createTempDir() {
         File dir = new File(TEMP_DIR);
         if (!dir.exists()) {
@@ -63,7 +68,7 @@ public class VideoService {
             }
         }
     }
-    
+
     public File mergeAudioFiles(List<String> audioUrls, String outputPath) {
         try {
             if (audioUrls.isEmpty()) {
@@ -71,16 +76,16 @@ public class VideoService {
             }
             
             createTempDir();
-            
+
             // 임시 출력 경로는 중간 작업에만 사용
             String tempOutputPath = TEMP_DIR + "/merged_" + UUID.randomUUID() + ".mp3";
             String cleanTempPath = tempOutputPath.replace("\"", "");
             String cleanOutputPath = outputPath.replace("\"", "");
-            
+
             // 첫 번째 오디오 처리
-            String firstS3Key = extractS3KeyFromUrl(audioUrls.get(0));
+            String firstS3Key = s3Config.extractS3KeyFromUrl(audioUrls.get(0));
             String firstPresignedUrl = s3Config.generatePresignedUrl(firstS3Key);
-            
+
             FFmpegBuilder firstBuilder = new FFmpegBuilder()
                 .setInput(firstPresignedUrl)
                 .addExtraArgs("-y")
@@ -97,10 +102,10 @@ public class VideoService {
             for (int i = 1; i < audioUrls.size(); i++) {
                 String tempOutput = TEMP_DIR + "/temp_" + UUID.randomUUID() + ".mp3";
                 String cleanTempOutput = tempOutput.replace("\"", "");
-                
-                String s3Key = extractS3KeyFromUrl(audioUrls.get(i));
+
+                String s3Key = s3Config.extractS3KeyFromUrl(audioUrls.get(i));
                 String presignedUrl = s3Config.generatePresignedUrl(s3Key);
-                
+
                 FFmpegBuilder appendBuilder = new FFmpegBuilder()
                     .addInput(cleanTempPath)
                     .addInput(presignedUrl)
@@ -116,7 +121,7 @@ public class VideoService {
                 executor.createJob(appendBuilder).run();
                 Files.move(Paths.get(cleanTempOutput), Paths.get(cleanTempPath), StandardCopyOption.REPLACE_EXISTING);
             }
-            
+
             // 최종 결과를 바로 outputPath에 생성
             if (!cleanTempPath.equals(cleanOutputPath)) {
                 Files.move(Paths.get(cleanTempPath), Paths.get(cleanOutputPath), StandardCopyOption.REPLACE_EXISTING);
@@ -132,16 +137,16 @@ public class VideoService {
     public File createVideoFromImageAndAudio(String imageUrl, String audioPath, String outputPath) {
         try {
             createTempDir();
-            
+
             String cleanOutputPath = outputPath.replace("\"", "");
             String tempAudioPath = TEMP_DIR + "/audio_" + UUID.randomUUID() + ".mp3";
             String cleanAudioPath = tempAudioPath.replace("\"", "");
-            
+
             // 오디오 파일 복사 (필수 과정)
             Files.copy(Paths.get(audioPath), Paths.get(cleanAudioPath), StandardCopyOption.REPLACE_EXISTING);
-            
+
             // S3 pre-signed URL 생성
-            String imageS3Key = extractS3KeyFromUrl(imageUrl);
+            String imageS3Key = s3Config.extractS3KeyFromUrl(imageUrl);
             String presignedImageUrl = s3Config.generatePresignedUrl(imageS3Key);
 
             // 바로 최종 출력 경로에 생성
@@ -168,7 +173,7 @@ public class VideoService {
             
             // 임시 오디오 파일 삭제
             new File(cleanAudioPath).delete();
-            
+
             return new File(cleanOutputPath);
         } catch (Exception e) {
             logger.error("이미지와 오디오 합성 중 오류 발생: {}", e.getMessage(), e);
@@ -179,9 +184,9 @@ public class VideoService {
     public File mergeVideos(List<String> videoPaths, String outputPath) {
         try {
             createTempDir();
-            
+
             String cleanOutputPath = outputPath.replace("\"", "");
-            
+
             // 비디오 파일을 임시 경로로 복사 (여러 파일 병합 위해 필요한 과정)
             List<String> tempVideoPaths = new ArrayList<>();
             for (int i = 0; i < videoPaths.size(); i++) {
@@ -190,7 +195,7 @@ public class VideoService {
                 Files.copy(Paths.get(videoPaths.get(i)), Paths.get(cleanVideoPath), StandardCopyOption.REPLACE_EXISTING);
                 tempVideoPaths.add(cleanVideoPath);
             }
-            
+
             // 임시 파일 생성 (파일 목록)
             Path listFilePath = Paths.get(TEMP_DIR, "video_list_" + UUID.randomUUID() + ".txt");
             
@@ -222,7 +227,7 @@ public class VideoService {
             for (String path : tempVideoPaths) {
                 new File(path).delete();
             }
-            
+
             return new File(cleanOutputPath);
         } catch (IOException e) {
             logger.error("비디오 병합 중 오류 발생: {}", e.getMessage(), e);
@@ -267,11 +272,11 @@ public class VideoService {
                 if (!sceneDir.exists()) {
                     sceneDir.mkdirs();
                 }
-                
+
                 // 오디오 URL 목록 수집
                 List<String> audioUrls = new ArrayList<>();
                 List<Map<String, Object>> audioArr = (List<Map<String, Object>>) scene.get("audioArr");
-                
+
                 for (Map<String, Object> audio : audioArr) {
                     String audioUrl = (String) audio.get("audio_url");
                     if (audioUrl == null) {
@@ -279,17 +284,17 @@ public class VideoService {
                     }
                     audioUrls.add(audioUrl);
                 }
-                
+
                 // 오디오 파일 병합
                 String mergedAudioPath = tempSceneDir + "/merged_audio.mp3";
                 mergeAudioFiles(audioUrls, mergedAudioPath);
-                
+
                 // 이미지와 병합된 오디오로 비디오 생성
                 String sceneVideoPath = tempSceneDir + "/scene_video.mp4";
                 createVideoFromImageAndAudio((String) scene.get("image_url"), mergedAudioPath, sceneVideoPath);
-                
+
                 sceneVideoPaths.add(sceneVideoPath);
-                
+
                 // 중간 파일 삭제
                 new File(mergedAudioPath).delete();
             }
@@ -303,9 +308,9 @@ public class VideoService {
                 // 부모 디렉토리도 삭제
                 new File(new File(path).getParent()).delete();
             }
-            
+
             return finalVideo;
-            
+
         } catch (Exception e) {
             logger.error("최종 비디오 생성 실패: {}", e.getMessage(), e);
             throw new RuntimeException("최종 비디오 생성 실패: " + e.getMessage(), e);
@@ -318,7 +323,7 @@ public class VideoService {
             String tempOutputPath = TEMP_DIR + "/upload_" + UUID.randomUUID() + ".mp4";
             String cleanOutputPath = tempOutputPath.replace("\"", "");
             logger.info("비디오 생성 및 업로드 시작", storyId);
-            
+
             // 비디오 생성
             File videoFile = createFinalVideo(storyId, cleanOutputPath);
             
@@ -340,21 +345,12 @@ public class VideoService {
             
             // S3 url 반환
             String s3Url = "https://" + s3Config.getBucketName() + ".s3." + s3Config.getRegion() + ".amazonaws.com/" + s3Key;
-            
+
             return s3Url;
         } catch (Exception e) {
             logger.error("비디오 생성 및 업로드 중 오류 발생: {}", e.getMessage(), e);
             throw new RuntimeException("비디오 생성 및 업로드 중 오류 발생", e);
         }
-    }
-
-    // URL에서 S3 키를 추출하는 헬퍼 메소드
-    private String extractS3KeyFromUrl(String url) {
-        String[] parts = url.split(".amazonaws.com/");
-        if (parts.length != 2) {
-            throw new IllegalArgumentException("잘못된 S3 URL 형식: " + url);
-        }
-        return parts[1];
     }
 
     // 비디오 엔티티 초기화
@@ -410,4 +406,84 @@ public class VideoService {
         
         return dto;
     }
-} 
+
+    /**
+     * title :          story.title
+     * status :         video.status
+     * completedAt :    생성 완료 시간 : video.completedAt
+     * sumnail_url :    썸네일(00:00) -> 첫번째 이미지 보여주자! => 첫 번째 scene의 image URL을 pre-signed url 로 변경해서 반환
+     * storyId :        story.story_id
+     */
+    public VideoListResponseDTO getAllVideoStatus() {
+        // 모든 비디오 엔티티 가져옴
+        List<Video> videos = videoRepository.findAll();
+
+        // 메소드 결과를 담을 리스트
+        List<VideoStatusAllDTO> result = new ArrayList<>();
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        // 각 비디오에 대해 반복
+        for (Video video : videos) {
+            // Video 연관된 story 정보 가져옴
+            Story story = video.getStory();
+
+            String title = story.getTitle();
+            String storyId = String.valueOf(story.getId());
+            String completedAt = video.getCompletedAt() != null
+                    ? video.getCompletedAt().format(formatter)
+                    : null;
+
+            //썸네일용 Presigned Url 생성
+            String thumbnailUrl = getFirstImageURL(storyId);
+
+            //DTO 생성
+            VideoStatusAllDTO dto = new VideoStatusAllDTO(
+                    title,
+                    video.getStatus(),
+                    completedAt,
+                    thumbnailUrl,
+                    storyId
+            );
+
+            //결과 list에 추가
+            result.add(dto);
+        }
+        return new VideoListResponseDTO(result);
+    }
+
+    //이미지 presigned URL 생성 메소드
+    private String getFirstImageURL(String storyId) {
+        // 스토리 id로 MongoDB에서 ScenceDocument 조회
+        Optional<SceneDocument> sceneOpt = sceneDocumentRepository.findByStoryId(storyId);
+        log.info("sceneDocument : {}",sceneOpt);
+
+        if (sceneOpt.isEmpty()) {
+            log.warn("해당 story에 해당하는 SceneDocument가 없음 {}", storyId);
+            return null;
+        }
+
+        // SceneDocument 꺼내기
+        SceneDocument sceneDocument = sceneOpt.get();
+        System.out.println("scenedoc : "+sceneDocument);
+
+        // SceneArr 가져오기.
+        List<Map<String, Object>> sceneArr = sceneDocument.getSceneArr();
+
+        if (sceneArr == null || sceneArr.isEmpty()) {
+            log.warn("sceneDocument에는 sceneArr가 비어있음. {}",storyId);
+            return null;
+        }
+
+        // 썸네일용 첫번째 scene 가져오기 + url 꺼내기
+        Map<String, Object> firstScene = sceneArr.getFirst();
+        String imageUrl = (String) firstScene.get("image_url");
+
+        //Presigned URL 생성
+        String S3Key = s3Config.extractS3KeyFromUrl(imageUrl);
+        String PresignedUrl = s3Config.generatePresignedUrl(S3Key);
+
+        return PresignedUrl;
+
+    }
+}

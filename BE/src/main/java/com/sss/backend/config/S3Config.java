@@ -103,23 +103,6 @@ public class S3Config {
             throw new IOException("S3 접근 중 오류 발생: " + e.getMessage(), e);
         }
     }
-    
-    /**
-     * S3 객체에 대한 pre-signed URL 생성
-     */
-    public String generatePresignedUrl(String s3Key) {
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-            .bucket(bucketName)
-            .key(s3Key)
-            .build();
-            
-        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-            .signatureDuration(Duration.ofMinutes(10))
-            .getObjectRequest(getObjectRequest)
-            .build();
-            
-        return s3Presigner.presignGetObject(presignRequest).url().toString();
-    }
 
     /**
      * 파일을 S3에 업로드
@@ -134,7 +117,36 @@ public class S3Config {
     }
 
     /**
-     * S3 객체에 대한 다운로드용 pre-signed URL 생성
+     * URL에서 S3 키를 추출하는 헬퍼 메소드 추가
+     */
+    public String extractS3KeyFromUrl(String url) {
+        // URL 형식: https://shoshoshorts.s3.ap-northeast-2.amazonaws.com/project1/audios/file.mp3
+        String[] parts = url.split(".amazonaws.com/");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("잘못된 S3 URL 형식: " + url);
+        }
+        return parts[1]; // project1/audios/file.mp3 부분만 반환
+    }
+
+    /**
+     * S3 객체에 대한 pre-signed URL 생성
+     */
+    public String generatePresignedUrl(String s3Key) {
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(s3Key)
+                .build();
+
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(10))
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        return s3Presigner.presignGetObject(presignRequest).url().toString();
+    }
+
+    /**
+     * 다운로드용 pre-signed URL (헤더에 ContentDisposition 포함)
      */
     public String generateDownloadPresignedUrl(String s3Key, String fileName) {
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
@@ -142,12 +154,12 @@ public class S3Config {
             .key(s3Key)
             .responseContentDisposition("attachment; filename=\"" + fileName + "\"")
             .build();
-            
+
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
             .signatureDuration(Duration.ofMinutes(10))
             .getObjectRequest(getObjectRequest)
             .build();
-            
+
         return s3Presigner.presignGetObject(presignRequest).url().toString();
     }
-} 
+}
