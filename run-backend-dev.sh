@@ -72,7 +72,8 @@ docker run -d \
   -e AWS_REGION=${AWS_REGION} \
   -e AWS_BUCKET=${AWS_BUCKET} \
   -e FFMPEG_PATH=${FFMPEG_PATH} \
-  -e TEMP_DIRECTORY=${TEMP_DIRECTORY} \
+  -e TEMP_DIRECTORY=/app/temp/videos \
+  -v temp-videos:/app/temp/videos \
   -v $(pwd -W)/BE:/app \
   -v $(pwd -W)/BE/gradle:/app/gradle \
   -v gradle-cache:/gradle_cache \
