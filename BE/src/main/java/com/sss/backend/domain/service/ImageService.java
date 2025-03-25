@@ -162,13 +162,11 @@ public class ImageService {
             // 이미지 생성 API URL
             String apiUrl = "http://35.216.58.38:8001/api/v1/images/generations/external";
 
-            // apiPwd 추가
-            sceneRequest.setApiPwd(activeProfile + apiPassword);
-
             // API 호출 (오류 응답 로깅 추가)
             return webClient
                     .post()
                     .uri(apiUrl)
+                    .header("apiPwd", activeProfile + apiPassword)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(sceneRequest)
                     .exchangeToMono(response -> {

@@ -134,13 +134,13 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
         requestData.put("script_id", Integer.parseInt(storyId));
         requestData.put("scene_id", sceneId);
         requestData.put("audio_id", audioId);
-        requestData.put("apiPwd", activeProfile + apiPassword);
         
         try {
             // WebClient를 사용하여 API 호출
             Map<String, Object> responseBody =
                     webClient.post()
                     .uri(audioApiUrl)
+                    .header("apiPwd", activeProfile + apiPassword)
                     .bodyValue(requestData)
                     .retrieve()
                     .bodyToMono(Map.class)
