@@ -16,14 +16,11 @@ RUN npm run build
 FROM nginx:stable-alpine
 WORKDIR /usr/share/nginx/html
 
-# ffmpeg 설치 (Alpine Linux용)
-RUN apk add --no-cache ffmpeg
-
 # 빌드 결과물 복사
 COPY --from=build /app/dist .
 
-# Nginx 설정 파일 복사 (필요한 경우)
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Nginx 설정 파일 복사
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # 포트 노출
 EXPOSE 80

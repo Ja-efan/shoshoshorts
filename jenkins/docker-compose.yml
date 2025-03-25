@@ -1,18 +1,17 @@
-version: '3.8'
-
 services:
   jenkins:
-    image: jenkins/jenkins:lts
+    build: 
+      context: .
+      args: 
+        - DOCKER_GID=122
     container_name: sss-jenkins
-    privileged: true
-    user: root
+    user: jenkins
     ports:
       - "8090:8080"
       - "50000:50000"
     volumes:
-      - jenkins-data:/var/jenkins_home
+      - ./jenkins-data:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
-      - /usr/bin/docker:/usr/bin/docker
     networks:
       - jenkins-network
     restart: unless-stopped
@@ -20,6 +19,3 @@ services:
 networks:
   jenkins-network:
     driver: bridge
-
-volumes:
-  jenkins-data: 

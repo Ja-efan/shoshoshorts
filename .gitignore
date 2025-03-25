@@ -218,4 +218,7 @@ psd
 thumb
 sketch
 
+# Jenkins runtime data
+jenkins-data/
+
 # End of https://www.toptal.com/developers/gitignore/api/java,react,python
