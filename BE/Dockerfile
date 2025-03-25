@@ -34,5 +34,9 @@ EXPOSE 8080
 # 환경 변수 설정
 ENV SPRING_PROFILES_ACTIVE=prod
 
+# 환경변수 설정 추가
+ENV AWS_ACCESS_KEY=${AWS_ACCESS_KEY}
+ENV AWS_SECRET_KEY=${AWS_SECRET_KEY}
+
 # 애플리케이션 실행
 ENTRYPOINT ["java", "-jar", "app.jar"] 

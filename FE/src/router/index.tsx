@@ -4,6 +4,7 @@ import Layout from "../components/layout";
 // import Home from "../pages/Home";
 // import About from "../pages/About";
 import NotFound from "../pages/notFound";
+import LandingPage from "@/pages/LandingPage";
 
 const Router: React.FC = () => {
   return useRoutes([
@@ -11,7 +12,8 @@ const Router: React.FC = () => {
       path: "/",
       element: <Layout />,
       children: [
-        { path: "*", element: <NotFound /> }
+        {path: '/', element: <LandingPage /> },
+        {path: "*", element: <NotFound /> }
       ],
     },
     // { path: "/login", element: <Login /> },

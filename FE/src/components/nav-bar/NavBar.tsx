@@ -3,6 +3,15 @@ import { Search, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { Link as ScrollLink } from 'react-scroll';
+
+const navigationItems = [
+  { to: "hero", label: "홈" },
+  { to: "how-it-works", label: "사용방법" },
+  { to: "technology", label: "기술" },
+  { to: "use-cases", label: "활용사례" },
+  { to: "faq", label: "FAQ" },
+];
 
 const Navbar = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -26,17 +35,27 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* 로고 */}
           <div className="flex-shrink-0">
-            <Link to="/" className="text-xl font-bold hover:text-blue-600 transition-colors">
-              Logo
+            <Link to="/" className="text-xl font-bold hover:text-red-600 transition-colors">
+              StoryToVideo
             </Link>
           </div>
 
           {/* 데스크톱 메뉴 */}
-          <div className="hidden md:flex items-center space-x-8">
-            <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors">홈</a>
-            <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors">서비스</a>
-            <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors">소개</a>
-            <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors">연락처</a>
+          <div className="hidden md:flex items-center space-x-6">
+            {navigationItems.map((item) => (
+              <ScrollLink
+                key={item.to}
+                to={item.to}
+                spy={true}
+                smooth={true}
+                offset={-64}
+                duration={500}
+                activeClass="text-red-600"
+                className="text-gray-700 hover:text-red-600 transition-colors cursor-pointer"
+              >
+                {item.label}
+              </ScrollLink>
+            ))}
           </div>
 
           {/* 검색창 */}
@@ -87,13 +106,23 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-t"
+            className="md:hidden bg-white border-t absolute top-16 left-0 w-full"
           >
             <div className="px-4 py-2 space-y-1">
-            <a href="#" className="block px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100">홈</a>
-              <a href="#" className="block px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100">서비스</a>
-              <a href="#" className="block px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100">소개</a>
-              <a href="#" className="block px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100">연락처</a>
+              {navigationItems.map((item) => (
+                <ScrollLink
+                  key={item.to}
+                  to={item.to}
+                  spy={true}
+                  smooth={true}
+                  offset={-64}
+                  duration={500}
+                  className="block px-3 py-2 rounded-md text-gray-700 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </ScrollLink>
+              ))}
               
               {/* 모바일 검색창 */}
               <form onSubmit={handleSearch} className="px-3 py-2 space-y-2">
@@ -102,11 +131,11 @@ const Navbar = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="검색어를 입력하세요..."
-                  className="w-full px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
                 <button
                   type="submit"
-                  className="w-full bg-blue-500 text-white py-2 px-4 rounded-full hover:bg-blue-600 transition-colors"
+                  className="w-full bg-red-600 text-white py-2 px-4 rounded-full hover:bg-red-700 transition-colors"
                 >
                   검색하기
                 </button>

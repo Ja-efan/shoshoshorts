@@ -57,12 +57,26 @@ docker run -d \
   --name sss-backend-dev \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
-  -e SPRING_DATASOURCE_URL=jdbc:postgresql://sss-postgres-dev:${POSTGRES_PORT}/${POSTGRES_DB} \
-  -e SPRING_DATASOURCE_USERNAME=${POSTGRES_USER} \
-  -e SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD} \
-  -e SPRING_DATA_MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@sss-mongo-dev:${MONGO_PORT}/${MONGO_DB} \
-  -v $(pwd)/BE:/app \
-  -v $(pwd)/BE/gradle:/app/gradle \
+  -e BACKEND_PORT=${BACKEND_PORT} \
+  -e POSTGRES_DB=${POSTGRES_DB} \
+  -e POSTGRES_USER=${POSTGRES_USER} \
+  -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
+  -e MONGO_DB=${MONGO_DB} \
+  -e MONGO_USER=${MONGO_USER} \
+  -e MONGO_PASSWORD=${MONGO_PASSWORD} \
+  -e MONGO_PORT=${MONGO_PORT} \
+  -e SPRING_DATA_MONGODB_URI="mongodb://${MONGO_USER}:${MONGO_PASSWORD}@sss-mongo-dev:27017/sss_db?authSource=admin" \
+  -e SPRING_DATA_MONGODB_DATABASE=${MONGO_DB} \
+  -e AWS_ACCESS_KEY=${AWS_ACCESS_KEY} \
+  -e AWS_SECRET_KEY=${AWS_SECRET_KEY} \
+  -e AWS_REGION=${AWS_REGION} \
+  -e AWS_BUCKET=${AWS_BUCKET} \
+  -e FFMPEG_PATH=${FFMPEG_PATH} \
+  -e TEMP_DIRECTORY=/app/temp/videos \
+  -v temp-videos:/app/temp/videos \
+  -v $(pwd -W)/BE:/app \
+  -v $(pwd -W)/BE/gradle:/app/gradle \
+  -v API_PASSWORD=${API_PASSWORD} \
   -v gradle-cache:/gradle_cache \
   --network sss-network \
   sss-backend-dev:latest
