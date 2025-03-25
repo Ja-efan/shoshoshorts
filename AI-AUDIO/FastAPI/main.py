@@ -77,7 +77,7 @@ async def startup_event():
 
 
 
-if ENV == "release":
+if ENV == "prod":
     docs_url = None
     redoc_url = None
     openapi_url = None
@@ -107,14 +107,12 @@ app = FastAPI(
 #     response = await call_next(request)
 #     return response
 
-# 비밀번호호 관련 middleware
+# 비밀번호 관련 middleware
 @app.middleware("http")
 async def check_pwd_middleware(request: Request, call_next):
     # POST 요청에만 적용
     if request.method == "POST":
-        # 요청 바디에서 apiPwd 확인
-        body = await request.json()
-        api_pwd = body.get("apiPwd")
+        api_pwd = request.headers.get("apiPwd")
         
         # 비밀번호가 없거나 유효하지 않은 경우
         if not api_pwd:
@@ -133,11 +131,11 @@ async def check_pwd_middleware(request: Request, call_next):
                     status_code=401,
                     content={"message": "Invalid development API pwd"}
                 )
-        elif api_pwd.startswith("release"):
+        elif api_pwd.startswith("prod"):
             # 프로덕션 환경으로 설정
             set_environment(is_dev_environment=False)
             # 유효한 프로덕션 비밀번호인지 확인
-            if api_pwd != "release"+API_PWD:
+            if api_pwd != "prod"+API_PWD:
                 return JSONResponse(
                     status_code=401,
                     content={"message": "Invalid production API pwd"}
@@ -145,7 +143,7 @@ async def check_pwd_middleware(request: Request, call_next):
         else:
             return JSONResponse(
                     status_code=401,
-                    content={"message": "API pwd 앞에 dev 또는 release가 없습니다."}
+                    content={"message": "API pwd 앞에 dev 또는 prod가 없습니다."}
                 )
 
     response = await call_next(request)
