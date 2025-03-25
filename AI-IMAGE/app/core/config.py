@@ -38,11 +38,23 @@ class Settings(BaseSettings):
     # OpenAI API 설정
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
-    # S3 설정
+    # DEV S3 설정
     S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "")
     S3_REGION: str = os.getenv("S3_REGION", "ap-northeast-2")
     S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "")
     S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "")
+
+    # Release S3 설정정
+    RELEASE_S3_BUCKET_NAME: str = os.getenv("RELEASE_S3_BUCKET_NAME", S3_BUCKET_NAME)
+    RELEASE_S3_REGION: str = os.getenv("RELEASE_S3_REGION", "us-east-2")
+    RELEASE_S3_ACCESS_KEY: str = os.getenv("RELEASE_S3_ACCESS_KEY", S3_ACCESS_KEY)
+    RELEASE_S3_SECRET_KEY: str = os.getenv("RELEASE_S3_SECRET_KEY", S3_SECRET_KEY)
+
+    # API 비밀번호
+    API_PWD: str = os.getenv("API_PWD")
+
+    #prod로 설정시 docs_url, redoc_url, openapi_url을 볼 수 없도록 설정
+    ENV: str = os.getenv("ENV", "development")  # 기본값은 development
 
     # JWT 토큰 설정
     JWT_TOKEN: str = ""
