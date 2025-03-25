@@ -11,6 +11,7 @@ import com.sss.backend.domain.repository.StoryRepository;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -36,6 +37,12 @@ public class StoryService {
     private final ScriptTransformService scriptTransformService;
     private final SceneRepository sceneRepository;
     private final MongoTemplate mongoTemplate;
+
+    @Value("${api.password}")
+    private String apiPassword;
+
+    @Value("${spring.profiles.active:dev}")
+    private String activeProfile;
 
     // 생성자 주입
     public StoryService(StoryRepository storyRepository,
@@ -179,11 +186,13 @@ public class StoryService {
     // FastAPI API 호출 메소드 - webClient
     private Mono<Map<String, Object>> sendToFastAPI(Map<String, Object> jsonData) {
         System.out.println("이제 FastAPI에 쏴보자잉");
+        String combinedPwd = activeProfile + apiPassword;
+
         return webClient.post()
                 .uri("/script/convert") // 엔드포인트 설정
+                .header("apiPwd",combinedPwd)
                 .bodyValue(jsonData) // JSON 데이터 포함
                 .retrieve() // 응답 받기
-//                .bodyToMono(Map.class) // 응답을 Map<String, Object>로 변환
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
     }
 
@@ -202,7 +211,6 @@ public class StoryService {
         Optional<CharacterDocument> characterDocument = characterRepository.findByStoryId(String.valueOf(storyId));
 
         jsonData.put("characterArr", characterDocument.map(CharacterDocument::getCharacterArr).orElse(List.of()));
-        System.out.println("여기가 문제인가");
 
         return jsonData;
     }
