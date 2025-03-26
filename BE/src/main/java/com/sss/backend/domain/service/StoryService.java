@@ -68,7 +68,7 @@ public class StoryService {
         // 2. RDBMS에 스토리 저장.
         Story storyEntity = convertToEntity(request);
         storyEntity = storyRepository.save(storyEntity);
-        log.info("엔티티 :{}",storyEntity);
+        log.info("엔티티 :{}", storyEntity);
 
         Long storyId = storyEntity.getId();
         log.info("저장된 storyId :{}",storyId);
@@ -90,7 +90,7 @@ public class StoryService {
     public void saveStory(Long storyId, StoryRequestDTO request) {
 
         // 4. FastAPI로 보낼 JSON 데이터 생성
-        Map<String, Object> jsonData = createFastAPIJson(storyId, request.getTitle(), request.getStory());
+        Map<String, Object> jsonData = createFastAPIJson(storyId, request.getTitle(), request.getStory(), request.getNarVoiceCode());
         log.info("json변환까지 완료 {}",jsonData);
 
         // 5. FastAPI에 요청 및 응답 처리 // http://localhost:8000/script/convert/
@@ -197,13 +197,14 @@ public class StoryService {
     }
 
     // FastAPI로 보낼 JSON 데이터 생성 메소드
-    private Map<String, Object> createFastAPIJson(Long storyId, String title, String story) {
+    private Map<String, Object> createFastAPIJson(Long storyId, String title, String story, String narVoiceCode) {
         System.out.println("생성하기...");
         Map<String, Object> jsonData = new HashMap<>();
         jsonData.put("storyId", storyId);
         jsonData.put("storyTitle", title);
+        jsonData.put("narVoiceCode", narVoiceCode);
         jsonData.put("story", formatStory(story)); // " 변환 처리, 줄바꿈이 필요한가?
-        System.out.println("좀 안되나??"+jsonData);
+        log.info("character 넣기 전 json  : \n {}",jsonData);
 
         // MongoDB에서 캐릭터 정보 조회
 //        CharacterDocument characterDocument = getCharacterDocument(storyId);
@@ -266,6 +267,7 @@ public class StoryService {
         Update update = new Update()
                 .set("storyTitle", scriptJson.get("storyTitle"))
                 .set("characterArr", scriptJson.get("characterArr"))
+                .set("narVoiceCode", scriptJson.get("narVoiceCode"))
                 .set("sceneArr", scriptJson.get("sceneArr"));
 
         mongoTemplate.upsert(query, update, SceneDocument.class);
