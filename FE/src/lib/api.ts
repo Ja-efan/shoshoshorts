@@ -1,22 +1,12 @@
+import axios from "axios"
+
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 export const API_ENDPOINTS = {
-  CREATE_VIDEO: `${API_BASE_URL}/api/videos`,
-  GET_VOICES: `${API_BASE_URL}/api/voices`,
-  // ... other endpoints
-};
+  CREATE_VIDEO: `${API_BASE_URL}/api/videos/generate`,
+  GET_VIDEOS: `${API_BASE_URL}/api/videos/status/allstory`,
+} as const;
 
-// Add type definition for the API request
-export interface VideoRequestData {
-  title: string;
-  story: string;
-  characterArr: {
-    name: string;
-    gender: "1" | "2";
-    description: string;
-    voice_code: string;
-  }[];
-}
 
 // API 요청을 위한 기본 설정
 export const apiConfig = {
@@ -36,16 +26,31 @@ export const apiConfig = {
   };
 }; */
 
+interface VideoData {
+  title: string
+  status: "FAILED" | "COMPLETED" | "PENDING"
+  completed_at: string | null
+  thumbnail_url: string | null
+  video_url: string | null
+  story_id: string
+}
+
+interface ApiResponse<T> {
+  data: T
+  message: string
+  status: number
+}
+
 // API 요청 함수들
 export const apiService = {
   async createVideo(data: any) {
-    const response = await fetch(API_ENDPOINTS.CREATE_VIDEO, {
-      method: 'POST',
-      ...apiConfig,
-      // headers: getAuthHeaders(), // Use this when auth is needed
-      body: JSON.stringify(data),
-    });
-    return response.json();
+    const response = await axios.post(API_ENDPOINTS.CREATE_VIDEO, data, apiConfig)
+    return response.data
+  },
+
+  async getVideos() {
+    const response = await axios.get<ApiResponse<VideoData[]>>(API_ENDPOINTS.GET_VIDEOS, apiConfig)
+    return response.data
   },
   
   // ... other API methods
