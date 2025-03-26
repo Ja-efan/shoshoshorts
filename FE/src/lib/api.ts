@@ -28,7 +28,7 @@ export const apiConfig = {
 
 interface VideoData {
   title: string
-  status: "FAILED" | "COMPLETED" | "PENDING"
+  status: "FAILED" | "COMPLETED" | "PROCESSING"
   completed_at: string | null
   thumbnail_url: string | null
   video_url: string | null
