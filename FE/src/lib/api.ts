@@ -3,23 +3,10 @@ import axios from "axios"
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 export const API_ENDPOINTS = {
-  CREATE_VIDEO: `${API_BASE_URL}/api/videos/create`,
+  CREATE_VIDEO: `${API_BASE_URL}/api/videos/generate`,
   GET_VIDEOS: `${API_BASE_URL}/api/videos/status/allstory`,
-  GET_VOICES: `${API_BASE_URL}/api/voices`,
-  // ... other endpoints
 } as const;
 
-// Add type definition for the API request
-export interface VideoRequestData {
-  title: string;
-  story: string;
-  characterArr: {
-    name: string;
-    gender: "1" | "2";
-    description: string;
-    voice_code: string;
-  }[];
-}
 
 // API 요청을 위한 기본 설정
 export const apiConfig = {
@@ -44,6 +31,7 @@ interface VideoData {
   status: "FAILED" | "COMPLETED" | "PENDING"
   completed_at: string | null
   thumbnail_url: string | null
+  video_url: string | null
   story_id: string
 }
 
