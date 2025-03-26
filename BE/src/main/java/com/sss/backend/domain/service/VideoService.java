@@ -487,11 +487,13 @@ public class VideoService {
         Map<String, Object> firstScene = sceneArr.getFirst();
         String imageUrl = (String) firstScene.get("image_url");
 
-        //Presigned URL 생성
-        String S3Key = s3Config.extractS3KeyFromUrl(imageUrl);
-        String PresignedUrl = s3Config.generatePresignedUrl(S3Key);
+        // image_url이 있는 경우에만 presigned URL 생성
+        if (imageUrl != null) {
+            String S3Key = s3Config.extractS3KeyFromUrl(imageUrl);
+            return s3Config.generatePresignedUrl(S3Key);
+        }
 
-        return PresignedUrl;
-
+        log.warn("첫 번째 scene의 image_url이 null임. {}", storyId);
+        return null;
     }
 }
