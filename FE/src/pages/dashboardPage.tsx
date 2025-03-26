@@ -5,12 +5,13 @@ import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Video, Search, Plus, Clock, Loader2 } from "lucide-react"
+import { Search, Plus, Clock, Loader2 } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { VideoData } from "@/types/video"
 import { CompletedVideoCard } from "@/components/dashboard/CompletedVideoCard"
 import { InProgressVideoCard } from "@/components/dashboard/InProgressVideoCard"
 import { FailedVideoCard } from "@/components/dashboard/FailedVideoCard"
+import shortLogo from "@/assets/short_logo.png";
 
 export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -54,10 +55,12 @@ export default function DashboardPage() {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 bg-white border-b">
         <div className="container flex h-16 items-center justify-between px-4">
-          <Link to="/" className="flex items-center gap-2">
-            <Video className="h-8 w-8 text-red-600" />
-            <span className="text-xl font-bold">StoryToVideo</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2">
+              <img src={shortLogo} alt="쇼쇼숓 로고" className="h-8 w-8" />
+              <span className="text-xl font-bold">쇼쇼숓</span>
+            </Link>
+          </div>
           <div className="flex items-center gap-4">
             <Link to="/create">
               <Button className="bg-red-600 hover:bg-red-700">
@@ -134,7 +137,7 @@ export default function DashboardPage() {
                 {filteredVideos.length === 0 && (
                   <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
                     <div className="rounded-full bg-gray-100 p-3">
-                      <Video className="h-8 w-8 text-gray-400" />
+                      <Search className="h-8 w-8 text-gray-400" />
                     </div>
                     <h3 className="mt-4 text-lg font-medium">동영상을 찾을 수 없습니다</h3>
                     <p className="mt-1 text-sm text-gray-500">
@@ -162,7 +165,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
                     <div className="rounded-full bg-gray-100 p-3">
-                      <Video className="h-8 w-8 text-gray-400" />
+                      <Search className="h-8 w-8 text-gray-400" />
                     </div>
                     <h3 className="mt-4 text-lg font-medium">완료된 동영상이 없습니다</h3>
                     <p className="mt-1 text-sm text-gray-500">
