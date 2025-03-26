@@ -202,8 +202,10 @@ public class StoryService {
         Map<String, Object> jsonData = new HashMap<>();
         jsonData.put("storyId", storyId);
         jsonData.put("storyTitle", title);
-        jsonData.put("narVoiceCode", narVoiceCode);
         jsonData.put("story", formatStory(story)); // " 변환 처리, 줄바꿈이 필요한가?
+        if (narVoiceCode != null){
+            jsonData.put("narVoiceCode", narVoiceCode);
+        }
         log.info("character 넣기 전 json  : \n {}",jsonData);
 
         // MongoDB에서 캐릭터 정보 조회
