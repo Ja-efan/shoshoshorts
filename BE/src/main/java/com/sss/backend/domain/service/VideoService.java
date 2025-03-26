@@ -412,6 +412,7 @@ public class VideoService {
      * status :         video.status
      * completedAt :    생성 완료 시간 : video.completedAt
      * sumnail_url :    썸네일(00:00) -> 첫번째 이미지 보여주자! => 첫 번째 scene의 image URL을 pre-signed url 로 변경해서 반환
+     * videoUrl:        video URL을 Presigned URL로 변경해서 반환
      * storyId :        story.story_id
      */
     public VideoListResponseDTO getAllVideoStatus() {
@@ -436,13 +437,20 @@ public class VideoService {
 
             //썸네일용 Presigned Url 생성
             String thumbnailUrl = getFirstImageURL(storyId);
+            
+            // video_url이 있는 경우에만 presigned URL 생성
+            String videoUrl = null;
+            if (video.getVideo_url() != null) {
+                String videoS3Key = s3Config.extractS3KeyFromUrl(video.getVideo_url());
+                videoUrl = s3Config.generatePresignedUrl(videoS3Key);
+            }
 
-            //DTO 생성
             VideoStatusAllDTO dto = new VideoStatusAllDTO(
                     title,
                     video.getStatus(),
                     completedAt,
                     thumbnailUrl,
+                    videoUrl,
                     storyId
             );
 
@@ -479,11 +487,13 @@ public class VideoService {
         Map<String, Object> firstScene = sceneArr.getFirst();
         String imageUrl = (String) firstScene.get("image_url");
 
-        //Presigned URL 생성
-        String S3Key = s3Config.extractS3KeyFromUrl(imageUrl);
-        String PresignedUrl = s3Config.generatePresignedUrl(S3Key);
+        // image_url이 있는 경우에만 presigned URL 생성
+        if (imageUrl != null) {
+            String S3Key = s3Config.extractS3KeyFromUrl(imageUrl);
+            return s3Config.generatePresignedUrl(S3Key);
+        }
 
-        return PresignedUrl;
-
+        log.warn("첫 번째 scene의 image_url이 null임. {}", storyId);
+        return null;
     }
 }
