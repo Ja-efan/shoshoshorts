@@ -39,8 +39,8 @@ export default function CreateVideoPage() {
       requestData.characterArr = characters.map(character => ({
         name: character.name,
         gender: character.gender ? (character.gender === "male" ? "1" : "2") : null,
-        description: character.description || "이미지 생성을 위한 설명...",
-        voice_code: character.voice && character.gender ? voiceCodes[character.gender][parseInt(character.voice.slice(-1)) - 1] : null
+        properties: character.description || "이미지 생성을 위한 설명...",
+        voiceCode: character.voice && character.gender ? voiceCodes[character.gender][parseInt(character.voice.slice(-1)) - 1] : null
       }))
     }
 
