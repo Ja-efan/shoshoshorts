@@ -36,7 +36,7 @@ const Navbar = () => {
           {/* 로고 */}
           <div className="flex-shrink-0">
             <Link to="/" className="text-xl font-bold hover:text-red-600 transition-colors">
-              StoryToVideo
+              쇼쇼숓
             </Link>
           </div>
 

@@ -49,9 +49,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=sss_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - postgres-data-dev:/var/lib/postgresql/data
     networks:
@@ -65,7 +65,7 @@ services:
     ports:
       - "27017:27017"
     environment:
-      - MONGO_INITDB_DATABASE=sss_db
+      - MONGO_INITDB_DATABASE=${MONGO_DB}
       - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
     volumes:

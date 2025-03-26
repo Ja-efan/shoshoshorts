@@ -31,7 +31,7 @@ public class ScriptTransformService {
             newScriptJson.put("storyId", scriptJson.get("storyId")); // 스토리ID 저장
             newScriptJson.put("storyTitle", scriptJson.get("storyTitle")); // 스토리 제목 저장
             newScriptJson.put("characterArr", scriptJson.get("characterArr")); // 캐릭터 배열 저장
-            newScriptJson.put("narvoicecode", scriptJson.get("narvoicecode")); // 나레이션 코드 저장
+            newScriptJson.put("narVoiceCode", scriptJson.get("narVoiceCode")); // 나레이션 코드 저장
 
 
             // sceneArr 변환 및 저장

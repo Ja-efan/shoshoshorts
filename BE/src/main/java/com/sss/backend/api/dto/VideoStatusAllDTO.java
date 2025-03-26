@@ -15,6 +15,7 @@ public class VideoStatusAllDTO {
     private Video.VideoStatus status;
     private String completedAt;
     private String thumbnailUrl;
+    private String videoUrl;
     private String storyId;
 
 }

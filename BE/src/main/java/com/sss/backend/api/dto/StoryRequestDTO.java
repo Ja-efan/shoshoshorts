@@ -21,6 +21,9 @@ public class StoryRequestDTO {
     @NotBlank
     private String story;
 
+    @JsonProperty("narVoiceCode")
+    private String narVoiceCode;
+
     // MongoDB에 저장할 데이터 추가
     @JsonProperty("characterArr") // JSON 키와 Java 필드 매핑
     private List<Map<String, Object>> characterArr = new ArrayList<>();
