@@ -123,8 +123,11 @@ class OpenAIService:
                 temperature=openai_config.TEMPERATURE
             )
             
+            # TODO 시스템 프롬프트 수정해서 이미지 프롬프트 길지 않게 생성 (2500자 임시 조치)
+            resposne = response.choices[0].message.content.strip()[:2500]
+
             # 생성된 프롬프트 반환
-            return response.choices[0].message.content.strip()
+            return resposne
             
         except Exception as e:
             # 오류 발생 시 기본 프롬프트 반환
