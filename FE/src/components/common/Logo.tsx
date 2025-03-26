@@ -1,6 +1,6 @@
 // src/components/common/Logo.tsx
 import React from "react";
-import { Video } from "lucide-react";
+import shortLogo from "../../assets/short_logo.png";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg";
@@ -24,8 +24,8 @@ export const Logo: React.FC<LogoProps> = ({ size = "md" }) => {
 
   return (
     <div className="flex items-center gap-2">
-      <Video className={`${sizes[size].icon} text-red-600`} />
-      <span className={`${sizes[size].text} font-bold`}>ShoShoShort</span>
+      <img src={shortLogo} alt="쇼쇼숓 로고" className={`${sizes[size].icon}`} />
+      <span className={`${sizes[size].text} font-bold`}>쇼쇼숓</span>
     </div>
   );
 };
