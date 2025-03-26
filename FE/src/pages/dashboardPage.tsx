@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
   // Separate videos by status
   const completedVideos = filteredVideos.filter(video => video.status === "COMPLETED")
-  const inProgressVideos = filteredVideos.filter(video => video.status === "PENDING")
+  const inProgressVideos = filteredVideos.filter(video => video.status === "PROCESSING")
   const failedVideos = filteredVideos.filter(video => video.status === "FAILED")
 
   if (isLoading) {
