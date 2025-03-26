@@ -13,7 +13,7 @@ class ScriptRequest(BaseModel):
     storyTitle: str = Field(description="스토리 제목")
     characterArr: List[Character] = Field(description="스토리에 등장하는 캐릭터 목록")
     story: str = Field(description="스토리 내용 (텍스트)")
-    narVoiceCode: str = Field(description="나레이션 보이스 코드")
+    narVoiceCode: str = Field(description="나레이션 보이스 코드", default="4JJwo477JUAx3HV0T7n7")
 
 # 응답 모델 정의
 class ScriptResponse(BaseModel):
