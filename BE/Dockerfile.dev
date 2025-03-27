@@ -3,6 +3,13 @@ FROM sss-backend-base:latest
 # 개발 환경 설정
 ENV SPRING_PROFILES_ACTIVE=dev
 
+# 한글 폰트 설치
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    fontconfig \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
 # 개발 모드에서는 소스 코드를 볼륨으로 마운트하므로 여기서는 복사하지 않음
 # 대신 docker-compose.dev.yml에서 볼륨 설정
 
