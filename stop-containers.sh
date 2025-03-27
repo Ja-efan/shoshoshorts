@@ -13,97 +13,109 @@ stop_and_remove_container() {
   fi
 }
 
-# 모든 컨테이너 중지 및 삭제
-if [ "$1" = "all" ]; then
-  echo "모든 프로젝트 컨테이너를 중지하고 삭제합니다..."
-  stop_and_remove_container "sss-frontend"
-  stop_and_remove_container "sss-backend"
-  stop_and_remove_container "sss-postgres"
-  stop_and_remove_container "sss-mongo"
-  stop_and_remove_container "sss-frontend-dev"
-  stop_and_remove_container "sss-backend-dev"
-  stop_and_remove_container "sss-postgres-dev"
-  stop_and_remove_container "sss-mongo-dev"
-  echo "모든 컨테이너가 삭제되었습니다."
-  exit 0
-fi
-
-# 배포 환경 컨테이너 중지 및 삭제
-if [ "$1" = "prod" ]; then
-  echo "배포 환경 컨테이너를 중지하고 삭제합니다..."
-  stop_and_remove_container "sss-frontend"
-  stop_and_remove_container "sss-backend"
-  stop_and_remove_container "sss-postgres"
-  stop_and_remove_container "sss-mongo"
-  echo "배포 환경 컨테이너가 삭제되었습니다."
-  exit 0
-fi
+# Docker Compose를 사용하여 모든 개발 환경 컨테이너 중지
+stop_all_dev_containers() {
+  echo "Docker Compose를 사용하여 모든 개발 환경 컨테이너를 중지합니다..."
+  
+  # 볼륨 삭제 여부 확인
+  read -p "Docker 볼륨도 함께 삭제하시겠습니까? (데이터가 모두 삭제됩니다) [y/N]: " delete_volumes
+  
+  if [[ "$delete_volumes" =~ ^[Yy]$ ]]; then
+    echo "컨테이너와 볼륨을 모두 삭제합니다..."
+    docker compose -f docker-compose.dev.yml down -v
+    echo "모든 개발 환경 컨테이너와 볼륨이 삭제되었습니다."
+  else
+    echo "볼륨은 유지하고 컨테이너만 삭제합니다..."
+    docker compose -f docker-compose.dev.yml down
+    echo "모든 개발 환경 컨테이너가 중지되었습니다. 볼륨은 유지됩니다."
+  fi
+}
 
 # 개발 환경 컨테이너 중지 및 삭제
-if [ "$1" = "dev" ]; then
-  echo "개발 환경 컨테이너를 중지하고 삭제합니다..."
-  stop_and_remove_container "sss-frontend-dev"
-  stop_and_remove_container "sss-backend-dev"
-  stop_and_remove_container "sss-postgres-dev"
-  stop_and_remove_container "sss-mongo-dev"
-  echo "개발 환경 컨테이너가 삭제되었습니다."
+if [ "$1" = "all" ] || [ "$1" = "dev" ] || [ -z "$1" ]; then
+  stop_all_dev_containers
   exit 0
 fi
 
 # 백엔드 컨테이너 중지 및 삭제
 if [ "$1" = "backend" ] || [ "$1" = "be" ]; then
-  if [ "$2" = "dev" ]; then
-    stop_and_remove_container "sss-backend-dev"
-  else
-    stop_and_remove_container "sss-backend"
-  fi
+  stop_and_remove_container "sss-backend-dev"
   exit 0
 fi
 
 # 프론트엔드 컨테이너 중지 및 삭제
 if [ "$1" = "frontend" ] || [ "$1" = "fe" ]; then
-  if [ "$2" = "dev" ]; then
-    stop_and_remove_container "sss-frontend-dev"
-  else
-    stop_and_remove_container "sss-frontend"
-  fi
+  stop_and_remove_container "sss-frontend-dev"
   exit 0
 fi
 
 # PostgreSQL 데이터베이스 컨테이너 중지 및 삭제
 if [ "$1" = "postgres" ] || [ "$1" = "db" ]; then
-  if [ "$2" = "dev" ]; then
-    stop_and_remove_container "sss-postgres-dev"
+  stop_and_remove_container "sss-postgres-dev"
+  
+  # PostgreSQL 볼륨 삭제 여부 확인
+  read -p "PostgreSQL 볼륨도 함께 삭제하시겠습니까? (모든 데이터가 삭제됩니다) [y/N]: " delete_volumes
+  
+  if [[ "$delete_volumes" =~ ^[Yy]$ ]]; then
+    echo "PostgreSQL 볼륨을 삭제합니다..."
+    docker volume rm postgres-data-dev
+    echo "PostgreSQL 볼륨이 삭제되었습니다."
   else
-    stop_and_remove_container "sss-postgres"
+    echo "PostgreSQL 볼륨은 유지됩니다."
   fi
+  
   exit 0
 fi
 
 # MongoDB 데이터베이스 컨테이너 중지 및 삭제
 if [ "$1" = "mongo" ]; then
-  if [ "$2" = "dev" ]; then
-    stop_and_remove_container "sss-mongo-dev"
+  stop_and_remove_container "sss-mongo-dev"
+  
+  # MongoDB 볼륨 삭제 여부 확인
+  read -p "MongoDB 볼륨도 함께 삭제하시겠습니까? (모든 데이터가 삭제됩니다) [y/N]: " delete_volumes
+  
+  if [[ "$delete_volumes" =~ ^[Yy]$ ]]; then
+    echo "MongoDB 볼륨을 삭제합니다..."
+    docker volume rm mongo-data-dev
+    echo "MongoDB 볼륨이 삭제되었습니다."
   else
-    stop_and_remove_container "sss-mongo"
+    echo "MongoDB 볼륨은 유지됩니다."
   fi
+  
+  exit 0
+fi
+
+# Gradle 캐시 볼륨 삭제
+if [ "$1" = "gradle" ] || [ "$1" = "cache" ]; then
+  # Gradle 캐시 볼륨 삭제 여부 확인
+  read -p "Gradle 캐시 볼륨을 삭제하시겠습니까? [y/N]: " delete_volumes
+  
+  if [[ "$delete_volumes" =~ ^[Yy]$ ]]; then
+    echo "Gradle 캐시 볼륨을 삭제합니다..."
+    docker volume rm gradle-cache
+    echo "Gradle 캐시 볼륨이 삭제되었습니다."
+  else
+    echo "작업이 취소되었습니다."
+  fi
+  
   exit 0
 fi
 
 # 사용법 출력
-echo "사용법: $0 [all|prod|dev|backend|frontend|postgres|mongo] [dev]"
+echo "사용법: $0 [all|dev|backend|frontend|postgres|mongo|gradle]"
 echo ""
 echo "옵션:"
-echo "  all       - 모든 컨테이너 중지 및 삭제"
-echo "  prod      - 배포 환경 컨테이너 중지 및 삭제"
-echo "  dev       - 개발 환경 컨테이너 중지 및 삭제"
-echo "  backend   - 백엔드 컨테이너 중지 및 삭제 (dev 옵션 추가 시 개발 환경)"
-echo "  frontend  - 프론트엔드 컨테이너 중지 및 삭제 (dev 옵션 추가 시 개발 환경)"
-echo "  postgres  - PostgreSQL 데이터베이스 컨테이너 중지 및 삭제 (dev 옵션 추가 시 개발 환경)"
-echo "  mongo     - MongoDB 데이터베이스 컨테이너 중지 및 삭제 (dev 옵션 추가 시 개발 환경)"
+echo "  all       - 모든 개발 환경 컨테이너 중지 (볼륨 삭제 여부 선택)"
+echo "  dev       - 모든 개발 환경 컨테이너 중지 (all과 동일)"
+echo "  backend   - 백엔드 개발 컨테이너 중지 및 삭제"
+echo "  frontend  - 프론트엔드 개발 컨테이너 중지 및 삭제"
+echo "  postgres  - PostgreSQL 개발 데이터베이스 컨테이너 중지 및 삭제 (볼륨 삭제 여부 선택)"
+echo "  mongo     - MongoDB 개발 데이터베이스 컨테이너 중지 및 삭제 (볼륨 삭제 여부 선택)"
+echo "  gradle    - Gradle 캐시 볼륨 삭제"
 echo ""
 echo "예시:"
-echo "  $0 all              - 모든 컨테이너 중지 및 삭제"
-echo "  $0 backend dev      - 개발 환경 백엔드 컨테이너 중지 및 삭제"
-echo "  $0 frontend         - 배포 환경 프론트엔드 컨테이너 중지 및 삭제"
-echo "  $0 mongo dev        - 개발 환경 MongoDB 컨테이너 중지 및 삭제" 
+echo "  $0                  - 모든 개발 환경 컨테이너 중지"
+echo "  $0 all              - 모든 개발 환경 컨테이너 중지"
+echo "  $0 backend          - 백엔드 개발 컨테이너 중지 및 삭제"
+echo "  $0 postgres         - PostgreSQL 개발 컨테이너 중지 및 삭제 (볼륨 삭제 여부 선택)"
+echo "  $0 gradle           - Gradle 캐시 볼륨 삭제" 
