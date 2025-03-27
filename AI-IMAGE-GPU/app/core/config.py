@@ -2,29 +2,12 @@
 애플리케이션 설정 관리
 """
 import os
-import time 
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
-import jwt
 
 # 환경 변수 로드
 load_dotenv()
 
-def encode_jwt_token(ak, sk):
-    headers = {
-        "alg": "HS256",
-        "typ": "JWT"
-    }
-
-    payload = {
-        "iss": ak,
-        "exp": int(time.time()) + 1800,
-        "nbf": int(time.time()) - 5
-    }
-    
-    return jwt.encode(payload, sk, headers=headers)
-    
-    
 class Settings(BaseSettings):
     """애플리케이션 설정"""
     API_V1_STR: str = "/api/v1"
@@ -33,11 +16,6 @@ class Settings(BaseSettings):
     # 이미지 저장 경로 
     IMAGE_SAVE_PATH: str = "app/../images"
     
-    # Kling AI API 설정
-    KLING_ACCESS_KEY: str = os.getenv("KLING_ACCESS_KEY", "")
-    KLING_SECRET_KEY: str = os.getenv("KLING_SECRET_KEY", "")
-    KLING_API_URL: str = "https://api.klingai.com/v1/images/generations"
-
     # OpenAI API 설정
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
@@ -67,6 +45,3 @@ class Settings(BaseSettings):
 
 # 설정 인스턴스 생성
 settings = Settings()
-
-# JWT 토큰 생성
-settings.JWT_TOKEN = encode_jwt_token(settings.KLING_ACCESS_KEY, settings.KLING_SECRET_KEY)
