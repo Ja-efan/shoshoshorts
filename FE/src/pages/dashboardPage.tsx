@@ -54,7 +54,7 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 bg-white border-b">
-        <div className="container flex h-16 items-center justify-between px-4">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <Link to="/" className="flex items-center gap-2">
               <img src={shortLogo} alt="쇼쇼숓 로고" className="h-8 w-8" />
@@ -73,7 +73,7 @@ export default function DashboardPage() {
       </header>
 
       <main className="flex-1 py-8">
-        <div className="container px-4">
+        <div className="container mx-auto px-4">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <h1 className="text-3xl font-bold">내 동영상</h1>
