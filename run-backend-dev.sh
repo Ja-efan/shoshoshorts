@@ -55,33 +55,34 @@ fi
 echo "백엔드 개발 컨테이너를 실행합니다..."
 docker run -d \
   --name sss-backend-dev \
+  --env-file .env \
   -p 8080:8080 \
   -e SPRING_PROFILES_ACTIVE=dev \
-  -e BACKEND_PORT=${BACKEND_PORT} \
-  -e POSTGRES_DB=${POSTGRES_DB} \
-  -e POSTGRES_USER=${POSTGRES_USER} \
-  -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
-  -e MONGO_DB=${MONGO_DB} \
-  -e MONGO_USER=${MONGO_USER} \
-  -e MONGO_PASSWORD=${MONGO_PASSWORD} \
-  -e MONGO_PORT=${MONGO_PORT} \
   -e SPRING_DATA_MONGODB_URI="mongodb://${MONGO_USER}:${MONGO_PASSWORD}@sss-mongo-dev:27017/sss_db?authSource=admin" \
-  -e SPRING_DATA_MONGODB_DATABASE=${MONGO_DB} \
-  -e AWS_ACCESS_KEY=${AWS_ACCESS_KEY} \
-  -e AWS_SECRET_KEY=${AWS_SECRET_KEY} \
-  -e AWS_REGION=${AWS_REGION} \
-  -e AWS_BUCKET=${AWS_BUCKET} \
-  -e FFMPEG_PATH=${FFMPEG_PATH} \
   -e TEMP_DIRECTORY=/app/temp/videos \
-  -e API_PASSWORD=${API_PASSWORD} \
   -v temp-videos:/app/temp/videos \
   -v $(pwd -W)/BE:/app \
   -v $(pwd -W)/BE/gradle:/app/gradle \
-  -v API_PASSWORD=${API_PASSWORD} \
   -v gradle-cache:/gradle_cache \
   --network sss-network \
-  sss-backend-dev:latest
+    sss-backend-dev:latest
+#  -e BACKEND_PORT=${BACKEND_PORT} \
+#  -e POSTGRES_DB=${POSTGRES_DB} \
+#  -e POSTGRES_USER=${POSTGRES_USER} \
+#  -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
+#  -e MONGO_DB=${MONGO_DB} \
+#  -e MONGO_USER=${MONGO_USER} \
+#  -e MONGO_PASSWORD=${MONGO_PASSWORD} \
+#  -e MONGO_PORT=${MONGO_PORT} \
+#  -e SPRING_DATA_MONGODB_DATABASE=${MONGO_DB} \
+#  -e AWS_ACCESS_KEY=${AWS_ACCESS_KEY} \
+#  -e AWS_SECRET_KEY=${AWS_SECRET_KEY} \
+#  -e AWS_REGION=${AWS_REGION} \
+#  -e AWS_BUCKET=${AWS_BUCKET} \
+#  -e FFMPEG_PATH=${FFMPEG_PATH} \
+#  -e API_PASSWORD=${API_PASSWORD} \
+
 
 echo "백엔드 개발 컨테이너가 실행되었습니다."
 echo "백엔드 API는 http://localhost:8080 에서 접근 가능합니다."
-echo "소스 코드를 수정하면 자동으로 반영됩니다." 
+echo "소스 코드를 수정하면 자동으로 반영됩니다."
