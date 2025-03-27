@@ -55,7 +55,7 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     // JWT 토큰 쿠키 만들어주는 메소드
     private Cookie createCookie(String key, String value) {
         Cookie cookie = new Cookie(key, value);
-        cookie.setMaxAge(300*1000); // 쿠키 유효 시간
+        cookie.setMaxAge(30); // 쿠키 유효 시간
         cookie.setSecure(true);
         cookie.setPath("/");    //전체 경로에 적용
         cookie.setHttpOnly(true);   //JavaScript에서 접근 불가능
