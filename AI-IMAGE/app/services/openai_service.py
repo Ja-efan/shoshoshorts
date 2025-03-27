@@ -124,7 +124,7 @@ class OpenAIService:
             )
             
             # TODO 시스템 프롬프트 수정해서 이미지 프롬프트 길지 않게 생성 (2500자 임시 조치)
-            resposne = response.choices[0].message.content.strip()[:2500]
+            resposne = response.choices[0].message.content.strip()[:2400]
 
             # 생성된 프롬프트 반환
             return resposne
