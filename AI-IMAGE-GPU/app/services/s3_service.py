@@ -4,8 +4,6 @@ AWS S3 이미지 업로드 서비스
 import os
 import boto3
 from botocore.exceptions import NoCredentialsError
-from dotenv import load_dotenv
-import time
 from datetime import datetime
 import pytz
 from typing import Optional

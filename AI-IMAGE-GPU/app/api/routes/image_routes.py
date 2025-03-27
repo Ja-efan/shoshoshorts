@@ -1,16 +1,13 @@
 """
 장면 기반 이미지 생성 라우트
 """
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from app.schemas.models import Scene, ImageGenerationResponse
-from app.services.openai_service import openai_service
-from app.services.klingai_service import klingai_service
-from app.services.stablediffusion_service import stablediffusion_service
-from app.services.download_service import download_service
-from app.services.s3_service import s3_service
 import os
 import time
-from app.core.config import settings
+from fastapi import APIRouter, HTTPException
+from app.schemas.models import Scene, ImageGenerationResponse
+from app.services.openai_service import openai_service
+from app.services.stablediffusion_service import stablediffusion_service
+from app.services.s3_service import s3_service
 from app.core.logger import app_logger
 
 # 라우터 생성

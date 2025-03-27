@@ -1,11 +1,9 @@
-import os 
 import time 
 from fastapi import APIRouter, HTTPException
 from app.schemas.models import Scene
 from app.services.openai_service import openai_service
 from app.services.stablediffusion_service import stablediffusion_service
 from app.services.s3_service import s3_service
-from app.core.config import settings
 from app.core.logger import app_logger
 
 # 테스트 라우터 생성 
