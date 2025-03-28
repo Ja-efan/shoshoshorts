@@ -33,6 +33,10 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (video.is_uploaded) {
+      toast.error("이미 유튜브에 업로드된 영상입니다")
+      return
+    }
     setIsShareModalOpen(true)
   }
 
@@ -100,9 +104,13 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
                 <Download className="mr-2 h-4 w-4" />
                 다운로드
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleShare}>
+              <DropdownMenuItem 
+                onClick={handleShare}
+                className={video.is_uploaded ? "opacity-50 cursor-not-allowed" : ""}
+                disabled={video.is_uploaded}
+              >
                 <Share2 className="mr-2 h-4 w-4" />
-                유튜브에 공유
+                {video.is_uploaded ? "이미 공유됨" : "유튜브에 공유"}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleDelete} className="text-red-600">
                 <Trash2 className="mr-2 h-4 w-4" />
