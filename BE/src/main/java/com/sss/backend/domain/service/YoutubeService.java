@@ -1,0 +1,146 @@
+package com.sss.backend.domain.service;
+
+import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.http.FileContent;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.youtube.YouTube;
+import com.google.api.services.youtube.model.Video;
+import com.google.api.services.youtube.model.VideoSnippet;
+import com.google.api.services.youtube.model.VideoStatus;
+import com.sss.backend.api.dto.VideoMetadata;
+import com.sss.backend.api.dto.VideoUploadResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
+
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+
+@Service
+public class YoutubeService {
+
+    @Value("${youtube.application.name}")
+    private String applicationName;
+
+    // 비동기 방식의 업로드 메서드 (Controller에서 호출)
+    public Mono<VideoUploadResponse> uploadVideo(String accessToken, MultipartFile file, VideoMetadata metadata) {
+        return Mono.fromCallable(() -> {
+            try {
+                // MultipartFile을 임시 File로 변환
+                File tempFile = File.createTempFile("youtube-upload-", ".tmp"); //JVM이 관리하는 임시 디렉토리에 파일 생성
+                file.transferTo(tempFile);
+
+                try {
+                    // 동기식 업로드 메서드 호출
+                    String videoId = uploadVideoToYoutube(
+                            tempFile,
+                            metadata.getTitle(),
+                            metadata.getDescription(),
+                            metadata.getTags(),
+                            metadata.getPrivacyStatus(),
+                            metadata.getCategoryId(),
+                            accessToken
+                    );
+
+                    // API 명세에 맞는 응답 생성
+                    VideoUploadResponse response = new VideoUploadResponse();
+                    response.setMessage("비디오 업로드 성공");
+                    response.setVideoId(videoId);
+                    response.setVideoUrl("https://www.youtube.com/watch?v=" + videoId);
+
+                    return response;
+
+                } finally {
+                    // 임시 파일 삭제
+                    if (tempFile.exists()) {
+                        tempFile.delete();
+                    }
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("비디오 업로드 실패: " + e.getMessage(), e);
+            }
+        });
+    }
+
+
+
+    // 실제 YouTube API 호출하는 내부 메서드
+    private String uploadVideoToYoutube(File videoFile, String title, String description,
+                                        String tags, String privacyStatus, String categoryId,
+                                        String accessToken) throws IOException {
+
+        // 인증 정보 생성
+        Credential credential = new GoogleCredential().setAccessToken(accessToken);
+
+        // YouTube 서비스 객체 생성
+        YouTube youtube = new YouTube.Builder(
+                new NetHttpTransport(),
+                JacksonFactory.getDefaultInstance(),
+                credential)
+                .setApplicationName(applicationName)
+                .build();
+
+        // 동영상 메타데이터 설정
+        Video videoMetadata = new Video();
+
+        // 기본 정보 설정
+        VideoSnippet snippet = new VideoSnippet();
+        snippet.setTitle(title != null ? title : "Untitled");
+        snippet.setDescription(description != null ? description : "");
+
+        // 태그 설정 (있는 경우)
+        if (tags != null && !tags.isEmpty()) {
+            snippet.setTags(Arrays.asList(tags.split(",")));
+        }
+
+        // 카테고리 설정
+        snippet.setCategoryId(categoryId != null ? categoryId : "22"); // 기본값 22 (People & Blogs)
+
+        // 개인정보 설정
+        VideoStatus status = new VideoStatus();
+        status.setPrivacyStatus(privacyStatus != null ? privacyStatus : "private"); // 기본값 private
+
+        videoMetadata.setSnippet(snippet);
+        videoMetadata.setStatus(status);
+
+        // 업로드 요청 생성
+        YouTube.Videos.Insert videoInsert = youtube.videos()
+                .insert(Collections.singletonList("snippet,status"), videoMetadata,
+                        new FileContent("video/*", videoFile));
+
+        // 업로드 실행 및 결과 받기
+        Video uploadedVideo = videoInsert.execute();
+
+        // 비디오 ID 반환
+        return uploadedVideo.getId();
+    }
+
+
+    // 썸네일 설정 (선택적 기능)
+    public void setThumbnail(String videoId, File thumbnailFile, String accessToken) throws IOException {
+        // 인증 정보 생성
+        Credential credential = new GoogleCredential().setAccessToken(accessToken);
+
+        // YouTube 서비스 객체 생성
+        YouTube youtube = new YouTube.Builder(
+                new NetHttpTransport(),
+                JacksonFactory.getDefaultInstance(),
+                credential)
+                .setApplicationName(applicationName)
+                .build();
+
+        // 썸네일 설정 요청 생성
+        YouTube.Thumbnails.Set thumbnailSet = youtube.thumbnails()
+                .set(videoId, new FileContent("image/jpeg", thumbnailFile));
+
+        // 요청 실행
+        thumbnailSet.execute();
+    }
+
+}
