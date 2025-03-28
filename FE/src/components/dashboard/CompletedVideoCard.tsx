@@ -48,7 +48,11 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
   const handleUploadToYoutube = async () => {
     try {
       setIsUploading(true)
-      await apiService.uploadVideoToYoutube(video.story_id, title, description)
+      if (!video.video_url) {
+        toast.error("비디오 URL이 없습니다")
+        return
+      }
+      await apiService.uploadVideoToYoutube(video.video_url, title, description)
       
       toast.success("유튜브 업로드 요청이 완료되었습니다")
       if (onUploadComplete) {
