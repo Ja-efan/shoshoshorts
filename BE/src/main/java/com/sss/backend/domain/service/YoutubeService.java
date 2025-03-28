@@ -11,6 +11,7 @@ import com.google.api.services.youtube.model.VideoSnippet;
 import com.google.api.services.youtube.model.VideoStatus;
 import com.sss.backend.api.dto.VideoMetadata;
 import com.sss.backend.api.dto.VideoUploadResponse;
+import com.sss.backend.config.S3Config;
 import com.sss.backend.domain.repository.VideoRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -26,7 +27,6 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Optional;
 
 @Service
 public class YoutubeService {
@@ -35,9 +35,11 @@ public class YoutubeService {
     private String applicationName;
 
     private final VideoRepository videoRepository;
+    private final S3Config s3Config;
 
-    public YoutubeService(VideoRepository videoRepository){
+    public YoutubeService(VideoRepository videoRepository, S3Config s3Config){
         this.videoRepository = videoRepository;
+        this.s3Config = s3Config;
     }
 
     // 비동기 방식의 업로드 메서드 (Controller에서 호출)
@@ -50,9 +52,16 @@ public class YoutubeService {
 
                 // 제공된 URL에서 임시 파일로 다운로드
                 File tempFile = File.createTempFile("youtube-upload-", ".tmp");
-                downloadFromUrl(videoUrl, tempFile);
+
 
                 try {
+
+                    // S3 URL에서 키 추출
+                    String s3key = s3Config.extractS3KeyFromUrl(videoUrl);
+
+                    // S3에서 파일 다운로드
+                    s3Config.downloadFromS3(s3key,tempFile.getAbsolutePath());
+
                     // 동기식 업로드 메서드 호출
                     String youtubeVideoId = uploadVideoToYoutube(
                             tempFile,
@@ -86,16 +95,6 @@ public class YoutubeService {
         });
     }
 
-
-    // URL에서 파일 다운로드하는 메서드
-    private void downloadFromUrl(String urlStr, File destination) throws IOException {
-        URL url = new URL(urlStr);
-        try (InputStream in = url.openStream();
-             ReadableByteChannel rbc = Channels.newChannel(in);
-             FileOutputStream fos = new FileOutputStream(destination)) {
-            fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-        }
-    }
 
 
 
