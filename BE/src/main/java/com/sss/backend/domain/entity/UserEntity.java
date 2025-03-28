@@ -41,7 +41,11 @@ public class UserEntity {
     // Java 규칙에서는 변수나 필드명을 camelCase로 쓰는 게 표준
     // 반면, DB컬럼명은 대부분 snake_case를 쓰는 게 관례임.
 
-
+    public UserEntity(String email, String userName, String role){
+        this.email = email;
+        this.userName = userName;
+        this.role = role;
+    }
 
 
 
