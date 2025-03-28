@@ -13,7 +13,7 @@ export const API_ENDPOINTS = {
   CREATE_VIDEO: `${API_BASE_URL}/api/videos/generate`,
   GET_VIDEOS: `${API_BASE_URL}/api/videos/status/allstory`,
   AUTH: {
-    CALLBACK: (provider: SocialProvider) => `${API_BASE_URL}/api/auth/${provider}/callback`,
+    OAUTH: `${API_BASE_URL}/api/auth/oauth`,
     REFRESH: `${API_BASE_URL}/api/auth/refresh`,
     LOGOUT: `${API_BASE_URL}/api/auth/logout`,
   },
@@ -56,8 +56,8 @@ export const apiService = {
   async handleSocialLoginCallback(provider: SocialProvider, code: string) {
     try {
       const response = await axios.post<LoginResponse>(
-        API_ENDPOINTS.AUTH.CALLBACK(provider),
-        { code }
+        API_ENDPOINTS.AUTH.OAUTH,
+        { provider, code }
       );
       // 액세스 토큰 저장 및 Redux store 업데이트
       const token = response.data.token;
