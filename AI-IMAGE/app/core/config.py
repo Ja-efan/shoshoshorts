@@ -3,9 +3,9 @@
 """
 import os
 import time 
-from pydantic_settings import BaseSettings
-from dotenv import load_dotenv
 import jwt
+from dotenv import load_dotenv
+from pydantic_settings import BaseSettings
 
 # 환경 변수 로드
 load_dotenv()
@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     """애플리케이션 설정"""
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Kling AI 이미지 생성 API"
+    
+    # Prompt 파일 경로
+    PROMPT_DIR: str = "app/prompts"
+    SYSTEM_PROMPT_DIR: str = os.path.join(PROMPT_DIR, "system-prompt")
     
     # Kling AI API 설정
     KLING_ACCESS_KEY: str = os.getenv("KLING_ACCESS_KEY", "")
@@ -61,7 +65,7 @@ class Settings(BaseSettings):
 
     class Config:
         case_sensitive = True
-
+        
 # 설정 인스턴스 생성
 settings = Settings()
 
