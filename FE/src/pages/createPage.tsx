@@ -3,12 +3,13 @@
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { Video, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { apiService } from "@/lib/api.ts"
 import { useCharacter } from "@/hooks/useCharacter"
 import { CharacterForm } from "@/components/create/CharacterForm"
 import { StoryForm } from "@/components/create/StoryForm"
 import { CurrentlyPlaying } from "@/types/character"
+import shortLogo from "@/assets/short_logo.png";
 
 export default function CreateVideoPage() {
   const { characters, addCharacter, updateCharacter, removeCharacter } = useCharacter()
@@ -38,8 +39,8 @@ export default function CreateVideoPage() {
       requestData.characterArr = characters.map(character => ({
         name: character.name,
         gender: character.gender ? (character.gender === "male" ? "1" : "2") : null,
-        description: character.description || "이미지 생성을 위한 설명...",
-        voice_code: character.voice && character.gender ? voiceCodes[character.gender][parseInt(character.voice.slice(-1)) - 1] : null
+        properties: character.description || "이미지 생성을 위한 설명...",
+        voiceCode: character.voice && character.gender ? voiceCodes[character.gender][parseInt(character.voice.slice(-1)) - 1] : null
       }))
     }
 
@@ -58,10 +59,12 @@ export default function CreateVideoPage() {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 bg-white border-b">
         <div className="container flex h-16 items-center justify-between px-4">
-          <Link to="/" className="flex items-center gap-2">
-            <Video className="h-8 w-8 text-red-600" />
-            <span className="text-xl font-bold">StoryToVideo</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2">
+              <img src={shortLogo} alt="쇼쇼숓 로고" className="h-8 w-8" />
+              <span className="text-xl font-bold">쇼쇼숓</span>
+            </Link>
+          </div>
         </div>
       </header>
 

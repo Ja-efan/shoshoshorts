@@ -9,31 +9,25 @@ else
   exit 1
 fi
 
-# 네트워크가 없으면 생성
-if ! docker network inspect sss-network &>/dev/null; then
-  echo "Docker 네트워크 'sss-network'를 생성합니다..."
-  docker network create sss-network
-fi
-
 # 프론트엔드 개발 이미지가 없으면 빌드
 if ! docker image inspect sss-frontend-dev:latest &>/dev/null; then
   echo "프론트엔드 개발 이미지가 없습니다. 이미지를 빌드합니다..."
   ./build-images.sh
 fi
 
-# 프론트엔드 개발 컨테이너 실행
-echo "프론트엔드 개발 컨테이너를 실행합니다..."
-docker run -d \
-  --name sss-frontend-dev \
-  -p 3000:5173 \
-  -v $(pwd)/FE:/app \
-  -v /app/node_modules \
-  --network sss-network \
-  sss-frontend-dev:latest
+# 종속성 안내 메시지 출력
+echo "─────────────────────────────────────────────────────────────────"
+echo "📌 프론트엔드 개발 환경은 종속성 관계로 다음 컨테이너를 함께 실행합니다:"
+echo "   - 프론트엔드 (frontend)"
+echo "   - 백엔드 (backend)"
+echo "   - PostgreSQL 데이터베이스 (db)"
+echo "   - MongoDB 데이터베이스 (mongo)"
+echo "─────────────────────────────────────────────────────────────────"
 
-echo "프론트엔드 개발 컨테이너가 시작되었습니다. 서버가 초기화되는 중입니다..."
+# Docker Compose를 사용하여 프론트엔드 서비스 실행
+echo "Docker Compose를 사용하여 프론트엔드 개발 환경을 실행합니다..."
+docker compose -f docker-compose.dev.yml up -d frontend
+
+echo "프론트엔드 개발 환경이 실행되었습니다."
+echo "프론트엔드는 http://localhost:3000 에서 접근 가능합니다."
 echo "소스 코드를 수정하면 자동으로 반영됩니다."
-
-# 15초 대기 후 접속 정보 표시
-sleep 15
-echo "프론트엔드는 http://localhost:3000 에서 접근 가능합니다." 

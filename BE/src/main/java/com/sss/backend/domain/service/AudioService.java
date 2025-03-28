@@ -3,6 +3,10 @@ package com.sss.backend.domain.service;
 import com.sss.backend.domain.document.CharacterDocument;
 import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.repository.SceneDocumentRepository;
+import com.sss.backend.config.S3Config;
+import net.bramp.ffmpeg.FFmpeg;
+import net.bramp.ffmpeg.FFprobe;
+import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,6 +24,9 @@ public class AudioService {
 
     private final SceneDocumentRepository sceneDocumentRepository;
     private final WebClient webClient;
+    private final S3Config s3Config;
+    private final FFmpeg ffmpeg;
+    private final FFprobe ffprobe;
 
     @Value("${api.password}")
     private String apiPassword;
@@ -27,9 +34,13 @@ public class AudioService {
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
 
-    public AudioService(SceneDocumentRepository sceneDocumentRepository, WebClient webClient){
+    public AudioService(SceneDocumentRepository sceneDocumentRepository, WebClient webClient, 
+                       S3Config s3Config, FFmpeg ffmpeg, FFprobe ffprobe) {
         this.sceneDocumentRepository = sceneDocumentRepository;
         this.webClient = webClient;
+        this.s3Config = s3Config;
+        this.ffmpeg = ffmpeg;
+        this.ffprobe = ffprobe;
     }
 
 //    @Value("${audio.api.url}")
@@ -156,24 +167,46 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
             }
 
             // 해당 오디오 정보 업데이트 (기존에 있더라도 덮어쓰기)
-            targetAudio.put("audio_url", responseBody.get("s3_url"));
+            String audioUrl = (String) responseBody.get("s3_url");
+            targetAudio.put("audio_url", audioUrl);
             targetAudio.put("content_type", responseBody.get("content_type"));
             targetAudio.put("file_size", responseBody.get("file_size"));
             targetAudio.put("base_model", defaultModelId);
             targetAudio.put("audio_settings", defaultOutputFormat);
             targetAudio.put("voice_code", voiceCode);
 
+            // 오디오 길이 추출 및 저장
+            double durationInSeconds = extractAudioDuration(audioUrl);
+            targetAudio.put("duration", durationInSeconds);
+
             // SceneDocument 저장
             SceneDocument updatedDocument = sceneDocumentRepository.save(sceneDocument);
             log.info("오디오 생성 및 문서 업데이트 완료: storyId={}, sceneId={}, audioId={}", storyId, sceneId, audioId);
-            return updatedDocument;
 
+            return updatedDocument;
         } catch (Exception e) {
             log.error("오디오 생성 중 오류 발생", e);
             throw new RuntimeException("오디오 생성에 실패했습니다: " + e.getMessage(), e);
         }
     }
 
+    // 오디오 파일 길이 추출 메서드
+    private double extractAudioDuration(String audioUrl) {
+        try {
+            String s3Key = s3Config.extractS3KeyFromUrl(audioUrl);
+            String presignedUrl = s3Config.generatePresignedUrl(s3Key);
+            
+            // net.bramp.ffmpeg 라이브러리 API 사용
+            FFmpegProbeResult probeResult = ffprobe.probe(presignedUrl);
+            double durationInSeconds = probeResult.format.duration;
+            
+            log.info("오디오 길이 추출 성공: {} 초", durationInSeconds);
+            return durationInSeconds;
+        } catch (Exception e) {
+            log.error("오디오 길이 추출 중 오류 발생: {}", e.getMessage(), e);
+            return 0.0; // 추출 실패 시 기본값 0으로 설정
+        }
+    }
 
     //특정 씬과 오디오 찾는 메서드
     private Map<String, Object> findSceneAndAudio(SceneDocument sceneDocument, int sceneId, Integer audioId) {

@@ -181,11 +181,13 @@ public class VideoService {
         }
     }
     
-    public File mergeVideos(List<String> videoPaths, String outputPath) {
+    public File mergeVideos(List<String> videoPaths, String outputPath, String storyId) {
         try {
             createTempDir();
 
             String cleanOutputPath = outputPath.replace("\"", "");
+            String tempOutputPath = TEMP_DIR + "/merged_without_subs_" + UUID.randomUUID() + ".mp4";
+            String cleanTempOutputPath = tempOutputPath.replace("\"", "");
 
             // 비디오 파일을 임시 경로로 복사 (여러 파일 병합 위해 필요한 과정)
             List<String> tempVideoPaths = new ArrayList<>();
@@ -206,27 +208,44 @@ public class VideoService {
             
             Files.write(listFilePath, fileList.toString().getBytes());
             
-            // 바로 최종 출력 경로에 생성
-            FFmpegBuilder builder = new FFmpegBuilder()
+            // 1단계: 먼저 비디오만 병합 (자막 없이)
+            FFmpegBuilder mergeBuilder = new FFmpegBuilder()
                 .setInput(listFilePath.toString())
                 .addExtraArgs("-y")
                 .addExtraArgs("-f", "concat")
                 .addExtraArgs("-safe", "0")
-                .addOutput(cleanOutputPath)
+                .addOutput(cleanTempOutputPath)
                 .setVideoCodec("libx264")
-                .setAudioCodec("aac")
+                .setAudioCodec("aac") 
                 .setFormat("mp4")
                 .done();
                 
             // 실행
             FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
-            executor.createJob(builder).run();
+            executor.createJob(mergeBuilder).run();
+            
+            // 2단계: 병합된 비디오에 자막 추가
+            File subtitleFile = createSubtitleFile(storyId);
+            
+            FFmpegBuilder subtitleBuilder = new FFmpegBuilder()
+                .setInput(cleanTempOutputPath)
+                .addExtraArgs("-y")
+                .addOutput(cleanOutputPath)
+                .setVideoCodec("libx264")
+                .setAudioCodec("aac")
+                .addExtraArgs("-vf", "ass=" + subtitleFile.getAbsolutePath().replace("\\", "\\\\").replace(":", "\\:"))
+                .setFormat("mp4")
+                .done();
+                
+            executor.createJob(subtitleBuilder).run();
             
             // 임시 파일 삭제
             Files.delete(listFilePath);
             for (String path : tempVideoPaths) {
                 new File(path).delete();
             }
+            new File(cleanTempOutputPath).delete();
+            subtitleFile.delete();
 
             return new File(cleanOutputPath);
         } catch (IOException e) {
@@ -300,7 +319,7 @@ public class VideoService {
             }
             
             // 모든 씬 비디오 병합하여 최종 비디오 생성
-            File finalVideo = mergeVideos(sceneVideoPaths, cleanOutputPath);
+            File finalVideo = mergeVideos(sceneVideoPaths, cleanOutputPath, storyId);
             
             // 임시 씬 비디오 파일들 삭제
             for (String path : sceneVideoPaths) {
@@ -412,6 +431,7 @@ public class VideoService {
      * status :         video.status
      * completedAt :    생성 완료 시간 : video.completedAt
      * sumnail_url :    썸네일(00:00) -> 첫번째 이미지 보여주자! => 첫 번째 scene의 image URL을 pre-signed url 로 변경해서 반환
+     * videoUrl:        video URL을 Presigned URL로 변경해서 반환
      * storyId :        story.story_id
      */
     public VideoListResponseDTO getAllVideoStatus() {
@@ -436,13 +456,20 @@ public class VideoService {
 
             //썸네일용 Presigned Url 생성
             String thumbnailUrl = getFirstImageURL(storyId);
+            
+            // video_url이 있는 경우에만 presigned URL 생성
+            String videoUrl = null;
+            if (video.getVideo_url() != null) {
+                String videoS3Key = s3Config.extractS3KeyFromUrl(video.getVideo_url());
+                videoUrl = s3Config.generatePresignedUrl(videoS3Key);
+            }
 
-            //DTO 생성
             VideoStatusAllDTO dto = new VideoStatusAllDTO(
                     title,
                     video.getStatus(),
                     completedAt,
                     thumbnailUrl,
+                    videoUrl,
                     storyId
             );
 
@@ -476,14 +503,104 @@ public class VideoService {
         }
 
         // 썸네일용 첫번째 scene 가져오기 + url 꺼내기
-        Map<String, Object> firstScene = sceneArr.getFirst();
+        Map<String, Object> firstScene = sceneArr.get(0);
         String imageUrl = (String) firstScene.get("image_url");
 
-        //Presigned URL 생성
-        String S3Key = s3Config.extractS3KeyFromUrl(imageUrl);
-        String PresignedUrl = s3Config.generatePresignedUrl(S3Key);
+        // image_url이 있는 경우에만 presigned URL 생성
+        if (imageUrl != null) {
+            String S3Key = s3Config.extractS3KeyFromUrl(imageUrl);
+            return s3Config.generatePresignedUrl(S3Key);
+        }
 
-        return PresignedUrl;
+        log.warn("첫 번째 scene의 image_url이 null임. {}", storyId);
+        return null;
+    }
 
+    private String extractStoryIdFromOutputPath(String outputPath) {
+        // Extract storyId from the output path or use another method to get the storyId
+        // This is a placeholder - implement based on your output path format
+        String fileName = new File(outputPath).getName();
+        if (fileName.contains("_")) {
+            return fileName.substring(0, fileName.indexOf("_"));
+        }
+        return "";
+    }
+
+    private File createSubtitleFile(String storyId) throws IOException {
+        // 스토리 문서 조회
+        Optional<SceneDocument> sceneDocumentOpt = sceneDocumentRepository.findByStoryId(storyId);
+        if (sceneDocumentOpt.isEmpty()) {
+            throw new RuntimeException("스토리를 찾을 수 없음: " + storyId);
+        }
+        
+        SceneDocument sceneDocument = sceneDocumentOpt.get();
+        List<Map<String, Object>> scenes = sceneDocument.getSceneArr();
+        
+        // ASS 형식의 자막 파일 생성
+        File subtitleFile = new File(TEMP_DIR + "/" + storyId + "_subtitles.ass");
+        StringBuilder assContent = new StringBuilder();
+        
+        // ASS 헤더 추가
+        assContent.append("[Script Info]\n");
+        assContent.append("Title: ").append(sceneDocument.getStoryTitle()).append("\n");
+        assContent.append("ScriptType: v4.00+\n");
+        assContent.append("PlayResX: 1280\n");
+        assContent.append("PlayResY: 720\n");
+        assContent.append("WrapStyle: 0\n");
+        // assContent.append("ScaledBorderAndShadow: yes\n");  // 테두리와 그림자 스케일링 활성화
+        assContent.append("\n");
+        
+        // 스타일 정의 수정
+        assContent.append("[V4+ Styles]\n");
+        assContent.append("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n");
+        assContent.append("Style: Default,NanumGothic,20,&H00FFFFFF,&H000000FF,&H00000000,&H88000000,1,0,0,0,100,100,0,0,1,2,2,2,10,10,50,1\n");
+        assContent.append("\n");
+        
+        // 자막 이벤트
+        assContent.append("[Events]\n");
+        assContent.append("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
+        
+        double currentTime = 0.0;
+        
+        // 각 씬과 오디오에 대한 자막 추가
+        for (Map<String, Object> scene : scenes) {
+            List<Map<String, Object>> audioArr = (List<Map<String, Object>>) scene.get("audioArr");
+            
+            for (Map<String, Object> audio : audioArr) {
+                // 텍스트와 길이 가져오기
+                String text = (String) audio.get("text");
+                double duration = audio.containsKey("duration") ? 
+                    ((Number) audio.get("duration")).doubleValue() : 3.0; // 기본값 3초
+                
+                // ASS 형식의 시간 문자열
+                String startTime = formatAssTime(currentTime);
+                String endTime = formatAssTime(currentTime + duration);
+                
+                // 자막 라인 추가
+                assContent.append("Dialogue: 0,")
+                         .append(startTime).append(",")
+                         .append(endTime).append(",")
+                         .append("Default,,0,0,0,,")
+                         .append(text.replace(",", "\\,"))
+                         .append("\n");
+                
+                // 현재 시간 업데이트
+                currentTime += duration;
+            }
+        }
+        
+        // 파일에 내용 쓰기
+        Files.writeString(subtitleFile.toPath(), assContent.toString());
+        return subtitleFile;
+    }
+
+    // ASS 형식의 시간 문자열로 변환
+    private String formatAssTime(double seconds) {
+        int hours = (int) (seconds / 3600);
+        int minutes = (int) ((seconds % 3600) / 60);
+        int secs = (int) (seconds % 60);
+        int centiseconds = (int) ((seconds - Math.floor(seconds)) * 100);
+        
+        return String.format("%d:%02d:%02d.%02d", hours, minutes, secs, centiseconds);
     }
 }
