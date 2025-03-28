@@ -104,6 +104,8 @@ class OpenAIService:
                 prompt += f"[대사] {audio.get('character', '알 수 없음')}{emotion_text}: {audio['text']}\n"
             elif audio["type"] == "sound":
                 prompt += f"[효과음] {audio['text']}\n"
+                
+        app_logger.debug(f"이미지 프롬프트 생성을 위해 생성된 프롬프트: \n{prompt}")
         
         prompt += f"\n위 장면을 '{style}' 스타일로 시각화하는 고품질 이미지를 생성하기 위한 디테일한 프롬프트를 작성해주세요. {style_instruction} 장면의 분위기, 등장인물의 특징, 배경 등을 묘사해주세요. 영어로 작성해주세요."
         
@@ -124,11 +126,13 @@ class OpenAIService:
                 temperature=openai_config.TEMPERATURE
             )
             
-            # TODO 시스템 프롬프트 수정해서 이미지 프롬프트 길지 않게 생성 (2500자 임시 조치)
-            resposne = response.choices[0].message.content.strip()[:2400]
+            # TODO 시스템 프롬프트 수정해서 이미지 프롬프트 길지 않게 생성 (2250자 임시 조치)
+            image_prompt = response.choices[0].message.content.strip()[:2250]
+            app_logger.debug(f"생성된 이미지 프롬프트: \n{image_prompt}")
+            app_logger.debug(f"생성된 이미지 프롬프트 길이: {len(image_prompt)}")
 
             # 생성된 프롬프트 반환
-            return resposne
+            return image_prompt
             
         except Exception as e:
             # 오류 발생 시 기본 프롬프트 반환
