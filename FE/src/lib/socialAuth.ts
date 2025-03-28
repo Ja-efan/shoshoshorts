@@ -57,31 +57,5 @@ export const socialAuth = {
   },
 
   // 소셜 로그인 콜백 처리
-  async handleCallback(provider: "google" | "naver" | "kakao", code: string) {
-    const config = SOCIAL_AUTH_CONFIG[provider];
-    
-    try {
-      // 백엔드로 인증 코드 전송
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/${provider}/callback`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          code,
-          redirectUri: config.redirectUri,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("인증 처리 실패");
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error(`${provider} 로그인 콜백 처리 실패:`, error);
-      throw error;
-    }
-  },
+  
 }; 
