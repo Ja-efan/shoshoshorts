@@ -25,7 +25,7 @@ public class YoutubeController {
 
     @PostMapping("/upload")
     public ResponseEntity<?> uploadVideo(
-            @RequestParam("file") MultipartFile file,
+            @RequestParam("videoURL") String videoUrl,
             @RequestParam(value = "title", required = false, defaultValue = "Untitled") String title,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "tags", required = false, defaultValue = "shorts") String tags,
@@ -34,10 +34,10 @@ public class YoutubeController {
             @RequestHeader("Authorization") String authorizationHeader) {
         //요청 헤더에서 인증 토큰 추출
 
-        // 파일이 비어있는지 확인
-        if (file.isEmpty()) {
+        // URL이 비어있는지 확인
+        if (videoUrl == null || videoUrl.isEmpty()) {
             Map<String, String> response = new HashMap<>();
-            response.put("message", "파일이 누락되었습니다");
+            response.put("message", "비디오 URL이 누락되었습니다");
             return ResponseEntity.badRequest().body(response);
         }
 
@@ -59,7 +59,7 @@ public class YoutubeController {
 
 
             // 비디오 업로드 (비동기 메서드를 블로킹 호출)
-            VideoUploadResponse response = youtubeService.uploadVideo(accessToken, file, metadata).block();
+            VideoUploadResponse response = youtubeService.uploadVideo(accessToken,videoUrl,metadata).block();
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, Object> response = new HashMap<>();
