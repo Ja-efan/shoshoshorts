@@ -74,12 +74,12 @@ public class OAuthService {
         // 유저 DB에서 조회, 없으면 회원 가입
         UserEntity user = userRepository.findByEmail(email).orElseGet(() -> {
             log.info("등록된 유저가 없습니다. 새로운 User 생성");
-            UserEntity newUser = new UserEntity(email, name, "ROLE_USER");
+            UserEntity newUser = new UserEntity(email, name, "ROLE_USER",provider);
             return userRepository.save(newUser);
         });
 
         //3. JWT 발급
-        return jwtUtil.createJwt(user.getEmail(), user.getRole(), 20*60*1000L);
+        return jwtUtil.createJwt(user.getEmail(), user.getRole(), user.getProvider(), 20*60*1000L);
 
     }
 }
