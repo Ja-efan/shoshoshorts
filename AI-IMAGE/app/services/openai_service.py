@@ -4,6 +4,7 @@ OpenAI 서비스
 from openai import OpenAI
 from app.schemas.models import Scene
 from app.core.config import settings    
+from app.core.logger import app_logger
 from app.core.api_config import openai_config
 
 # OpenAI API 키 가져오기
@@ -131,7 +132,7 @@ class OpenAIService:
             
         except Exception as e:
             # 오류 발생 시 기본 프롬프트 반환
-            print(f"OpenAI API 오류: {str(e)}")
+            app_logger.error(f"OpenAI API 오류: {str(e)}")
             
             # 기본 프롬프트 생성
             default_prompt = f"A scene from the story '{context['title']}' in {style} style, showing "

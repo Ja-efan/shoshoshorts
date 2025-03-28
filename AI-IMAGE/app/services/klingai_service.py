@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 import jwt
 
 from app.core.config import settings
+from app.core.logger import app_logger
 from app.core.api_config import klingai_config
 
 class ImageService:
@@ -34,6 +35,7 @@ class ImageService:
         try:
             # API 키 확인
             if not settings.KLING_ACCESS_KEY or not settings.KLING_SECRET_KEY:
+                app_logger.error("Kling AI API 키가 설정되지 않았습니다.")
                 raise HTTPException(status_code=500, detail="Kling AI API 키가 설정되지 않았습니다.")
             
             # JWT 토큰이 만료되었는지 확인하고 필요하면 갱신
@@ -140,6 +142,7 @@ class ImageService:
         except HTTPException:
             raise
         except Exception as e:
+            app_logger.error(f"이미지 생성 중 오류 발생: {str(e)}")
             raise HTTPException(status_code=500, detail=f"이미지 생성 중 오류 발생: {str(e)}")
     
     @staticmethod
@@ -173,7 +176,7 @@ class ImageService:
                 time.sleep(delay)
                 
             except Exception as e:
-                print(f"이미지 생성 task 결과 가져오기 실패: {str(e)}")
+                app_logger.error(f"이미지 생성 task 결과 가져오기 실패: {str(e)}")
                 time.sleep(delay)
         
         return None

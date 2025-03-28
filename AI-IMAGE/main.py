@@ -12,6 +12,7 @@ from app.services.s3_service import s3_service
 # app 패키지에서 라우터 가져오기
 from app.api.routes import image_routes
 from app.core.config import settings
+from app.core.logger import app_logger
 
 # 배포 환경인가, 개발 환경인가에 따른 docs_url, redoc_url, openapi_url을 볼 수 없도록 설정
 if settings.ENV == "prod":
@@ -33,8 +34,8 @@ app = FastAPI(
 @app.middleware("http")
 async def check_pwd_middleware(request: Request, call_next):
     # POST 요청에만 적용
-    if request.method == "POST":
-        print("post 요청 시작")
+    if request.method == "POST":    
+        app_logger.info("post 요청 시작")
         # 요청 headers에서 apiPwd 확인
         api_pwd = request.headers.get("apiPwd")
         
@@ -69,7 +70,7 @@ async def check_pwd_middleware(request: Request, call_next):
                     status_code=401,
                     content={"message": "API pwd 앞에 dev 또는 prod가 없습니다."}
                 )
-    print("다음으로")
+    app_logger.info("다음으로")
     response = await call_next(request)
     return response
 

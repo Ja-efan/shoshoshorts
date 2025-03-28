@@ -4,12 +4,11 @@ AWS S3 이미지 업로드 서비스
 import os
 import boto3
 from botocore.exceptions import NoCredentialsError
-from dotenv import load_dotenv
-import time
 from datetime import datetime
 import pytz
 from typing import Optional
 from app.core.config import settings
+from app.core.logger import app_logger
 
 class S3Service:
     """AWS S3에 이미지를 업로드하는 서비스"""
@@ -50,7 +49,7 @@ class S3Service:
         ) if self.aws_access_key and self.aws_secret_key else None
         
         # 클라이언트 생성 여부 출력
-        print(f"S3 클라이언트 생성 성공: {self.s3_client is not None}")
+        app_logger.info(f"S3 클라이언트 생성 성공: {self.s3_client is not None}")
     
     def _set_environment(self, is_dev_environment: bool):
         """
@@ -61,13 +60,13 @@ class S3Service:
             self.aws_secret_key = settings.S3_SECRET_KEY
             self.s3_bucket = settings.S3_BUCKET_NAME
             self.s3_region = settings.S3_REGION
-            print("개발 환경 S3 설정이 적용되었습니다.")
+            app_logger.info("개발 환경 S3 설정이 적용되었습니다.")
         else:
             self.aws_access_key = settings.RELEASE_S3_ACCESS_KEY
             self.aws_secret_key = settings.RELEASE_S3_SECRET_KEY
             self.s3_bucket = settings.RELEASE_S3_BUCKET_NAME
             self.s3_region = settings.RELEASE_S3_REGION
-            print("프로덕션 환경 S3 설정이 적용되었습니다.")
+            app_logger.info("프로덕션 환경 S3 설정이 적용되었습니다.")
         # S3 클라이언트 재초기화
         self.s3_client = boto3.client(
             's3',
@@ -89,7 +88,7 @@ class S3Service:
             업로드된 이미지의 S3 URL 또는 None (실패 시)
         """
         if not self.s3_client or not self.s3_bucket:
-            print("S3 자격 증명 또는 버킷 이름이 설정되지 않았습니다.")
+            app_logger.error("S3 자격 증명 또는 버킷 이름이 설정되지 않았습니다.")
             return None
         
         try:
@@ -127,13 +126,13 @@ class S3Service:
             return s3_url
             
         except FileNotFoundError:
-            print(f"업로드할 파일을 찾을 수 없습니다: {image_path}")
+            app_logger.error(f"업로드할 파일을 찾을 수 없습니다: {image_path}")
             return None
         except NoCredentialsError:
-            print("AWS 자격 증명이 잘못되었습니다.")
+            app_logger.error("AWS 자격 증명이 잘못되었습니다.")
             return None
         except Exception as e:
-            print(f"S3 업로드 중 오류 발생: {str(e)}")
+            app_logger.error(f"S3 업로드 중 오류 발생: {str(e)}")
             return None
 
 # 서비스 인스턴스 생성
