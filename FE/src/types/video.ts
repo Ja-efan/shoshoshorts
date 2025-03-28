@@ -5,4 +5,5 @@ export interface VideoData {
   thumbnail_url: string | null
   video_url: string | null
   story_id: string
+  is_uploaded?: boolean
 } 

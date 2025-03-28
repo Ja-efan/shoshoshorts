@@ -12,6 +12,7 @@ axios.defaults.withCredentials = true;  // 쿠키 자동 전송을 위한 설정
 export const API_ENDPOINTS = {
   CREATE_VIDEO: `${API_BASE_URL}/api/videos/generate`,
   GET_VIDEOS: `${API_BASE_URL}/api/videos/status/allstory`,
+  YOUTUBE_UPLOAD: `${API_BASE_URL}/api/youtube/upload`,
   AUTH: {
     OAUTH: `${API_BASE_URL}/api/auth/oauth`,
     REFRESH: `${API_BASE_URL}/api/auth/oauth/refresh`,
@@ -131,6 +132,29 @@ export const apiService = {
       getAuthConfig(token)
     );
     return response.data;
+  },
+
+  // 유튜브 업로드 API
+  async uploadVideoToYoutube(videoID: string, title: string, description: string) {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const response = await axios.post(
+        API_ENDPOINTS.YOUTUBE_UPLOAD,
+        {
+          videoID,
+          title,
+          description,
+          privacyStatus: "public",
+          categoryId: "22",
+          tags: "테스트,youtube,api"
+        },
+        getAuthConfig(token)
+      );
+      return response.data;
+    } catch (error) {
+      console.error("유튜브 업로드 실패:", error);
+      throw error;
+    }
   },
 };
 
