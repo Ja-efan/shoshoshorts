@@ -5,6 +5,7 @@ import com.sss.backend.domain.service.CustomOauth2UserService;
 import com.sss.backend.jwt.JWTFilter;
 import com.sss.backend.oauth2.CustomSuccessHandler;
 import com.sss.backend.jwt.JWTUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,6 +22,7 @@ import java.util.Arrays;
 import static org.springframework.security.config.Customizer.withDefaults;
 
 @Configuration // 설정 파일
+@Slf4j
 @EnableWebSecurity // Spring Security 활성화
 public class Securityconfig {
 
@@ -38,35 +40,31 @@ public class Securityconfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         //CORS 설정
-        http
-                .cors(withDefaults())  // corsConfigurationSource 빈을 자동으로 사용
-                .csrf(csrf -> csrf.disable());
+        http.cors(withDefaults())  // corsConfigurationSource 빈을 자동으로 사용
+            .csrf(csrf -> csrf.disable());
 
         //From 로그인 방식 disable (OAuth2만 쓸거임)
-        http
-                .formLogin((auth) -> auth.disable());
+        http.formLogin((auth) -> auth.disable());
 
         //HTTP Basic 인증 방식 disable
-        http
-                .httpBasic((auth) -> auth.disable());
+        http.httpBasic((auth) -> auth.disable());
 
         //JWTFilter 추가 : Spring Seucurity의 인증 필터 앞에 커스텀 JWT 필터르 끼워넣음
         // 요청 헤더에서 JWT 토큰이 있는지 검사해서 사용자 인증 처리..
         http
                 .addFilterBefore(new JWTFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
 
-        //oauth2 로그인 설정
-        http
-                .oauth2Login((oauth2) -> oauth2
-                        .userInfoEndpoint((userInfoEndpointConfig -> userInfoEndpointConfig
-                                .userService(customOauth2UserService)))
-                        .successHandler(customSuccessHandler)); //
+//        //oauth2 로그인 설정 (Spring Security에서 자동으로 OAuth 인증 흐름 처리)
+//        http
+//                .oauth2Login((oauth2) -> oauth2
+//                        .userInfoEndpoint((userInfoEndpointConfig -> userInfoEndpointConfig
+//                                .userService(customOauth2UserService)))
+//                        .successHandler(customSuccessHandler)); //
 
         //경로별 인가 작업
         http
                 .authorizeHttpRequests((auth) -> auth
-                        .requestMatchers("/").permitAll() //루트 경로는 모두 접근 허용
-                        .requestMatchers("/admin/**").hasRole("ADMIN") // 관리자 페이지 설정 해주면 좋
+                        .requestMatchers("/", "/api/auth/oauth").permitAll() //루트 경로는 모두 접근 허용
                         .anyRequest().authenticated());     // 그 외는 인증 필요함
 
         //세션 설정 : STATELESS // 사용 안함
