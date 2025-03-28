@@ -135,13 +135,13 @@ export const apiService = {
   },
 
   // 유튜브 업로드 API
-  async uploadVideoToYoutube(videoID: string, title: string, description: string) {
+  async uploadVideoToYoutube(videoURL: string, title: string, description: string) {
     const token = localStorage.getItem("accessToken");
     try {
       const response = await axios.post(
         API_ENDPOINTS.YOUTUBE_UPLOAD,
         {
-          videoID,
+          videoURL,
           title,
           description,
           privacyStatus: "public",
