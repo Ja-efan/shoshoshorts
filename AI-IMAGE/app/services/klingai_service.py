@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 import jwt
 
 from app.core.config import settings
+from app.core.logger import app_logger
 from app.core.api_config import klingai_config
 
 class ImageService:
@@ -34,6 +35,7 @@ class ImageService:
         try:
             # API 키 확인
             if not settings.KLING_ACCESS_KEY or not settings.KLING_SECRET_KEY:
+                app_logger.error("Kling AI API 키가 설정되지 않았습니다.")
                 raise HTTPException(status_code=500, detail="Kling AI API 키가 설정되지 않았습니다.")
             
             # JWT 토큰이 만료되었는지 확인하고 필요하면 갱신
@@ -54,10 +56,13 @@ class ImageService:
                 "Authorization": f"Bearer {settings.JWT_TOKEN}"
             }
             
+            instruction="""
+            {{{A cheerful character in the style of a classic Disney animated movie, with large expressive eyes, soft lighting, vibrant colors, smooth outlines, and a magical fairytale background, highly detailed and whimsical, 2D animation style}}}
+            """
             # API 요청 데이터
             payload = {
                 "model": klingai_config.MODEL,
-                "prompt": "{{{A cheerful character in the style of a classic Disney animated movie, with large expressive eyes, soft lighting, vibrant colors, smooth outlines, and a magical fairytale background, highly detailed and whimsical, 2D animation style}}}, "+prompt,
+                "prompt": instruction+prompt,
                 "negative_prompt": negative_prompt if negative_prompt else "",
                 "n": klingai_config.N,
                 "aspect_ratio": klingai_config.ASPECT_RATIO
@@ -83,37 +88,8 @@ class ImageService:
                 http_status_code = 500  # 기본적으로 서버 오류로 설정
                 
                 # Kling AI 응답 코드에 따른 HTTP 상태 코드 매핑
-                kling_to_http = {
-                    # 200 OK
-                    0: 200,
-                    
-                    # 401 Unauthorized
-                    1000: 401, 1001: 401, 1002: 401, 1003: 401, 1004: 401,
-                    
-                    # 429 Too Many Requests
-                    1100: 429, 1101: 429, 1102: 429, 1302: 429, 1303: 429, 1304: 429,
-                    
-                    # 403 Forbidden
-                    1103: 403,
-                    
-                    # 400 Bad Request
-                    1200: 400, 1201: 400, 1300: 400, 1301: 400,
-                    
-                    # 404 Not Found
-                    1202: 404, 1203: 404,
-                    
-                    # 500 Internal Server Error
-                    5000: 500,
-                    
-                    # 503 Service Unavailable
-                    5001: 503,
-                    
-                    # 504 Gateway Timeout
-                    5002: 504
-                }
-                
-                if response_code in kling_to_http:
-                    http_status_code = kling_to_http[response_code]
+                if response_code in klingai_config.KLING_TO_HTTP:
+                    http_status_code = klingai_config.KLING_TO_HTTP[response_code]
                 
                 raise HTTPException(
                     status_code=http_status_code,  
@@ -133,13 +109,15 @@ class ImageService:
                             "prompt": prompt
                         }
                     else:
-                        raise HTTPException(status_code=500, detail="이미지 생성 시간 초과")
+                        app_logger.error(f"이미지 생성 실패: KLINAI image url 없음")
+                        raise HTTPException(status_code=500, detail=f"이미지 생성 실패: KLINAI image url 없음")
             except:
                 raise HTTPException(status_code=500, detail="응답 데이터 파싱 오류")
             
         except HTTPException:
             raise
         except Exception as e:
+            app_logger.error(f"이미지 생성 중 오류 발생: {str(e)}")
             raise HTTPException(status_code=500, detail=f"이미지 생성 중 오류 발생: {str(e)}")
     
     @staticmethod
@@ -173,7 +151,7 @@ class ImageService:
                 time.sleep(delay)
                 
             except Exception as e:
-                print(f"이미지 생성 task 결과 가져오기 실패: {str(e)}")
+                app_logger.error(f"이미지 생성 task 결과 가져오기 실패: {str(e)}")
                 time.sleep(delay)
         
         return None

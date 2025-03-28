@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 import pytz
 from typing import Optional
-from app.core.config import settings
+from app.core.logger import app_logger
 from app.services.s3_service import s3_service
 
 class DownloadService:
@@ -66,21 +66,21 @@ class DownloadService:
             # 이미지 다운로드 - SSL 검증 비활성화
             connector = aiohttp.TCPConnector(verify_ssl=False)
             async with aiohttp.ClientSession(connector=connector) as session:
-                print(f"다운로드 시도 중: {image_url}")
+                app_logger.info(f"다운로드 시도 중: {image_url}")
                 async with session.get(image_url) as response:
                     if response.status != 200:
-                        print(f"이미지 다운로드 실패: 상태 코드 {response.status}")
+                        app_logger.error(f"이미지 다운로드 실패: 상태 코드 {response.status}")
                         return None
                     
                     # 이미지를 파일로 저장
                     async with aiofiles.open(save_path, 'wb') as f:
                         await f.write(await response.read())
             
-            print(f"이미지가 저장되었습니다: {save_path}")
+            app_logger.info(f"이미지가 저장되었습니다: {save_path}")
             return save_path
             
         except Exception as e:
-            print(f"이미지 다운로드 중 오류 발생: {str(e)}")
+            app_logger.error(f"이미지 다운로드 중 오류 발생: {str(e)}")
             return None
 
 # 서비스 인스턴스 생성
