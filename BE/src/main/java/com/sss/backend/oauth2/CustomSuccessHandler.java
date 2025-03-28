@@ -42,10 +42,10 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String role = auth.getAuthority();
 
 //        String token = jwtUtil.createJwt(username, role, 60*60*60L); // 60시간
-        String token = jwtUtil.createJwt(username, role, 300*1000L); // 30초
+//        String token = jwtUtil.createJwt(username, role, 300*1000L); // 30초
 
         // JWT를 쿠키로 저장
-        response.addCookie(createCookie("Authorization", token));
+//        response.addCookie(createCookie("Authorization", token));
         // 로그인 성공 후 FE로 리디렉션
         response.sendRedirect(refirectUrl);
         //Todo : Redirect Page 하드코딩.

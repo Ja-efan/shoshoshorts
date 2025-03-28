@@ -34,10 +34,11 @@ public class JWTUtil {
     }
 
     // JWT 생성
-    public String createJwt(String email, String role, Long expiredMs) {
+    public String createJwt(String email, String role, String provider, Long expiredMs) {
         return Jwts.builder()
                 .claim("email", email) // payload
                 .claim("role", role)
+                .claim("provider", provider)
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expiredMs))
                 .signWith(secretKey) // 서명
