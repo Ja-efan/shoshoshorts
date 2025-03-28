@@ -10,6 +10,16 @@ import { CharacterForm } from "@/components/create/CharacterForm"
 import { StoryForm } from "@/components/create/StoryForm"
 import { CurrentlyPlaying } from "@/types/character"
 import shortLogo from "@/assets/short_logo.png";
+import zonosLogo from "@/assets/models/zonos_logo.svg";
+import elevenLabsLogo from "@/assets/models/elevenlabs_logo.png";
+import klingLogo from "@/assets/models/kling_logo.png";
+import dalleLogo from "@/assets/models/dalle_logo.jpg";
+
+type ModelType = {
+  name: string;
+  logo: string;
+  isSelected: boolean;
+}
 
 export default function CreateVideoPage() {
   const { characters, addCharacter, updateCharacter, removeCharacter } = useCharacter()
@@ -20,6 +30,33 @@ export default function CreateVideoPage() {
     voiceOption: null, 
     characterId: null 
   })
+  const [voiceModels, setVoiceModels] = useState<ModelType[]>([
+    { name: "Zonos", logo: zonosLogo, isSelected: true },
+    { name: "ElevenLabs", logo: elevenLabsLogo, isSelected: false },
+  ])
+  const [imageModels, setImageModels] = useState<ModelType[]>([
+    { name: "Kling", logo: klingLogo, isSelected: true },
+    { name: "DALL-E", logo: dalleLogo, isSelected: false }
+  ])
+  const [showModelSelector, setShowModelSelector] = useState(false)
+
+  const toggleModelSelector = () => {
+    setShowModelSelector(!showModelSelector)
+  }
+
+  const selectVoiceModel = (index: number) => {
+    setVoiceModels(voiceModels.map((model, i) => ({
+      ...model,
+      isSelected: i === index
+    })))
+  }
+
+  const selectImageModel = (index: number) => {
+    setImageModels(imageModels.map((model, i) => ({
+      ...model,
+      isSelected: i === index
+    })))
+  }
 
   const handleGenerateVideo = async () => {
     setIsGenerating(true)
@@ -90,6 +127,55 @@ export default function CreateVideoPage() {
                 currentlyPlaying={currentlyPlaying}
                 setCurrentlyPlaying={setCurrentlyPlaying}
               />
+
+              <div className="relative">
+                <Button
+                  onClick={toggleModelSelector}
+                  variant="outline"
+                  className="w-full opacity-50 hover:opacity-100 transition-opacity"
+                >
+                  AI 모델 설정
+                </Button>
+                
+                {showModelSelector && (
+                  <div className="absolute z-10 w-full mt-2 p-4 bg-white border rounded-lg shadow-lg">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">음성 모델</h4>
+                        <div className="flex gap-2">
+                          {voiceModels.map((model, index) => (
+                            <Button
+                              key={model.name}
+                              variant={model.isSelected ? "default" : "outline"}
+                              className="flex-1"
+                              onClick={() => selectVoiceModel(index)}
+                            >
+                              <img src={model.logo} alt={model.name} className="h-4 w-4 mr-2" />
+                              {model.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium mb-2">이미지 모델</h4>
+                        <div className="flex gap-2">
+                          {imageModels.map((model, index) => (
+                            <Button
+                              key={model.name}
+                              variant={model.isSelected ? "default" : "outline"}
+                              className="flex-1"
+                              onClick={() => selectImageModel(index)}
+                            >
+                              <img src={model.logo} alt={model.name} className="h-4 w-4 mr-2" />
+                              {model.name}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <Button
                 onClick={handleGenerateVideo}
