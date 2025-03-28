@@ -24,44 +24,29 @@ const Router: React.FC = () => {
     {
       path: '/create',
       element: (
-        <ProtectedRoute>
           <CreateVideoPage />
-        </ProtectedRoute>
       ),
     },
     {
       path: '/dashboard',
       element: (
-        <ProtectedRoute>
           <DashboardPage />
-        </ProtectedRoute>
       ),
+    },
+    {
+      path: "/dashboard/debug",
+      element: <ProtectedRoute><DashboardPage /></ProtectedRoute>,
+    },
+    {
+      path: "/create/debug",
+      element: <ProtectedRoute><CreateVideoPage /></ProtectedRoute>,
+    },
+    {
+      path: "/auth/:provider/callback",
+      element: <AuthCallbackPage />,
     },
     { path: "*", element: <NotFound /> },
   ]);
 };
-
-export const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <ProtectedRoute><DashboardPage /></ProtectedRoute>,
-  },
-  {
-    path: "/login",
-    element: <LoginPage />,
-  },
-  {
-    path: "/create",
-    element: <ProtectedRoute><CreateVideoPage /></ProtectedRoute>,
-  },
-  {
-    path: "/terms",
-    element: <TermsPage />,
-  },
-  {
-    path: "/auth/:provider/callback",
-    element: <AuthCallbackPage />,
-  },
-]);
 
 export default Router;
