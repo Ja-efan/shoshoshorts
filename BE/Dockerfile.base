@@ -4,7 +4,14 @@ FROM gradle:8.5-jdk21
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ffmpeg \
+    fontconfig \
+    wget \
     && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /usr/share/fonts/truetype/nanum && \
+wget "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Regular.ttf" -O /usr/share/fonts/truetype/nanum/NanumGothic-Regular.ttf && \
+wget "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf" -O /usr/share/fonts/truetype/nanum/NanumGothic-Bold.ttf && \
+chmod 644 /usr/share/fonts/truetype/nanum/*.ttf
 
 # 작업 디렉토리 설정
 WORKDIR /app
