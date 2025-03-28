@@ -1,5 +1,5 @@
 import React from "react";
-import { useRoutes, createBrowserRouter } from "react-router-dom";
+import { useRoutes } from "react-router-dom";
 import Layout from "../components/layout";
 import NotFound from "../pages/notFound";
 import LandingPage from "@/pages/landingPage";

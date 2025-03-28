@@ -14,8 +14,9 @@ export const API_ENDPOINTS = {
   GET_VIDEOS: `${API_BASE_URL}/api/videos/status/allstory`,
   AUTH: {
     OAUTH: `${API_BASE_URL}/api/auth/oauth`,
-    REFRESH: `${API_BASE_URL}/api/auth/refresh`,
-    LOGOUT: `${API_BASE_URL}/api/auth/logout`,
+    REFRESH: `${API_BASE_URL}/api/auth/oauth/refresh`,
+    LOGOUT: `${API_BASE_URL}/api/auth/oauth/logout`,
+    VALIDATE: `${API_BASE_URL}/api/auth/oauth/validate`,
   },
 };
 
@@ -38,7 +39,7 @@ const getAuthConfig = (token?: string | null) => {
 };
 
 export interface TokenResponse {
-  token: string;
+  accessToken: string;
   refreshToken?: string; // 서버에서 리프레시 토큰을 제공하는 경우 사용
 }
 
@@ -60,7 +61,7 @@ export const apiService = {
         { provider, code }
       );
       // 액세스 토큰 저장 및 Redux store 업데이트
-      const token = response.data.token;
+      const token = response.data.accessToken;
       localStorage.setItem("accessToken", token);
       store.dispatch(setToken(token));
       return response.data;
@@ -76,7 +77,7 @@ export const apiService = {
         API_ENDPOINTS.AUTH.REFRESH
       );
       
-      const newAccessToken = response.data.token;
+      const newAccessToken = response.data.accessToken;
       localStorage.setItem("accessToken", newAccessToken);
       store.dispatch(setToken(newAccessToken));
       return newAccessToken;
@@ -98,6 +99,17 @@ export const apiService = {
     } catch (error) {
       console.error("로그아웃 실패:", error);
       throw error;
+    }
+  },
+
+  // 토큰 유효성 검사
+  async validateToken() {
+    const token = localStorage.getItem("accessToken");
+    try {
+      await axios.get(API_ENDPOINTS.AUTH.VALIDATE, getAuthConfig(token));
+      return true;
+    } catch (error) {
+      return false;
     }
   },
 
