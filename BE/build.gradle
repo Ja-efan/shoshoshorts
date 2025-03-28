@@ -64,6 +64,13 @@ dependencies {
     // OAuth 2.0 라이브러리
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.19.0'
 
+    // Oauth2 의존성
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-client")
+
+    // JWT (Token 생성 및 검증)
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    implementation 'io.jsonwebtoken:jjwt-impl:0.12.3'
+    implementation 'io.jsonwebtoken:jjwt-jackson:0.12.3'
 }
 
 tasks.named('test') {

@@ -19,11 +19,25 @@ RUN gradle build --no-daemon -x test
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 
-# ffmpeg 설치
+# ffmpeg 및 한글 폰트 설치
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ffmpeg \
+    fontconfig \
+    wget \
     && rm -rf /var/lib/apt/lists/*
+
+# 나눔 고딕 폰트만 직접 다운로드 및 설치
+WORKDIR /tmp
+RUN mkdir -p /usr/share/fonts/truetype/nanum && \
+    wget "https://github.com/googlefonts/nanum-gothic/blob/main/fonts/NanumGothic-Regular.ttf?raw=true" -O /usr/share/fonts/truetype/nanum/NanumGothic-Regular.ttf && \
+    wget "https://github.com/googlefonts/nanum-gothic/blob/main/fonts/NanumGothic-Bold.ttf?raw=true" -O /usr/share/fonts/truetype/nanum/NanumGothic-Bold.ttf && \
+    chmod 644 /usr/share/fonts/truetype/nanum/*.ttf
+
+# 폰트 캐시 갱신 및 확인
+RUN fc-cache -fv && fc-list | grep -i nanum
+
+WORKDIR /app
 
 # 빌드 스테이지에서 생성된 JAR 파일 복사
 COPY --from=build /app/build/libs/*.jar app.jar

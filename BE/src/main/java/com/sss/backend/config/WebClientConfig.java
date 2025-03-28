@@ -27,7 +27,7 @@ public class WebClientConfig {
         // 타임아웃이 설정된 HttpClient 구성
         HttpClient httpClient = HttpClient.create()
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000) // 연결 타임아웃: 10초
-                .responseTimeout(Duration.ofSeconds(60)) // 응답 타임아웃: 60초
+                .responseTimeout(Duration.ofSeconds(600)) // 응답 타임아웃: 600초
                 .doOnConnected(conn ->
                         conn.addHandlerLast(new ReadTimeoutHandler(60, TimeUnit.SECONDS)) // 읽기 타임아웃
                                 .addHandlerLast(new WriteTimeoutHandler(60, TimeUnit.SECONDS))); // 쓰기 타임아웃

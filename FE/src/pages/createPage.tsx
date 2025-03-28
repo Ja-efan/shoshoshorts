@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
-import { apiService } from "@/lib/api.ts"
+import { apiService } from "@/api/api"
 import { useCharacter } from "@/hooks/useCharacter"
 import { CharacterForm } from "@/components/create/CharacterForm"
 import { StoryForm } from "@/components/create/StoryForm"
@@ -69,7 +69,7 @@ export default function CreateVideoPage() {
       </header>
 
       <main className="flex-1 py-8">
-        <div className="container px-4">
+        <div className="container mx-auto px-4">
           <div className="mx-auto max-w-3xl">
             <h1 className="text-3xl font-bold">동영상 만들기</h1>
             <p className="mt-2 text-gray-600">스토리를 입력하고 캐릭터를 추가하여 1분 길이의 동영상을 만들어보세요</p>
