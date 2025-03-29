@@ -19,6 +19,11 @@ import java.util.Iterator;
 @Component
 public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
+    /**
+     * 현재 사용중이지 않음.
+     * Spring Security의 기본 OAuth 로그인에서 사용되는 Handler
+     */
+
     private final JWTUtil jwtUtil;
     @Value("${app.redirect-url}")
     private String refirectUrl;

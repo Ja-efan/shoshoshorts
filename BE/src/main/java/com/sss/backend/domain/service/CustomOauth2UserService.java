@@ -14,6 +14,10 @@ import java.util.Optional;
 
 @Service
 public class CustomOauth2UserService extends DefaultOAuth2UserService {
+    /**
+     * 사용하지 않는 Service.
+     * Spring Security 기반 로그인에서 사용.
+     */
 
     private final UserRepository userRepository;
 
