@@ -34,7 +34,7 @@ public class OAuthService {
         params.add("client_id", System.getenv("GOOGLE_CLIENT_ID"));
         params.add("client_secret", System.getenv("GOOGLE_CLIENT_SECRET"));
         params.add("code", code);
-        params.add("redirect_uri","http://localhost:3000/auth/google/callback");
+        params.add("redirect_uri",System.getenv("REDIRECT_URL"));
         // Todo 하드코딩
         log.info("Access token 요청 param : {}",params);
 
