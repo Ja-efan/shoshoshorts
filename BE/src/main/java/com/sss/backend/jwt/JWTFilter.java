@@ -27,28 +27,28 @@ public class JWTFilter extends OncePerRequestFilter {
         this.jwtUtil = jwtUtil;
     }
 
-    private String resolveToken(HttpServletRequest request) {
-        //1. Authorization 헤더에서 토큰 추출
-        String bearerToken = request.getHeader("Authorization");
-        if (bearerToken != null && bearerToken.startsWith("Bearer")) {
-            return bearerToken.substring(7); // "Bearer " 제거
-        }
-        //2. 쿠키에서 Authorization 이름으로 찾기
-        if (request.getCookies() != null) {
-            for (Cookie cookie: request.getCookies()) {
-                if ("Authorization".equals(cookie.getName())) {
-                    return cookie.getName();
-                }
-            }
-        }
-        return null;
-    }
+//    private String resolveToken(HttpServletRequest request) {
+//        //1. Authorization 헤더에서 토큰 추출
+//        String bearerToken = request.getHeader("Authorization");
+//        if (bearerToken != null && bearerToken.startsWith("Bearer")) {
+//            return bearerToken.substring(7); // "Bearer " 제거
+//        }
+//        //2. 쿠키에서 Authorization 이름으로 찾기
+//        if (request.getCookies() != null) {
+//            for (Cookie cookie: request.getCookies()) {
+//                if ("Authorization".equals(cookie.getName())) {
+//                    return cookie.getName();
+//                }
+//            }
+//        }
+//        return null;
+//    }
     // 요청마다 실행되는 필터 로직
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
         // 토큰 가져오기.
-        String token = resolveToken(request);
+        String token = jwtUtil.extractTokenFromRequest(request);
 
         if (token == null || jwtUtil.isExpired(token)) {
             log.warn("JWT 토큰 없음 또는 만료");
