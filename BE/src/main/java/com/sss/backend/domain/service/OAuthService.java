@@ -22,44 +22,76 @@ public class OAuthService {
     private final UserRepository userRepository ;
 
     public String processOAuthLogin(String provider, String code){
-        log.info("ProcessOAuthLogin ########");
+        log.info("####################################");
+        log.info(" ### OAuth Login - Provider : {} ",provider);
+        log.info("####################################");
 
-        if (!"google".equals(provider)) throw new RuntimeException("지원하지 않는 provider");
+        // OAuth 관련 URI, key 설정용 변수 초기화
+        String tokenUri = "";
+        String userInfoUri ="";
+        String clientId = "";
+        String clientSecret = "";
+        String redirectUri ="";
 
-        //1. access_token 요청
-        String tokenUri = "https://oauth2.googleapis.com/token";
+        // 0. Provider 별 설정 분기
+        switch (provider.toLowerCase()) {
+            case "google" -> {
+                tokenUri = "https://oauth2.googleapis.com/token";
+                userInfoUri = "https://www.googleapis.com/oauth2/v2/userinfo";
+                clientId = System.getenv("GOOGLE_CLIENT_ID");
+                clientSecret = System.getenv("GOOGLE_CLIENT_SECRET");
+                redirectUri = System.getenv("GOOGLE_REDIRECT_URL");
+            }
+//            case "naver" -> {
+//                tokenUri = "https://nid.naver.com/oauth2.0/token";
+//                userInfoUri = "https://openapi.naver.com/v1/nid/me";
+//                // 추가 예정
+//
+//            }
+//            case "kakao" -> {
+//                tokenUri = "https://kauth.kakao.com/oauth/token";
+//                userInfoUri = "https://kapi.kakao.com/v2/user/me";
+//                // 추가 예정
+//
+//            }
+            // 예외처리
+            default -> throw new RuntimeException("지원하지 않는 provider : " + provider);
+        }
 
+        // 1. access_token 요청
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("grant_type", "authorization_code");
-        params.add("client_id", System.getenv("GOOGLE_CLIENT_ID"));
-        params.add("client_secret", System.getenv("GOOGLE_CLIENT_SECRET"));
+        params.add("client_id", clientId);
+        params.add("client_secret", clientSecret);
         params.add("code", code);
-        params.add("redirect_uri",System.getenv("REDIRECT_URL"));
-        // Todo 하드코딩
+        params.add("redirect_uri", redirectUri);
+
         log.info("Access token 요청 param : {}",params);
 
         HttpHeaders headers = new HttpHeaders(); // HTTP 요청을 구성하는 객체
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
+
+        // 실제 토큰 요청
         ResponseEntity<Map> response = restTemplate.postForEntity(tokenUri, request, Map.class);
         // Todo : webclient로 교체하기
-        String accessToken = (String) response.getBody().get("access_token");
 
+
+        String accessToken = (String) response.getBody().get("access_token");
         log.info("받아온 accessToken : {}",accessToken);
 
         if (accessToken == null) {
             throw new RuntimeException("access_token 발급 실패");
         }
 
-        //2. 사용자 정보 요청
+        // 2. 사용자 정보 요청
         log.info("사용자 정보 요청 시작");
         HttpHeaders userHeaders = new HttpHeaders();
         userHeaders.setBearerAuth(accessToken);
         HttpEntity<?> userRequest = new HttpEntity<>(userHeaders);
-
+        // 요청.
         ResponseEntity<Map> userInfoResponse = restTemplate.exchange(
-                "https://www.googleapis.com/oauth2/v2/userinfo",
+                userInfoUri,
                 HttpMethod.GET,
                 userRequest,
                 Map.class
@@ -67,11 +99,33 @@ public class OAuthService {
 
         Map userInfo = userInfoResponse.getBody();
         log.info("userInfo : {}",userInfo);
-        String email = (String) userInfo.get("email");
-        String name = (String) userInfo.get("name");
-        log.info("email and name: {}", email);
-        log.info("email and name: {}", name);
-        // 유저 DB에서 조회, 없으면 회원 가입
+        if (userInfo == null) throw new RuntimeException("사용자 정보 조회 실패 // Provider : " + provider);
+
+        // 3. 사용자 정보 추출 (provider 별 분기)
+        final String email; // Lambda 함수 내에서 변수값 변경하려면 final 로 선언
+        final String name;  // 1회만 초기화.
+        switch (provider.toLowerCase()) {
+            case "google" -> {
+                email = (String) userInfo.get("email");
+                name = (String) userInfo.get("name");
+            }
+//            case "naver" -> {
+//                email = "";
+//                name = "";
+//                //구현예정
+//            }
+//            case "kakao" -> {
+//                email = "";
+//                name = "";
+//                //구현예정
+//            }
+            default -> {
+                throw new RuntimeException("지원 X");
+            }
+        }
+        log.info("사용자 이메일: {}, 이름: {}", email, name);
+
+        // 4. 유저 DB에서 조회, 없으면 회원 가입
         UserEntity user = userRepository.findByEmail(email).orElseGet(() -> {
             log.info("등록된 유저가 없습니다. 새로운 User 생성");
             UserEntity newUser = new UserEntity(email, name, "ROLE_USER",provider);
