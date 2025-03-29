@@ -40,12 +40,18 @@ public class OAuthController {
     public ResponseEntity<?> checkTokenValidity(HttpServletRequest request){
         String token = jwtUtil.extractTokenFromRequest(request);
 
+        // 토큰 유효성 검사
         if (token == null || jwtUtil.isExpired(token) ) {
             log.warn("유효하지 않은 토큰 또는 만료된 토큰");
+            // UNAUTHORIZED 반환.
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("valid",false,"message","Invalid or expired token"));
+                    .body(Map.of(
+                            "valid",false,"message",
+                            "Invalid or expired token")
+                    );
         }
         log.info("유효한 토큰");
-        return ResponseEntity.ok(Map.of("Valid",true));
+        // TRUE 반환
+        return ResponseEntity.ok(Map.of("valid",true));
     }
 }
