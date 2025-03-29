@@ -5,6 +5,7 @@ import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.jwt.JWTUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -21,10 +22,17 @@ public class OAuthService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final UserRepository userRepository ;
 
+    @Value("${oauth2.redirect.google}")
+    private String googleRedirectUri;
+
+    @Value("${oauth2.redirect.naver}")
+    private String naverRedirectUri;
+
+    @Value("${oauth2.redirect.kakao}")
+    private String kakaoRedirectUri;
+
     public String processOAuthLogin(String provider, String code){
-        log.info("####################################");
         log.info(" ### OAuth Login - Provider : {} ",provider);
-        log.info("####################################");
 
         // OAuth 관련 URI, key 설정용 변수 초기화
         String tokenUri = "";
@@ -40,7 +48,8 @@ public class OAuthService {
                 userInfoUri = "https://www.googleapis.com/oauth2/v2/userinfo";
                 clientId = System.getenv("GOOGLE_CLIENT_ID");
                 clientSecret = System.getenv("GOOGLE_CLIENT_SECRET");
-                redirectUri = System.getenv("GOOGLE_REDIRECT_URL");
+//                redirectUri = System.getenv("GOOGLE_REDIRECT_URL");
+                redirectUri = googleRedirectUri;
             }
 //            case "naver" -> {
 //                tokenUri = "https://nid.naver.com/oauth2.0/token";
