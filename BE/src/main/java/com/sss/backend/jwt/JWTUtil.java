@@ -1,8 +1,10 @@
 package com.sss.backend.jwt;
 
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Component
+@Slf4j
 public class JWTUtil {
     private SecretKey secretKey;
 
@@ -30,9 +33,30 @@ public class JWTUtil {
         return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload().get("role", String.class);
     }
 
+    /**
+     * 토큰 만료되었는지 확인하는 메소드
+     * 만료되었다면 true 리턴
+     */
     public Boolean isExpired(String token) {
+        try {
+            Date expiration = Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload()
+                    .getExpiration();
 
-        return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload().getExpiration().before(new Date());
+            log.info("expiration : {}",expiration);
+
+            return expiration.before(new Date());
+
+        } catch (ExpiredJwtException e) {
+            log.warn("JWT 만료 : {} ", e.getMessage());
+            return true;
+        } catch (Exception e) {
+            log.warn("JWT 파싱 오류 {}", e.getMessage());
+            return true;
+        }
     }
 
     // JWT 생성
