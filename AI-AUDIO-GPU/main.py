@@ -16,10 +16,13 @@ import numpy as np
 from io import BytesIO
 import soundfile as sf
 from datetime import datetime
+import logging
 
 from zonos.model import Zonos, DEFAULT_BACKBONE_CLS as ZonosBackbone
 from zonos.conditioning import make_cond_dict, supported_language_codes
 from zonos.utils import DEFAULT_DEVICE as device
+
+logger = logging.getLogger(__name__)
 
 # 전역 변수 선언: 현재 로드된 모델 타입과 모델 인스턴스를 저장
 CURRENT_MODEL_TYPE = None
@@ -82,16 +85,16 @@ class TTSRequest(BaseModel):
         default=None, 
         description="화자 오디오 파일 경로 (선택 사항)"
     )
-    speaker_audio_base64: Optional[str] = Field(
-        default=None, 
-        description="Base64로 인코딩된 화자 오디오 데이터 (선택 사항, 이전 버전 호환용)"
+    speaker_audio_bytes: Optional[bytes] = Field(
+        default=None,
+        description="바이트로 인코딩된 화자 오디오 데이터 (선택 사항)"
     )
     speaker_id: Optional[str] = Field(
         default=None, 
         description="이전에 등록된 화자 ID (speaker_audio_path가 없을 경우 사용)"
     )
     emotion: List[float] = Field(
-        default=[0.8, 0.05, 0.05, 0.05, 0.05, 0.05, 0.1, 0.2], 
+        default=[0.8, 0.05, 0.05, 0.05, 0.05, 0.05, 0.1, 1.0], 
         description="8개의 감정 값 (행복, 슬픔, 혐오, 두려움, 놀람, 분노, 기타, 중립)"
     )
     vq_score: float = Field(
@@ -151,10 +154,6 @@ class TTSResponse(BaseModel):
     audio_path: str = Field(
         description="생성된 오디오 파일 경로"
     )
-    audio_base64: Optional[str] = Field(
-        default=None,
-        description="Base64로 인코딩된 오디오 데이터 (이전 버전 호환용)"
-    )
     sample_rate: int = Field(
         description="오디오 샘플 레이트"
     )
@@ -171,9 +170,9 @@ class RegisterSpeakerRequest(BaseModel):
         default=None,
         description="화자 오디오 파일 경로"
     )
-    speaker_audio_base64: Optional[str] = Field(
+    speaker_audio_bytes: Optional[bytes] = Field(
         default=None,
-        description="Base64로 인코딩된 화자 오디오 데이터 (이전 버전 호환용)"
+        description="바이트로 인코딩된 화자 오디오 데이터"
     )
 
 # 화자 등록 응답 모델
@@ -221,22 +220,14 @@ def load_audio_from_path(audio_path: str):
     wav, sr = torchaudio.load(audio_path)
     return wav, sr
 
-def decode_audio_base64(audio_base64: str):
+def decode_audio_bytes(audio_bytes: bytes):
     """
-    Base64로 인코딩된 오디오 데이터를 디코딩하는 함수
-    
-    Args:
-        audio_base64: Base64로 인코딩된 오디오 데이터
-        
-    Returns:
-        디코딩된 오디오 텐서와 샘플 레이트
+    바이트로 인코딩된 오디오 데이터를 디코딩하는 함수
     """
     try:
-        audio_data = base64.b64decode(audio_base64)
-        
         # 임시 파일에 오디오 데이터 저장
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
-            temp_file.write(audio_data)
+            temp_file.write(audio_bytes)
             temp_file_path = temp_file.name
         
         try:
@@ -247,7 +238,7 @@ def decode_audio_base64(audio_base64: str):
             # 임시 파일 삭제
             os.unlink(temp_file_path)
     except Exception as e:
-        raise ValueError(f"Base64 디코딩 중 오류 발생: {str(e)}")
+        raise ValueError(f"바이트 디코딩 중 오류 발생: {str(e)}")
 
 def save_audio_to_file(audio_array: np.ndarray, sample_rate: int, file_path: str):
     """
@@ -293,18 +284,17 @@ def save_audio_to_file(audio_array: np.ndarray, sample_rate: int, file_path: str
         print(f"파일 저장 중 오류 발생: {str(e)}")
         raise
 
-def encode_audio_to_base64(audio_array: np.ndarray, sample_rate: int):
+def get_audio_bytes(audio_array: np.ndarray, sample_rate: int):
     """
-    오디오 배열을 Base64로 인코딩하는 함수
+    오디오 배열을 바이트로 변환하는 함수 (WAV 포맷)
     
     Args:
         audio_array: 오디오 배열
         sample_rate: 샘플 레이트
         
     Returns:
-        Base64로 인코딩된 오디오 데이터
+        바이트로 된 오디오 데이터
     """
-    # 오디오 배열을 WAV 형식으로 변환
     buffer = BytesIO()
     
     # 오디오 배열이 1D인지 확인하고 필요한 경우 차원 조정
@@ -313,12 +303,11 @@ def encode_audio_to_base64(audio_array: np.ndarray, sample_rate: int):
     else:
         audio_tensor = torch.tensor(audio_array)
     
+    # WAV 포맷으로 버퍼에 저장
     torchaudio.save(buffer, audio_tensor, sample_rate, format="wav")
     buffer.seek(0)
     
-    # Base64로 인코딩
-    audio_base64 = base64.b64encode(buffer.read()).decode("utf-8")
-    return audio_base64
+    return buffer.read()
 
 @app.post("/tts", response_model=TTSResponse)
 async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks):
@@ -354,14 +343,14 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
             wav, sr = load_audio_from_path(request.speaker_audio_path)
             speaker_embedding = model.make_speaker_embedding(wav, sr)
             speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
-        elif request.speaker_audio_base64:
-            # Base64로 인코딩된 오디오에서 화자 임베딩 생성
+        elif request.speaker_audio_bytes:
+            # 바이트로 인코딩된 오디오에서 화자 임베딩 생성
             try:
-                wav, sr = decode_audio_base64(request.speaker_audio_base64)
+                wav, sr = decode_audio_bytes(request.speaker_audio_bytes)
                 speaker_embedding = model.make_speaker_embedding(wav, sr)
                 speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
             except Exception as e:
-                print(f"Base64 디코딩 중 오류 발생: {str(e)}")
+                print(f"바이너리 디코딩 중 오류 발생: {str(e)}")
                 # 오류가 발생해도 계속 진행 (speaker_embedding은 None으로 유지)
         elif request.speaker_id and request.speaker_id in SPEAKER_EMBEDDING_CACHE:
             # 캐시된 화자 임베딩 사용
@@ -414,6 +403,7 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         )
         
         # 생성된 코드를 오디오로 디코딩
+        # GPU 텐서를 CPU 메모리에 기반한 처리를 위해서 텐서를 CPU로 옮김
         wav_out = model.autoencoder.decode(codes).cpu().detach()
         sr_out = model.autoencoder.sampling_rate
         if wav_out.dim() == 2 and wav_out.size(0) > 1:
@@ -421,8 +411,7 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         
         # 현재 스크립트 경로 기준으로 output 폴더 생성
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        base_dir = os.path.dirname(script_dir)  # AI 폴더의 상위 폴더
-        output_dir = os.path.join(base_dir, "output")
+        output_dir = os.path.join(script_dir, "output")  # 현재 폴더 내의 output 디렉토리 사용
         os.makedirs(output_dir, exist_ok=True)
         
         # 파일명 생성 (시간 기반)
@@ -431,30 +420,29 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         filename = os.path.join(output_dir, f"tts_{timestamp}_{text_short}_{seed}.mp3")
         
         # 오디오 저장
-        print(f"오디오 파일 저장 중: {filename}")
+        logger.info(f"오디오 파일 저장 중: {filename}")
         try:
             save_audio_to_file(wav_out.squeeze().numpy(), sr_out, filename)
-            print(f"오디오 파일 저장 완료: {filename}")
+            logger.info(f"오디오 파일 저장 완료: {filename}")
             
             # 파일이 실제로 존재하는지 확인
             if not os.path.exists(filename):
-                print(f"경고: 파일이 저장되지 않았습니다: {filename}")
+                logger.info(f"경고: 파일이 저장되지 않았습니다: {filename}")
         except Exception as e:
-            print(f"오디오 파일 저장 중 오류 발생: {str(e)}")
+            logger.info(f"오디오 파일 저장 중 오류 발생: {str(e)}")
             # 오류가 발생해도 계속 진행
         
         # 메모리 정리를 위한 백그라운드 태스크
         background_tasks.add_task(torch.cuda.empty_cache)
         
-        # 상대 경로로 변환하여 반환 (절대 경로는 보안상 문제가 될 수 있음)
-        relative_path = os.path.relpath(filename, base_dir)
+        # 상대 경로로 변환하여 반환
+        relative_path = os.path.relpath(filename, script_dir)
         
         # 오디오를 Base64로 인코딩
-        audio_base64 = encode_audio_to_base64(wav_out.squeeze().numpy(), sr_out)
+        audio_bytes = get_audio_bytes(wav_out.squeeze().numpy(), sr_out)
         
         return TTSResponse(
             audio_path=relative_path,
-            audio_base64=audio_base64,
             sample_rate=sr_out,
             seed=seed
         )
@@ -482,12 +470,12 @@ async def register_speaker(request: RegisterSpeakerRequest):
             # 파일 경로에서 화자 임베딩 생성
             wav, sr = load_audio_from_path(request.speaker_audio_path)
             speaker_embedding = CURRENT_MODEL.make_speaker_embedding(wav, sr)
-        elif request.speaker_audio_base64:
+        elif request.speaker_audio_bytes:
             # Base64로 인코딩된 오디오에서 화자 임베딩 생성
-            wav, sr = decode_audio_base64(request.speaker_audio_base64)
+            wav, sr = decode_audio_bytes(request.speaker_audio_bytes)
             speaker_embedding = CURRENT_MODEL.make_speaker_embedding(wav, sr)
         else:
-            raise ValueError("화자 오디오 파일 경로 또는 Base64 데이터가 필요합니다.")
+            raise ValueError("화자 오디오 파일 경로 또는 바이트 데이터가 필요합니다.")
         
         speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
         
