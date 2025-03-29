@@ -1,6 +1,8 @@
 package com.sss.backend.jwt;
 
 import io.jsonwebtoken.Jwts;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -45,4 +47,26 @@ public class JWTUtil {
                 .compact(); // 최종 JWT 문자열 생성
     }
 
+    public String extractTokenFromRequest(HttpServletRequest request) {
+        // 1. Authorization 헤더
+        String bearerToken = request.getHeader("Authorization");
+
+            // Bearer 제외하고 return
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+
+        // 2. 쿠키
+            // 토큰만 리턴
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("Authorization".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+
+        return null;
+
+    }
 }
