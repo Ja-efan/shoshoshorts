@@ -25,25 +25,6 @@ WHITELIST = {
     "172.26.9.106", #EC2 서버
 }
 
-# 서버 시작 이벤트 핸들러 추가
-# async def startup_event():
-#     """
-#     서버 시작 시 실행되는 이벤트 핸들러
-#     기본 모델을 미리 로드합니다.
-#     """
-#     try:
-#         # 환경 변수에서 기본 모델 타입 가져오기 (없으면 transformer 사용)
-#         default_model = os.environ.get("ZONOS_DEFAULT_MODEL", "Zyphra/Zonos-v0.1-transformer")
-#         print(f"서버 시작 시 기본 모델 '{default_model}' 로드 중...")
-        
-#         # 모델 로드
-#         model = load_model_if_needed(default_model)
-#         print(f"모델 '{default_model}' 로드 완료! 서버 준비 완료.")
-#     except Exception as e:
-#         print(f"모델 로드 중 오류 발생: {str(e)}")
-#         print("서버는 시작되지만, 첫 요청 시 모델을 로드해야 합니다.")
-
-
 if ENV == "prod":
     docs_url = None
     redoc_url = None
