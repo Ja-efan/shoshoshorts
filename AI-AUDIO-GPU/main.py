@@ -10,8 +10,8 @@ import argparse
 import asyncio
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Union
+# from pydantic import BaseModel, Field
+# from typing import List, Optional, Dict, Any, Union
 import numpy as np
 from io import BytesIO
 import soundfile as sf
@@ -21,6 +21,13 @@ import logging
 from zonos.model import Zonos, DEFAULT_BACKBONE_CLS as ZonosBackbone
 from zonos.conditioning import make_cond_dict, supported_language_codes
 from zonos.utils import DEFAULT_DEVICE as device
+
+from app.schema.zonos import (
+    TTSRequest,
+    TTSResponse,
+    RegisterSpeakerRequest,
+    RegisterSpeakerResponse
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +56,25 @@ async def startup_event():
         print(f"모델 로드 중 오류 발생: {str(e)}")
         print("서버는 시작되지만, 첫 요청 시 모델을 로드해야 합니다.")
 
+ENV = os.getenv("ENV", "development")  # 기본값은 development
+API_PWD = os.getenv("API_PWD")
+
+if ENV == "prod":
+    docs_url = None
+    redoc_url = None
+    openapi_url = None
+else:
+    docs_url = "/docs"
+    redoc_url = "/redoc"
+    openapi_url = "/openapi.json"
+
 app = FastAPI(
     title="Zonos TTS API",
     description="텍스트를 음성으로 변환하는 Zonos TTS 모델 API",
     version="1.0.0",
+    docs_url = docs_url,
+    redoc_url = redoc_url,
+    openapi_url = openapi_url
 )
 
 # 시작 이벤트 핸들러 등록
@@ -66,123 +88,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 요청 모델 정의
-class TTSRequest(BaseModel):
-    model_choice: str = Field(
-        default="Zyphra/Zonos-v0.1-transformer", 
-        description="사용할 모델 타입 (transformer 또는 hybrid)"
-    )
-    text: str = Field(
-        default="안녕하세요, Zonos TTS 모델입니다.", 
-        description="합성할 텍스트"
-    )
-    language: str = Field(
-        default="ko", 
-        description="언어 코드"
-    )
-    speaker_audio_path: Optional[str] = Field(
-        default=None, 
-        description="화자 오디오 파일 경로 (선택 사항)"
-    )
-    speaker_audio_bytes: Optional[bytes] = Field(
-        default=None,
-        description="바이트로 인코딩된 화자 오디오 데이터 (선택 사항)"
-    )
-    speaker_id: Optional[str] = Field(
-        default=None, 
-        description="이전에 등록된 화자 ID (speaker_audio_path가 없을 경우 사용)"
-    )
-    emotion: List[float] = Field(
-        default=[0.8, 0.05, 0.05, 0.05, 0.05, 0.05, 0.1, 1.0], 
-        description="8개의 감정 값 (행복, 슬픔, 혐오, 두려움, 놀람, 분노, 기타, 중립)"
-    )
-    vq_score: float = Field(
-        default=0.78, 
-        description="VQ 점수 (0.5-0.8)"
-    )
-    fmax: float = Field(
-        default=24000, 
-        description="최대 주파수 (Hz)"
-    )
-    pitch_std: float = Field(
-        default=45.0, 
-        description="피치 표준 편차"
-    )
-    speaking_rate: float = Field(
-        default=15.0, 
-        description="말하기 속도"
-    )
-    dnsmos_ovrl: float = Field(
-        default=4.0, 
-        description="DNSMOS 전체 점수"
-    )
-    speaker_noised: bool = Field(
-        default=False, 
-        description="화자 노이즈 제거 여부"
-    )
-    cfg_scale: float = Field(
-        default=2.0, 
-        description="CFG 스케일"
-    )
-    sampling_params: Dict[str, Any] = Field(
-        default={
-            "top_p": 0.0,
-            "top_k": 0,
-            "min_p": 0.0,
-            "linear": 0.5,
-            "conf": 0.4,
-            "quad": 0.0
-        }, 
-        description="샘플링 파라미터"
-    )
-    seed: int = Field(
-        default=42, 
-        description="랜덤 시드"
-    )
-    randomize_seed: bool = Field(
-        default=False, 
-        description="시드 랜덤화 여부"
-    )
-    unconditional_keys: List[str] = Field(
-        default=["emotion"], 
-        description="비조건부 키 목록"
-    )
-
-# 응답 모델 정의
-class TTSResponse(BaseModel):
-    audio_path: str = Field(
-        description="생성된 오디오 파일 경로"
-    )
-    sample_rate: int = Field(
-        description="오디오 샘플 레이트"
-    )
-    seed: int = Field(
-        description="사용된 시드 값"
-    )
-
-# 화자 등록 요청 모델
-class RegisterSpeakerRequest(BaseModel):
-    speaker_id: str = Field(
-        description="등록할 화자 ID"
-    )
-    speaker_audio_path: Optional[str] = Field(
-        default=None,
-        description="화자 오디오 파일 경로"
-    )
-    speaker_audio_bytes: Optional[bytes] = Field(
-        default=None,
-        description="바이트로 인코딩된 화자 오디오 데이터"
-    )
-
-# 화자 등록 응답 모델
-class RegisterSpeakerResponse(BaseModel):
-    speaker_id: str = Field(
-        description="등록된 화자 ID"
-    )
-    message: str = Field(
-        description="등록 결과 메시지"
-    )
 
 def load_model_if_needed(model_choice: str):
     """
@@ -438,8 +343,9 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         # 상대 경로로 변환하여 반환
         relative_path = os.path.relpath(filename, script_dir)
         
-        # 오디오를 Base64로 인코딩
+        # 오디오를 바이트로 인코딩
         audio_bytes = get_audio_bytes(wav_out.squeeze().numpy(), sr_out)
+
         
         return TTSResponse(
             audio_path=relative_path,
