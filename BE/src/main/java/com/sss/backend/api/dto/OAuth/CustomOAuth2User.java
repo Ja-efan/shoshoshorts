@@ -7,6 +7,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 
+/**
+ * Spring Security 기반 OAuth2 방식
+ * 현재는 사용하지 않음.
+ */
 public class CustomOAuth2User implements OAuth2User {
 
     private final UserDTO userDTO;
