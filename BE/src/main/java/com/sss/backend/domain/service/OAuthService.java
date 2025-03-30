@@ -1,5 +1,6 @@
 package com.sss.backend.domain.service;
 
+import com.sss.backend.api.dto.TokenResponse;
 import com.sss.backend.domain.entity.UserEntity;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.jwt.JWTUtil;
@@ -12,6 +13,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 @Service
@@ -31,7 +34,7 @@ public class OAuthService {
     @Value("${oauth2.redirect.kakao}")
     private String kakaoRedirectUri;
 
-    public String processOAuthLogin(String provider, String code){
+    public ResponseEntity<?> processOAuthLogin(String provider, String code){
         log.info(" ### OAuth Login - Provider : {} ",provider);
 
         // OAuth 관련 URI, key 설정용 변수 초기화
@@ -86,17 +89,17 @@ public class OAuthService {
         // Todo : webclient로 교체하기
 
 
-        String accessToken = (String) response.getBody().get("access_token");
-        log.info("받아온 accessToken : {}",accessToken);
+        String authToken = (String) response.getBody().get("access_token");
+        log.info("받아온 authToken : {}",authToken);
 
-        if (accessToken == null) {
+        if (authToken == null) {
             throw new RuntimeException("access_token 발급 실패");
         }
 
         // 2. 사용자 정보 요청
         log.info("사용자 정보 요청 시작");
         HttpHeaders userHeaders = new HttpHeaders();
-        userHeaders.setBearerAuth(accessToken);
+        userHeaders.setBearerAuth(authToken);
         HttpEntity<?> userRequest = new HttpEntity<>(userHeaders);
         // 요청.
         ResponseEntity<Map> userInfoResponse = restTemplate.exchange(
@@ -138,11 +141,39 @@ public class OAuthService {
         UserEntity user = userRepository.findByEmail(email).orElseGet(() -> {
             log.info("등록된 유저가 없습니다. 새로운 User 생성");
             UserEntity newUser = new UserEntity(email, name, "ROLE_USER",provider);
+
+            // 닉네임 생성 및 추가
+            String nickname = generateRandomNickanme();
+            newUser.setNickname(nickname);
             return userRepository.save(newUser);
         });
 
-        //3. JWT 발급
-        return jwtUtil.createJwt(user.getEmail(), user.getRole(), user.getProvider(), 20*60*1000L);
+        // 5. JWT 발급
+        String accessToken = jwtUtil.createAccessToken(user.getEmail(),user.getRole(),user.getProvider(),20*60*1000L);
+        String refreshToken = jwtUtil.createRefreshToken(user.getEmail(), 7 * 24 * 60 * 60 * 1000L); // 7일
+
+        // 6. Refresh Token -> HttpOnly 쿠키에 담기
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
+                .httpOnly(true)
+                .path("/")
+                .maxAge(7 * 24 * 60 * 60) // 7일
+                .sameSite("Lax")
+                .secure(true) // https 환경에서만 전송되도록 (로컬은 false)
+                .build();
+
+        // 7. AccessToken은 Body에 응답
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE,refreshCookie.toString())
+                .body(new TokenResponse(accessToken));
+    }
+
+    /**
+     * 닉네임 자동 메소드
+     */
+    private String generateRandomNickanme() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+        String timestamp = LocalDateTime.now().format(formatter);
+        return "user_" + timestamp;
 
     }
 }
