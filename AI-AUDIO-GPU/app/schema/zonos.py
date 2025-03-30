@@ -27,6 +27,9 @@ class TTSRequest(BaseModel):
         default=None, 
         description="이전에 등록된 화자 ID (speaker_audio_path가 없을 경우 사용)"
     )
+    script_id: int = Field(default=None, description="스크립트 ID")
+    scene_id: int = Field(default=None, description="씬 번호")
+    audio_id: int = Field(default=None, description="오디오 번호")
     emotion: List[float] = Field(
         default=[0.8, 0.05, 0.05, 0.05, 0.05, 0.05, 0.1, 1.0], 
         description="8개의 감정 값 (행복, 슬픔, 혐오, 두려움, 놀람, 분노, 기타, 중립)"
@@ -85,6 +88,9 @@ class TTSRequest(BaseModel):
 
 # 응답 모델 정의
 class TTSResponse(BaseModel):
+    s3_url: str = Field(
+        description="S3에 업로드된 오디오 파일 URL"
+    )
     audio_path: str = Field(
         description="생성된 오디오 파일 경로"
     )

@@ -12,7 +12,7 @@ from starlette.responses import JSONResponse
 from app.routes.script_routes import router as script_router
 from app.routes.elevenlabs_routes import router as elevenlabs_router
 
-# S3 환경 설정정
+# S3 환경 설정
 from app.service.s3 import set_environment
 
 load_dotenv()
