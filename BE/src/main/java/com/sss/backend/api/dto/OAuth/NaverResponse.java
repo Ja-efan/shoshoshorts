@@ -2,6 +2,11 @@ package com.sss.backend.api.dto.OAuth;
 
 import java.util.Map;
 
+/**
+ * Spring Security 기반 OAuth2 방식
+ * 현재는 사용하지 않음
+ */
+
 public class NaverResponse implements OAuth2Response{
     private final Map<String, Object> attribute;
 

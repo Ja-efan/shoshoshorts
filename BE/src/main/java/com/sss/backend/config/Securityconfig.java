@@ -1,15 +1,14 @@
 package com.sss.backend.config;
 
 
-import com.sss.backend.domain.service.CustomOauth2UserService;
 import com.sss.backend.jwt.JWTFilter;
-import com.sss.backend.oauth2.CustomSuccessHandler;
 import com.sss.backend.jwt.JWTUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -26,13 +25,9 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @EnableWebSecurity // Spring Security 활성화
 public class Securityconfig {
 
-    private final CustomOauth2UserService customOauth2UserService;
-    private final CustomSuccessHandler customSuccessHandler;
     private final JWTUtil jwtUtil;
 
-    public Securityconfig(CustomOauth2UserService customOauth2UserService, CustomSuccessHandler customSuccessHandler, JWTUtil jwtUtil) {
-        this.customOauth2UserService = customOauth2UserService;
-        this.customSuccessHandler = customSuccessHandler;
+    public Securityconfig(JWTUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
     }
 
@@ -40,39 +35,38 @@ public class Securityconfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         //CORS 설정
-        http.cors(withDefaults())  // corsConfigurationSource 빈을 자동으로 사용
-            .csrf(csrf -> csrf.disable());
+        return http.cors(withDefaults())  // corsConfigurationSource 빈을 자동으로 사용
+                .csrf(csrf -> csrf.disable()) // CSRF 비활성화
 
-        //From 로그인 방식 disable (OAuth2만 쓸거임)
-        http.formLogin((auth) -> auth.disable());
+                // CORS 설정
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-        //HTTP Basic 인증 방식 disable
-        http.httpBasic((auth) -> auth.disable());
+                // From 로그인 비활성화
+                .formLogin((auth) -> auth.disable())
 
-        //JWTFilter 추가 : Spring Seucurity의 인증 필터 앞에 커스텀 JWT 필터르 끼워넣음
-        // 요청 헤더에서 JWT 토큰이 있는지 검사해서 사용자 인증 처리..
-        http
-                .addFilterBefore(new JWTFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
+                // HTTP Basic 인증 비활성화
+                .httpBasic((auth) -> auth.disable())
 
-//        //oauth2 로그인 설정 (Spring Security에서 자동으로 OAuth 인증 흐름 처리)
-//        http
-//                .oauth2Login((oauth2) -> oauth2
-//                        .userInfoEndpoint((userInfoEndpointConfig -> userInfoEndpointConfig
-//                                .userService(customOauth2UserService)))
-//                        .successHandler(customSuccessHandler)); //
-
-        //경로별 인가 작업
-        http
-                .authorizeHttpRequests((auth) -> auth
-                        .requestMatchers("/", "/api/auth/oauth").permitAll() //루트 경로는 모두 접근 허용
-                        .anyRequest().authenticated());     // 그 외는 인증 필요함
-
-        //세션 설정 : STATELESS // 사용 안함
-        http
+                // 세션을 만들지 않도록 설정
                 .sessionManagement((session) -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-        return http.build();
+                // 인증/인가 설정
+                .authorizeHttpRequests(auth -> configureAuthorization(auth))
+
+                // JWTFilter를 Spring Security 필터 체인 앞에 추가
+                .addFilterBefore(new JWTFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class)
+                .build();
+    }
+
+    /**
+     * 인증/인가 경로 설정
+     * 허용된 요청 제외 모든 요청 인증 필요
+     */
+    private void configureAuthorization(AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
+        auth
+                .requestMatchers("/", "/api/auth/oauth", "/api/auth/check", "/api/auth/refresh").permitAll()
+                .anyRequest().authenticated();
     }
 
     @Bean

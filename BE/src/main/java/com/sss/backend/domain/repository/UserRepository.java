@@ -13,5 +13,5 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     // UserEntity find... 를 하면 값이 없을 때 null이 리턴 됨.
     // 이걸 Service나 Controller에서 사용할 때 NullPointerException이 날 수 있음.
 
-    Optional<UserEntity> findByEmail(String eamil);
+    Optional<UserEntity> findByEmail(String email);
 }
