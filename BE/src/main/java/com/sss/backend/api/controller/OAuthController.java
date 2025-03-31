@@ -1,14 +1,18 @@
 package com.sss.backend.api.controller;
 
 import com.sss.backend.api.dto.OAuth.OAuthLoginRequest;
+import com.sss.backend.api.dto.TokenResponse;
 import com.sss.backend.domain.entity.UserEntity;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.domain.service.OAuthService;
+import com.sss.backend.domain.service.TokenService;
 import com.sss.backend.jwt.JWTUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +27,7 @@ public class OAuthController {
     private final OAuthService oAuthService;
     private final JWTUtil jwtUtil;
     private final UserRepository userRepository;
+    private final TokenService tokenService;
 
     /**
      * OAuth 로그인 및 토큰 유효성 검사를 위한 Controller
@@ -73,21 +78,19 @@ public class OAuthController {
         }
 
         String email = jwtUtil.getEmail(refreshToken);
-
         UserEntity user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("사용자 정보를 찾을 수 없음"));
 
         // Todo : Refresh 토큰 redis 에 저장된 Key-Value와 비교해 유효성검증
         // 맞지 않으면, return.
 
-        String newAccessToken = jwtUtil.createAccessToken(
-                user.getEmail(),
-                user.getRole(),
-                user.getProvider(),
-                20 * 60 * 1000L // 20분
-        );
+        String accessToken = tokenService.createAccessToken(user);
+        String newRefreshToken = tokenService.createAndStoreRefreshToken(email);
+        ResponseCookie cookie = tokenService.createRefreshTokenCookie(newRefreshToken);
 
-        return ResponseEntity.ok(Map.of("accessToken", newAccessToken));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .body(new TokenResponse(accessToken));
     }
 }
 
