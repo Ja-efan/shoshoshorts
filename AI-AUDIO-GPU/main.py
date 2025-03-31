@@ -21,7 +21,7 @@ from zonos.utils import DEFAULT_DEVICE as device
 from starlette.responses import JSONResponse
 from app.service.s3 import set_environment
 
-from app.service.s3 import (upload_binary_to_s3)
+from app.service.s3 import upload_binary_to_s3
 
 from app.schema.zonos import (
     TTSRequest,
