@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from app.services.s3_service import s3_service
+from fastapi.staticfiles import StaticFiles
 
 # app 패키지에서 라우터 가져오기
 from app.api.routes import image_routes
@@ -93,6 +94,9 @@ app.include_router(image_routes.router, prefix=settings.API_V1_STR)
 
 # 테스트 라우터 등록
 app.include_router(tests.router, prefix=settings.API_V1_STR)
+
+# 정적 파일 서빙 추가 
+app.mount("/static/images", StaticFiles(directory="images"), name="images")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root():

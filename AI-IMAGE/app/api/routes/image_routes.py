@@ -10,6 +10,7 @@ from app.services.klingai_service import image_service
 from app.services.download_service import download_service
 from app.services.s3_service import s3_service
 from app.core.logger import app_logger
+from app.core.config import settings
 
 # 라우터 생성
 router = APIRouter(prefix="/images", tags=["images"])
@@ -84,27 +85,58 @@ async def generate_scene_image(scene: Scene):
         # 5. 이미지를 S3에 업로드
         image_upload_start_time = time.time()
         app_logger.info("이미지 S3 업로드 중...")
-        s3_url = await s3_service.upload_image(local_image_path, story_id, scene_id)
+        s3_result = await s3_service.upload_image(local_image_path, story_id, scene_id)
         image_upload_end_time = time.time()
         image_upload_time = image_upload_end_time - image_upload_start_time
         app_logger.info(f"이미지 S3 업로드 시간: {image_upload_time}초")
         
-        # TODO 업로드 실패한 경우 로컬 URL 사용 대신 에러 반환
-        # S3 자격 증명이 없거나 업로드에 실패한 경우, 로컬 URL 사용
-        if not s3_url:
-            print("S3 업로드 실패, 로컬 URL 사용")
-            filename = os.path.basename(local_image_path)
-            formatted_story_id = f"{story_id:08d}"  # 8자리 (예: 00000001)
+        # S3 업로드 결과 처리
+        if s3_result["success"]:
+            s3_url = s3_result["url"]
+            app_logger.info(f"S3 업로드 성공: {s3_url}")
+        else:
+            # 업로드 실패 처리
+            error_msg = s3_result["error"]
+            error_type = s3_result["error_type"]
+            local_path = s3_result["local_path"]
             
-            # 버킷 이름 정제
-            # s3_bucket_name = settings.S3_BUCKET_NAME # 이전 경로로
-            s3_bucket_name = s3_service.s3_bucket
-            if s3_bucket_name and s3_bucket_name.startswith("s3://"):
-                s3_bucket_name = s3_bucket_name.replace("s3://", "")
-            if s3_bucket_name and s3_bucket_name.endswith("/"):
-                s3_bucket_name = s3_bucket_name.rstrip("/")
+            # 환경 설정에 따라 로컬 URL 사용 또는 에러 발생
+            if settings.USE_LOCAL_URL_ON_S3_FAILURE:
+                app_logger.warning(f"S3 업로드 실패 ({error_type}): {error_msg}. 로컬 URL을 대체 사용합니다.")
                 
-            s3_url = f"/AI-IMAGE/{s3_bucket_name}/{formatted_story_id}/images/{filename}"
+                # filename = os.path.basename(local_path)
+                # formatted_story_id = f"{story_id:08d}"
+                
+                # # 버킷 이름 정제
+                # s3_bucket_name = s3_service.s3_bucket
+                # if s3_bucket_name and s3_bucket_name.startswith("s3://"):
+                #     s3_bucket_name = s3_bucket_name.replace("s3://", "")
+                # if s3_bucket_name and s3_bucket_name.endswith("/"):
+                #     s3_bucket_name = s3_bucket_name.rstrip("/")
+                
+                # # 로컬 URL 생성
+                # s3_url = f"/AI-IMAGE/{s3_bucket_name}/{formatted_story_id}/images/{filename}"
+        
+                if local_path.startswith("images/"):
+                    relative_path = local_path[7:]  # 'images/' 부분 제거
+                    s3_url = f"/static/images/{relative_path}"
+                else:
+                    # 경로에 'images/'가 없으면 그대로 사용
+                    s3_url = f"/static/images/{local_path}"
+                app_logger.info(f"대체 로컬 URL 생성: {s3_url}")
+            else:
+                # 오류 유형에 따른 HTTP 상태 코드 매핑
+                status_code = 500
+                if error_type == "file_not_found":
+                    status_code = 404
+                elif error_type == "invalid_credentials" or error_type == "credentials_missing":
+                    status_code = 401
+                
+                # 오류 반환
+                raise HTTPException(
+                    status_code=status_code,
+                    detail=f"S3 업로드 실패: {error_msg} (오류 유형: {error_type})"
+                )
         
         # 6. 결과 반환
         end_time = time.time()
