@@ -58,7 +58,13 @@ public class OAuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(HttpServletRequest request) {
-        String refreshToken = jwtUtil.extractTokenFromRequest(request);
+        log.info("refresh 로직 On. ###");
+        log.info("reqeust {}",request);
+
+//        String refreshToken = jwtUtil.extractTokenFromRequest(request);
+        String refreshToken = jwtUtil.extractRefreshTokenFromCookie(request);
+        log.info("refreshToken {}", refreshToken );
+        log.info("refresh 로직 On. ###");
 
         if (refreshToken == null || jwtUtil.isExpired(refreshToken)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
