@@ -53,10 +53,18 @@ public class VideoController {
                     // 상태 업데이트: 처리 중
                     videoService.updateVideoStatus(storyId.toString(), VideoStatus.PROCESSING, null);
                     
-                    // 미디어 생성 처리
-                    CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
-                    future.get(30, TimeUnit.MINUTES);
-                    
+                    // // 미디어 생성 처리
+                    // CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
+                    // future.get(30, TimeUnit.MINUTES);
+                    // 미디어 생성 처리 - 실패 시 즉시 예외 전파
+                    try {
+                        CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
+                        future.get(30, TimeUnit.MINUTES);
+                    } catch (Exception e) {
+                        log.error("미디어 생성 중 오류 발생: {}", e.getMessage(), e);
+                        videoService.updateVideoStatus(storyId.toString(), VideoStatus.FAILED, "미디어 생성 실패: " + e.getMessage());
+                        throw e; // 예외를 상위로 전파하여 비디오 생성 중단
+                    }
                     // 비디오 생성 및 업로드
                     String outputPath = tempDirectory + "/" + UUID.randomUUID() + "_final.mp4";
                     String videoUrl = videoService.createAndUploadVideo(storyId.toString(), outputPath);

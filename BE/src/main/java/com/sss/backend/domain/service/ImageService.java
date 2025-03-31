@@ -88,7 +88,9 @@ public class ImageService {
         } catch (Exception e) {
             log.error("씬 이미지 생성 준비 중 오류 발생: storyId={}, sceneId={}, error={}",
                     storyId, sceneId, e.getMessage(), e);
-            return CompletableFuture.failedFuture(e);
+            return CompletableFuture.failedFuture(
+                new RuntimeException("씬 이미지 생성 실패(storyId=" + storyId + ", sceneId=" + sceneId + "): " + e.getMessage(), e)
+            );
         }
     }
 
@@ -170,33 +172,36 @@ public class ImageService {
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(sceneRequest)
                     .exchangeToMono(response -> {
-                        if (response.statusCode().is4xxClientError()) {
+                        if (response.statusCode().is4xxClientError() || response.statusCode().is5xxServerError()) {
                             return response.bodyToMono(String.class)
                                     .flatMap(errorBody -> {
-                                        log.error("API 오류 응답: {}", errorBody);
-                                        return Mono.error(new RuntimeException("API 요청 실패: " + errorBody));
+                                        log.error("API 오류 응답: 씬 ID={}, 응답={}", sceneRequest.getSceneId(), errorBody);
+                                        return Mono.error(new RuntimeException("이미지 API 요청 실패(씬 ID=" + 
+                                                sceneRequest.getSceneId() + "): " + errorBody));
                                     });
                         } else {
                             return response.bodyToMono(SceneImageResponse.class);
                         }
                     })
                     .doOnNext(response -> {
-                        log.info("이미지 생성 완료 - 씬 ID: {}, URL: {}, 응답:{}",
-                                sceneRequest.getSceneId(), response.getImage_url(), response);
+                        log.info("이미지 생성 완료 - 씬 ID: {}, URL: {}",
+                                sceneRequest.getSceneId(), response.getImage_url());
 
                         // 이미지 정보를 MongoDB에 저장
                         saveImageToMongoDB(storyId, response);
                     })
-                    .doOnError(e ->
-                            log.error("이미지 생성 API 호출 중 오류 발생 - 씬 ID: {}, 오류: {}",
-                                    sceneRequest.getSceneId(), e.getMessage(), e)
-                    )
+                    // .doOnError(e ->
+                    //         log.error("이미지 생성 API 호출 중 오류 발생 - 씬 ID: {}, 오류: {}",
+                    //                 sceneRequest.getSceneId(), e.getMessage(), e)
+                    // )
                     .toFuture();
 
         } catch (Exception e) {
             log.error("이미지 생성 요청 처리 중 예외 발생 - 씬 ID: {}, 오류: {}",
                     sceneRequest.getSceneId(), e.getMessage(), e);
-            return CompletableFuture.failedFuture(e);
+            return CompletableFuture.failedFuture(
+                new RuntimeException("이미지 생성 요청 실패(씬 ID=" + sceneRequest.getSceneId() + "): " + e.getMessage(), e)
+            );
         }
     }
 
