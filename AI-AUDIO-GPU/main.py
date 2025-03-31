@@ -21,7 +21,7 @@ from zonos.utils import DEFAULT_DEVICE as device
 from starlette.responses import JSONResponse
 from app.service.s3 import set_environment
 
-from app.service.s3 import upload_binary_to_s3
+from app.service.s3 import (upload_binary_to_s3)
 
 from app.schema.zonos import (
     TTSRequest,
@@ -30,14 +30,13 @@ from app.schema.zonos import (
     RegisterSpeakerResponse
 )
 
+from app.service.speaker_embedding_cache import SPEAKER_EMBEDDING_CACHE
+
 logger = logging.getLogger(__name__)
 
 # 전역 변수 선언: 현재 로드된 모델 타입과 모델 인스턴스를 저장
 CURRENT_MODEL_TYPE = None
 CURRENT_MODEL = None
-
-# 화자 임베딩 캐시를 저장하는 딕셔너리
-SPEAKER_EMBEDDING_CACHE = {}
 
 # 서버 시작 이벤트 핸들러 추가
 async def startup_event():
@@ -257,7 +256,7 @@ def get_audio_bytes(audio_array: np.ndarray, sample_rate: int):
     
     return buffer.read()
 
-@app.post("/tts", response_model=TTSResponse)
+@app.post("/zonos/tts", response_model=TTSResponse)
 async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks):
     """
     텍스트를 음성으로 변환하는 API 엔드포인트
@@ -272,7 +271,6 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         fmax = float(request.fmax)
         pitch_std = float(request.pitch_std)
         speaking_rate = float(request.speaking_rate)
-        dnsmos_ovrl = float(request.dnsmos_ovrl)
         cfg_scale = float(request.cfg_scale)
         
         # 샘플링 파라미터 추출
@@ -286,6 +284,10 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         
         # 화자 임베딩 처리
         speaker_embedding = None
+        # if request.speaker_audio_s3_url:
+        #     wav, sr = load_audio_from_s3(request.speaker_audio_s3_url)
+        #     speaker_embedding = model.make_speaker_embedding(wav, sr)
+        #     speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
         if request.speaker_audio_path:
             # 파일 경로에서 화자 임베딩 생성
             wav, sr = load_audio_from_path(request.speaker_audio_path)
@@ -320,7 +322,6 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
             fmax=fmax,
             pitch_std=pitch_std,
             speaking_rate=speaking_rate,
-            dnsmos_ovrl=dnsmos_ovrl,
             speaker_noised=speaker_noised_bool,
             device=device,
             unconditional_keys=request.unconditional_keys,
@@ -337,7 +338,7 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         # 진행 상태 업데이트 콜백 함수 (로깅용)
         def update_progress(_frame: torch.Tensor, step: int, _total_steps: int) -> bool:
             if step % 10 == 0:  # 10단계마다 로그 출력
-                print(f"생성 진행 중: {step}/{estimated_total_steps} ({step/estimated_total_steps*100:.1f}%)")
+                print(f"생성 진행 중: {step}/{_total_steps} ({step/_total_steps*100:.1f}%)")
             return True
         
         codes = model.generate(
@@ -451,7 +452,7 @@ async def register_speaker(request: RegisterSpeakerRequest):
         
         return RegisterSpeakerResponse(
             speaker_id=request.speaker_id,
-            message=f"화자 '{request.speaker_id}'가 성공적으로 등록되었습니다."
+            message=f"화자 '{request.speaker_id}'가 성공적으로 등록되었습니다: {SPEAKER_EMBEDDING_CACHE[request.speaker_id]}"
         )
     
     except Exception as e:

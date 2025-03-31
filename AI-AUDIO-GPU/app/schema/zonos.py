@@ -8,12 +8,16 @@ class TTSRequest(BaseModel):
         description="사용할 모델 타입 (transformer 또는 hybrid)"
     )
     text: str = Field(
-        default="안녕하세요, Zonos TTS 모델입니다.", 
+        default="안녕하세요, 기본 음성입니다.", 
         description="합성할 텍스트"
     )
     language: str = Field(
         default="ko", 
         description="언어 코드"
+    )
+    speaker_audio_s3_url: Optional[str] = Field(
+        default=None, 
+        description="화자 오디오 파일 S3 URL (선택 사항)"
     )
     speaker_audio_path: Optional[str] = Field(
         default=None, 
@@ -31,7 +35,7 @@ class TTSRequest(BaseModel):
     scene_id: int = Field(default=None, description="씬 번호")
     audio_id: int = Field(default=None, description="오디오 번호")
     emotion: List[float] = Field(
-        default=[0.8, 0.05, 0.05, 0.05, 0.05, 0.05, 0.1, 1.0], 
+        default=[0.1, 0, 0, 0, 0, 0, 0, 1.0], 
         description="8개의 감정 값 (행복, 슬픔, 혐오, 두려움, 놀람, 분노, 기타, 중립)"
     )
     vq_score: float = Field(
@@ -39,7 +43,7 @@ class TTSRequest(BaseModel):
         description="VQ 점수 (0.5-0.8)"
     )
     fmax: float = Field(
-        default=24000, 
+        default=22050, 
         description="최대 주파수 (Hz)"
     )
     pitch_std: float = Field(
@@ -47,12 +51,8 @@ class TTSRequest(BaseModel):
         description="피치 표준 편차"
     )
     speaking_rate: float = Field(
-        default=15.0, 
+        default=20.0, 
         description="말하기 속도"
-    )
-    dnsmos_ovrl: float = Field(
-        default=4.0, 
-        description="DNSMOS 전체 점수"
     )
     speaker_noised: bool = Field(
         default=False, 
@@ -78,11 +78,11 @@ class TTSRequest(BaseModel):
         description="랜덤 시드"
     )
     randomize_seed: bool = Field(
-        default=False, 
+        default=True, 
         description="시드 랜덤화 여부"
     )
     unconditional_keys: List[str] = Field(
-        default=["emotion"], 
+        default=[], 
         description="비조건부 키 목록"
     )
 

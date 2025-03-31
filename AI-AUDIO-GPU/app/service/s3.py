@@ -4,6 +4,10 @@ from dotenv import load_dotenv
 from typing import Optional
 import logging
 from io import BytesIO
+import soundfile as sf
+from urllib.parse import urlparse
+import torchaudio
+import tempfile
 
 # .env 파일 로드
 load_dotenv()
@@ -22,6 +26,26 @@ RELEASE_S3_REGION = os.getenv("RELEASE_S3_REGION", DEV_S3_REGION)
 
 # 로깅 설정
 logger = logging.getLogger(__name__)
+
+# def decode_audio_bytes(audio_bytes: bytes):
+#     """
+#     바이트로 인코딩된 오디오 데이터를 디코딩하는 함수
+#     """
+#     try:
+#         # 임시 파일에 오디오 데이터 저장
+#         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+#             temp_file.write(audio_bytes)
+#             temp_file_path = temp_file.name
+        
+#         try:
+#             # 오디오 파일 로드
+#             wav, sr = torchaudio.load(temp_file_path)
+#             return wav, sr
+#         finally:
+#             # 임시 파일 삭제
+#             os.unlink(temp_file_path)
+#     except Exception as e:
+#         raise ValueError(f"바이트 디코딩 중 오류 발생: {str(e)}")
 
 def set_environment(is_dev_environment: bool):
     """
@@ -117,3 +141,55 @@ def upload_binary_to_s3(binary_data: bytes, object_name: str, content_type: str)
             "error": error_msg,
             "url": None
         }
+    
+
+# def load_audio_from_s3(s3_url):
+#     """
+#     S3 URL에서 오디오 파일을 다운로드하고 오디오 데이터와 샘플링 레이트를 반환하는
+#     함수입니다.
+    
+#     Args:
+#         s3_url (str): 오디오 파일이 저장된 S3 URL
+        
+#     Returns:
+#         tuple: (wav, sr) - wav는 오디오 데이터 배열, sr은 샘플링 레이트
+#     """
+#     try:
+#         # AWS 자격 증명 확인
+#         if not all([current_aws_key, current_aws_secret, current_s3_region]):
+#             error_msg = "AWS 자격 증명 또는 S3 설정이 누락되었습니다. .env 파일을 확인하거나 set_environment 함수가 호출되었는지 확인하세요."
+#             logger.error(error_msg)
+#             raise Exception(error_msg)
+        
+#         # S3 URL 파싱
+#         parsed_url = urlparse(s3_url)
+#         bucket_name = parsed_url.netloc.split(".")[0]
+#         object_key = parsed_url.path.lstrip('/')
+        
+#         logger.info(f"S3에서 오디오 파일을 다운로드 중: {bucket_name}/{object_key}")
+#         print(f"S3에서 오디오 파일을 다운로드 중: {bucket_name}/{object_key}")
+        
+#         # S3 클라이언트 생성
+#         s3_client = boto3.client(
+#             's3',
+#             aws_access_key_id=current_aws_key,
+#             aws_secret_access_key=current_aws_secret,
+#             region_name=current_s3_region
+#         )
+        
+#         # S3에서 파일 다운로드
+#         response = s3_client.get_object(Bucket=bucket_name, Key=object_key)
+#         audio_data = response['Body'].read()
+
+#         wav, sr = decode_audio_bytes(BytesIO(audio_data))
+            
+#         logger.info(f"오디오 파일 다운로드 성공: 길이 {len(wav)}, 샘플링 레이트 {sr}Hz")
+#         print(f"오디오 파일 다운로드 성공: 길이 {len(wav)}, 샘플링 레이트 {sr}Hz")
+        
+#         return wav, sr
+        
+#     except Exception as e:
+#         error_msg = f"S3에서 오디오 다운로드 중 오류 발생: {str(e)}"
+#         logger.error(error_msg)
+#         print(error_msg)
+#         raise Exception(error_msg)
