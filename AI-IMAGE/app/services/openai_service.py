@@ -231,9 +231,9 @@ ID: 2
 {scene_info.scene_summary}
 
 **장면 메타데이터**:  
-- 제목: {scene_info.meta_data.title}  
-- ID: {scene_info.meta_data.id}  
-- 스타일: {scene_info.meta_data.style}
+- 제목: {scene_info.scene_metadata.title}  
+- ID: {scene_info.scene_metadata.scene_id}  
+- 스타일: {scene_info.scene_metadata.style}
 """
             # OpenAI API 호출
             response = client.chat.completions.create(

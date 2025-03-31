@@ -46,9 +46,9 @@ async def generate_scene_image(scene: Scene):
         
         # 2. OpenAI를 사용하여 이미지 프롬프트 생성
         image_prompt_start_time = time.time()
-        app_logger.info(f"스토리 {story_id}, 장면 {scene_id}에 대한 이미지 프롬프트 생성 중...")
+        app_logger.info(f"스토리 {story_id}, 장면 {scene_id}")
         image_prompt = await openai_service.generate_image_prompt(scene)
-        app_logger.debug(f"생성된 이미지 프롬프트: \n{image_prompt}")
+        # app_logger.debug(f"생성된 이미지 프롬프트: \n{image_prompt}")
         image_prompt_end_time = time.time()
         image_prompt_time = image_prompt_end_time - image_prompt_start_time
         app_logger.info(f"이미지 프롬프트 생성 시간: {image_prompt_time}초")
