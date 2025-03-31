@@ -152,6 +152,9 @@ public class OAuthService {
         String accessToken = jwtUtil.createAccessToken(user.getEmail(),user.getRole(),user.getProvider(),20*60*1000L);
         String refreshToken = jwtUtil.createRefreshToken(user.getEmail(), 7 * 24 * 60 * 60 * 1000L); // 7일
 
+        // 5.5 Redis에 Refresh 토큰 저장
+        // Todo : Redis 관련 로직 구현
+
         // 6. Refresh Token -> HttpOnly 쿠키에 담기
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)

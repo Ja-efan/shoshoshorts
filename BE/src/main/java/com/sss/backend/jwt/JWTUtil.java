@@ -93,6 +93,7 @@ public class JWTUtil {
     public String extractTokenFromRequest(HttpServletRequest request) {
         // 1. Authorization 헤더
         String bearerToken = request.getHeader("Authorization");
+        log.info("bearerToken {}",bearerToken);
 
             // Bearer 제외하고 return
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {

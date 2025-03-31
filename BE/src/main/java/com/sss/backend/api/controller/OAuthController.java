@@ -40,6 +40,7 @@ public class OAuthController {
     @GetMapping("/check")
     public ResponseEntity<?> checkTokenValidity(HttpServletRequest request){
         String token = jwtUtil.extractTokenFromRequest(request);
+        log.info("token : {}",token);
 
         // 토큰 유효성 검사
         if (token == null || jwtUtil.isExpired(token) ) {
@@ -69,6 +70,9 @@ public class OAuthController {
 
         UserEntity user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("사용자 정보를 찾을 수 없음"));
+
+        // Todo : Refresh 토큰 redis 에 저장된 Key-Value와 비교해 유효성검증
+        // 맞지 않으면, return.
 
         String newAccessToken = jwtUtil.createAccessToken(
                 user.getEmail(),
