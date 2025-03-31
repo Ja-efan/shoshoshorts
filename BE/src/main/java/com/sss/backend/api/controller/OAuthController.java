@@ -5,6 +5,7 @@ import com.sss.backend.api.dto.TokenResponse;
 import com.sss.backend.domain.entity.UserEntity;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.domain.service.OAuthService;
+import com.sss.backend.domain.service.RedisService;
 import com.sss.backend.domain.service.TokenService;
 import com.sss.backend.jwt.JWTUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,6 +29,7 @@ public class OAuthController {
     private final JWTUtil jwtUtil;
     private final UserRepository userRepository;
     private final TokenService tokenService;
+    private final RedisService redisService;
 
     /**
      * OAuth 로그인 및 토큰 유효성 검사를 위한 Controller
@@ -64,26 +66,31 @@ public class OAuthController {
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(HttpServletRequest request) {
-        log.info("refresh 로직 On. ###");
-        log.info("reqeust {}",request);
+        log.info("refresh 로직 On. {} ###",request);
 
 //        String refreshToken = jwtUtil.extractTokenFromRequest(request);
         String refreshToken = jwtUtil.extractRefreshTokenFromCookie(request);
         log.info("refreshToken {}", refreshToken );
-        log.info("refresh 로직 On. ###");
 
         if (refreshToken == null || jwtUtil.isExpired(refreshToken)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body("RefreshToken이 유효하지 않습니다");
+                    .body("RefreshToken이 null입니다. 유효하지 않습니다");
         }
 
         String email = jwtUtil.getEmail(refreshToken);
+
+        // Redis에 저장된 refresh 토큰과 비교
+        String savedRefresheToken = redisService.getToken("refresh:"+email);
+        if (savedRefresheToken == null || !savedRefresheToken.equals(refreshToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("RefreshToken이 유효하지 않습니다.");
+        }
+
+        // 사용자 정보 조회
         UserEntity user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("사용자 정보를 찾을 수 없음"));
 
-        // Todo : Refresh 토큰 redis 에 저장된 Key-Value와 비교해 유효성검증
-        // 맞지 않으면, return.
-
+        // Access / Refresh Token 갱신
         String accessToken = tokenService.createAccessToken(user);
         String newRefreshToken = tokenService.createAndStoreRefreshToken(email);
         ResponseCookie cookie = tokenService.createRefreshTokenCookie(newRefreshToken);
