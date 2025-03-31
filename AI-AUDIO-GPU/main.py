@@ -1,35 +1,42 @@
-#base 64
-
 import os
 import torch
 import torchaudio
 import tempfile
-import base64
 import uvicorn
 import argparse
 import asyncio
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Union
 import numpy as np
 from io import BytesIO
 import soundfile as sf
 from datetime import datetime
 import logging
+import pytz
 
 from zonos.model import Zonos, DEFAULT_BACKBONE_CLS as ZonosBackbone
 from zonos.conditioning import make_cond_dict, supported_language_codes
 from zonos.utils import DEFAULT_DEVICE as device
+
+from starlette.responses import JSONResponse
+from app.service.s3 import set_environment
+
+from app.service.s3 import upload_binary_to_s3
+
+from app.schema.zonos import (
+    TTSRequest,
+    TTSResponse,
+    RegisterSpeakerRequest,
+    RegisterSpeakerResponse
+)
+
+from app.service.speaker_embedding_cache import SPEAKER_EMBEDDING_CACHE
 
 logger = logging.getLogger(__name__)
 
 # 전역 변수 선언: 현재 로드된 모델 타입과 모델 인스턴스를 저장
 CURRENT_MODEL_TYPE = None
 CURRENT_MODEL = None
-
-# 화자 임베딩 캐시를 저장하는 딕셔너리
-SPEAKER_EMBEDDING_CACHE = {}
 
 # 서버 시작 이벤트 핸들러 추가
 async def startup_event():
@@ -40,23 +47,80 @@ async def startup_event():
     try:
         # 환경 변수에서 기본 모델 타입 가져오기 (없으면 transformer 사용)
         default_model = os.environ.get("ZONOS_DEFAULT_MODEL", "Zyphra/Zonos-v0.1-transformer")
-        print(f"서버 시작 시 기본 모델 '{default_model}' 로드 중...")
+        logger.info(f"서버 시작 시 기본 모델 '{default_model}' 로드 중...")
         
         # 모델 로드
         model = load_model_if_needed(default_model)
-        print(f"모델 '{default_model}' 로드 완료! 서버 준비 완료.")
+        logger.info(f"모델 '{default_model}' 로드 완료! 서버 준비 완료.")
     except Exception as e:
-        print(f"모델 로드 중 오류 발생: {str(e)}")
-        print("서버는 시작되지만, 첫 요청 시 모델을 로드해야 합니다.")
+        logger.info(f"모델 로드 중 오류 발생: {str(e)}")
+        logger.info("서버는 시작되지만, 첫 요청 시 모델을 로드해야 합니다.")
+
+ENV = os.getenv("ENV", "development")  # 기본값은 development
+API_PWD = os.getenv("API_PWD")
+
+if ENV == "prod":
+    docs_url = None
+    redoc_url = None
+    openapi_url = None
+else:
+    docs_url = "/docs"
+    redoc_url = "/redoc"
+    openapi_url = "/openapi.json"
 
 app = FastAPI(
     title="Zonos TTS API",
     description="텍스트를 음성으로 변환하는 Zonos TTS 모델 API",
     version="1.0.0",
+    docs_url = docs_url,
+    redoc_url = redoc_url,
+    openapi_url = openapi_url
 )
 
 # 시작 이벤트 핸들러 등록
 app.add_event_handler("startup", startup_event)
+
+# 비밀번호 관련 middleware
+@app.middleware("http")
+async def check_pwd_middleware(request: Request, call_next):
+    # POST 요청에만 적용
+    if request.method == "POST":
+        api_pwd = request.headers.get("apiPwd")
+        
+        # 비밀번호가 없거나 유효하지 않은 경우
+        if not api_pwd:
+            return JSONResponse(
+                status_code=401,
+                content={"message": "Missing API pwd"}
+            )
+        
+        # 개발 환경 비밀번호 확인 (dev로 시작하는 비밀번호는 개발 환경으로 인식)
+        if api_pwd.startswith("dev"):
+            # 개발 환경으로 설정
+            set_environment(is_dev_environment=True)
+            # 유효한 개발 환경 비밀번호인지 확인
+            if api_pwd != "dev"+API_PWD:
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid development API pwd"}
+                )
+        elif api_pwd.startswith("prod"):
+            # 프로덕션 환경으로 설정
+            set_environment(is_dev_environment=False)
+            # 유효한 프로덕션 비밀번호인지 확인
+            if api_pwd != "prod"+API_PWD:
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid production API pwd"}
+                )
+        else:
+            return JSONResponse(
+                    status_code=401,
+                    content={"message": "API pwd 앞에 dev 또는 prod가 없습니다."}
+                )
+
+    response = await call_next(request)
+    return response
 
 # CORS 설정
 app.add_middleware(
@@ -66,123 +130,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 요청 모델 정의
-class TTSRequest(BaseModel):
-    model_choice: str = Field(
-        default="Zyphra/Zonos-v0.1-transformer", 
-        description="사용할 모델 타입 (transformer 또는 hybrid)"
-    )
-    text: str = Field(
-        default="안녕하세요, Zonos TTS 모델입니다.", 
-        description="합성할 텍스트"
-    )
-    language: str = Field(
-        default="ko", 
-        description="언어 코드"
-    )
-    speaker_audio_path: Optional[str] = Field(
-        default=None, 
-        description="화자 오디오 파일 경로 (선택 사항)"
-    )
-    speaker_audio_bytes: Optional[bytes] = Field(
-        default=None,
-        description="바이트로 인코딩된 화자 오디오 데이터 (선택 사항)"
-    )
-    speaker_id: Optional[str] = Field(
-        default=None, 
-        description="이전에 등록된 화자 ID (speaker_audio_path가 없을 경우 사용)"
-    )
-    emotion: List[float] = Field(
-        default=[0.8, 0.05, 0.05, 0.05, 0.05, 0.05, 0.1, 1.0], 
-        description="8개의 감정 값 (행복, 슬픔, 혐오, 두려움, 놀람, 분노, 기타, 중립)"
-    )
-    vq_score: float = Field(
-        default=0.78, 
-        description="VQ 점수 (0.5-0.8)"
-    )
-    fmax: float = Field(
-        default=24000, 
-        description="최대 주파수 (Hz)"
-    )
-    pitch_std: float = Field(
-        default=45.0, 
-        description="피치 표준 편차"
-    )
-    speaking_rate: float = Field(
-        default=15.0, 
-        description="말하기 속도"
-    )
-    dnsmos_ovrl: float = Field(
-        default=4.0, 
-        description="DNSMOS 전체 점수"
-    )
-    speaker_noised: bool = Field(
-        default=False, 
-        description="화자 노이즈 제거 여부"
-    )
-    cfg_scale: float = Field(
-        default=2.0, 
-        description="CFG 스케일"
-    )
-    sampling_params: Dict[str, Any] = Field(
-        default={
-            "top_p": 0.0,
-            "top_k": 0,
-            "min_p": 0.0,
-            "linear": 0.5,
-            "conf": 0.4,
-            "quad": 0.0
-        }, 
-        description="샘플링 파라미터"
-    )
-    seed: int = Field(
-        default=42, 
-        description="랜덤 시드"
-    )
-    randomize_seed: bool = Field(
-        default=False, 
-        description="시드 랜덤화 여부"
-    )
-    unconditional_keys: List[str] = Field(
-        default=["emotion"], 
-        description="비조건부 키 목록"
-    )
-
-# 응답 모델 정의
-class TTSResponse(BaseModel):
-    audio_path: str = Field(
-        description="생성된 오디오 파일 경로"
-    )
-    sample_rate: int = Field(
-        description="오디오 샘플 레이트"
-    )
-    seed: int = Field(
-        description="사용된 시드 값"
-    )
-
-# 화자 등록 요청 모델
-class RegisterSpeakerRequest(BaseModel):
-    speaker_id: str = Field(
-        description="등록할 화자 ID"
-    )
-    speaker_audio_path: Optional[str] = Field(
-        default=None,
-        description="화자 오디오 파일 경로"
-    )
-    speaker_audio_bytes: Optional[bytes] = Field(
-        default=None,
-        description="바이트로 인코딩된 화자 오디오 데이터"
-    )
-
-# 화자 등록 응답 모델
-class RegisterSpeakerResponse(BaseModel):
-    speaker_id: str = Field(
-        description="등록된 화자 ID"
-    )
-    message: str = Field(
-        description="등록 결과 메시지"
-    )
 
 def load_model_if_needed(model_choice: str):
     """
@@ -199,11 +146,11 @@ def load_model_if_needed(model_choice: str):
         if CURRENT_MODEL is not None:
             del CURRENT_MODEL
             torch.cuda.empty_cache()  # GPU 메모리 정리
-        print(f"모델 로딩 중: {model_choice}...")
+        logger.info(f"모델 로딩 중: {model_choice}...")
         CURRENT_MODEL = Zonos.from_pretrained(model_choice, device=device)
         CURRENT_MODEL.requires_grad_(False).eval()  # 평가 모드로 설정하고 그래디언트 계산 비활성화
         CURRENT_MODEL_TYPE = model_choice
-        print(f"모델 로딩 완료: {model_choice}!")
+        logger.info(f"모델 로딩 완료: {model_choice}!")
     return CURRENT_MODEL
 
 def load_audio_from_path(audio_path: str):
@@ -309,7 +256,7 @@ def get_audio_bytes(audio_array: np.ndarray, sample_rate: int):
     
     return buffer.read()
 
-@app.post("/tts", response_model=TTSResponse)
+@app.post("/zonos/tts", response_model=TTSResponse)
 async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks):
     """
     텍스트를 음성으로 변환하는 API 엔드포인트
@@ -324,7 +271,6 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         fmax = float(request.fmax)
         pitch_std = float(request.pitch_std)
         speaking_rate = float(request.speaking_rate)
-        dnsmos_ovrl = float(request.dnsmos_ovrl)
         cfg_scale = float(request.cfg_scale)
         
         # 샘플링 파라미터 추출
@@ -338,6 +284,10 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         
         # 화자 임베딩 처리
         speaker_embedding = None
+        # if request.speaker_audio_s3_url:
+        #     wav, sr = load_audio_from_s3(request.speaker_audio_s3_url)
+        #     speaker_embedding = model.make_speaker_embedding(wav, sr)
+        #     speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
         if request.speaker_audio_path:
             # 파일 경로에서 화자 임베딩 생성
             wav, sr = load_audio_from_path(request.speaker_audio_path)
@@ -372,7 +322,6 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
             fmax=fmax,
             pitch_std=pitch_std,
             speaking_rate=speaking_rate,
-            dnsmos_ovrl=dnsmos_ovrl,
             speaker_noised=speaker_noised_bool,
             device=device,
             unconditional_keys=request.unconditional_keys,
@@ -389,7 +338,7 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         # 진행 상태 업데이트 콜백 함수 (로깅용)
         def update_progress(_frame: torch.Tensor, step: int, _total_steps: int) -> bool:
             if step % 10 == 0:  # 10단계마다 로그 출력
-                print(f"생성 진행 중: {step}/{estimated_total_steps} ({step/estimated_total_steps*100:.1f}%)")
+                print(f"생성 진행 중: {step}/{_total_steps} ({step/_total_steps*100:.1f}%)")
             return True
         
         codes = model.generate(
@@ -414,20 +363,32 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         output_dir = os.path.join(script_dir, "output")  # 현재 폴더 내의 output 디렉토리 사용
         os.makedirs(output_dir, exist_ok=True)
         
-        # 파일명 생성 (시간 기반)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        text_short = request.text[:20].replace(" ", "_")  # 텍스트 일부를 파일명에 포함
-        filename = os.path.join(output_dir, f"tts_{timestamp}_{text_short}_{seed}.mp3")
+        # 오디오를 바이트로 인코딩
+        audio_bytes = get_audio_bytes(wav_out.squeeze().numpy(), sr_out)
+
+        # content_type = response.headers.get("Content-Type", f"audio/{request.output_format}")
+        output_format = "mp3"
+        content_type = "audio/mp3"
         
-        # 오디오 저장
-        logger.info(f"오디오 파일 저장 중: {filename}")
+        # 파일명 생성 (시간 기반)
+        kst = pytz.timezone('Asia/Seoul')
+        timestamp = datetime.now(kst).strftime("%Y%m%d_%H%M%S")
+
+        formatted_script_id = f"{request.script_id:08d}"  # 8자리 (예: 00000001)
+        formatted_scene_id = f"{request.scene_id:04d}"  # 4자리 (예: 0001)
+        formatted_audio_id = f"{request.audio_id:04d}"  # 4자리 (예: 0001)
+        object_name = f"{formatted_script_id}/audios/{formatted_scene_id}_{formatted_audio_id}_{timestamp}.{output_format}"
+        local_file_name = f"output/{formatted_script_id}/audios/{formatted_scene_id}_{formatted_audio_id}_{timestamp}.{output_format}"
+        
+        # 1. 로컬 경로에 오디오 저장
+        logger.info(f"오디오 파일 저장 중: {local_file_name}")
         try:
-            save_audio_to_file(wav_out.squeeze().numpy(), sr_out, filename)
-            logger.info(f"오디오 파일 저장 완료: {filename}")
+            save_audio_to_file(wav_out.squeeze().numpy(), sr_out, local_file_name)
+            logger.info(f"오디오 파일 저장 완료: {local_file_name}")
             
             # 파일이 실제로 존재하는지 확인
-            if not os.path.exists(filename):
-                logger.info(f"경고: 파일이 저장되지 않았습니다: {filename}")
+            if not os.path.exists(local_file_name):
+                logger.info(f"경고: 파일이 저장되지 않았습니다: {local_file_name}")
         except Exception as e:
             logger.info(f"오디오 파일 저장 중 오류 발생: {str(e)}")
             # 오류가 발생해도 계속 진행
@@ -436,12 +397,19 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         background_tasks.add_task(torch.cuda.empty_cache)
         
         # 상대 경로로 변환하여 반환
-        relative_path = os.path.relpath(filename, script_dir)
+        relative_path = os.path.relpath(object_name, script_dir)
+
+        # 2. S3에 직접 업로드
+        logger.info(f"오디오 데이터를 S3에 업로드 중: {len(audio_bytes)} 바이트")
+        upload_result = upload_binary_to_s3(audio_bytes, object_name, content_type)
         
-        # 오디오를 Base64로 인코딩
-        audio_bytes = get_audio_bytes(wav_out.squeeze().numpy(), sr_out)
+        if not upload_result["success"]:
+            raise ValueError(f"S3 업로드 실패: {upload_result.get('error')}")
+        
+        logger.info(f"S3 업로드 완료: {upload_result['url']}")
         
         return TTSResponse(
+            s3_url = upload_result["url"],
             audio_path=relative_path,
             sample_rate=sr_out,
             seed=seed
@@ -471,7 +439,7 @@ async def register_speaker(request: RegisterSpeakerRequest):
             wav, sr = load_audio_from_path(request.speaker_audio_path)
             speaker_embedding = CURRENT_MODEL.make_speaker_embedding(wav, sr)
         elif request.speaker_audio_bytes:
-            # Base64로 인코딩된 오디오에서 화자 임베딩 생성
+            # 바이트로 인코딩된 오디오에서 화자 임베딩 생성
             wav, sr = decode_audio_bytes(request.speaker_audio_bytes)
             speaker_embedding = CURRENT_MODEL.make_speaker_embedding(wav, sr)
         else:
@@ -484,7 +452,7 @@ async def register_speaker(request: RegisterSpeakerRequest):
         
         return RegisterSpeakerResponse(
             speaker_id=request.speaker_id,
-            message=f"화자 '{request.speaker_id}'가 성공적으로 등록되었습니다."
+            message=f"화자 '{request.speaker_id}'가 성공적으로 등록되었습니다: {SPEAKER_EMBEDDING_CACHE[request.speaker_id]}"
         )
     
     except Exception as e:
