@@ -33,9 +33,23 @@ export const authService = {
     }
   },
 
-  // 현재 로그인 상태 확인
-  isAuthenticated(): boolean {
-    return store.getState().auth.isAuthenticated;
+  // 토큰 유효성 검사
+  async validateToken(): Promise<boolean> {
+    try {
+      const token = this.getToken();
+      if (!token) return false;
+      return await apiService.validateToken();
+    } catch (error) {
+      console.error("토큰 유효성 검사 실패:", error);
+      return false;
+    }
+  },
+
+  // 현재 로그인 상태 확인 (비동기)
+  async isAuthenticated(): Promise<boolean> {
+    const token = this.getToken();
+    if (!token) return false;
+    return await this.validateToken();
   },
 
   // 현재 토큰 가져오기

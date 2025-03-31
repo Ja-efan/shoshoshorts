@@ -76,14 +76,14 @@ public class MediaService {
                         .thenAccept(response -> {
                             log.info("씬 이미지 생성 완료: storyId={}, sceneId={}, url={}",
                                     storyId, sceneId, response.getImage_url());
-                        })
-                        .exceptionally(ex -> {
-                            log.error("씬 이미지 처리 중 오류 발생: storyId={}, sceneId={}, error={}",
-                                    storyId, sceneId, ex.getMessage(), ex);
-                            return null; //null반환 -> 실패해도 다른 이미지 처리는 계속 진행되도록 함
-                        });
-
-                imageFutures.add(imageFuture); //이미지 처리 future 리스트 추가
+                        // })
+                        // .exceptionally(ex -> {
+                        //     log.error("씬 이미지 처리 중 오류 발생: storyId={}, sceneId={}, error={}",
+                        //             storyId, sceneId, ex.getMessage(), ex);
+                        //     return null; //null반환 -> 실패해도 다른 이미지 처리는 계속 진행되도록 함
+                });
+                // 에러 핸들링은 allOf에서 일괄적으로 처리하도록 변경
+                imageFutures.add(imageFuture);
             }
 
             // 모든 오디오와 이미지 처리가 완료될 때까지 대기할 CompletableFuture 배열
@@ -94,18 +94,24 @@ public class MediaService {
             }
 
             // 모든 퓨처를 하나로 결합
-            //allof: 모든 future가 완료될 때까지 대기하는 CompletableFuture
-            CompletableFuture<Void> allMediaFuture = CompletableFuture.allOf(allFutures);
+            // //allof: 모든 future가 완료될 때까지 대기하는 CompletableFuture
+            // CompletableFuture<Void> allMediaFuture = CompletableFuture.allOf(allFutures);
 
-            // 이 CompletableFuture를 반환 - 이렇게 하면 future.get()을 호출할 때
-            // 모든 미디어 처리가 완료될 때까지 대기함
-            return allMediaFuture.thenRun(() -> {
-                log.info("스토리 전체 씬 미디어 처리 완료: storyId={}", storyId);
-            }).exceptionally(ex -> {
-                log.error("스토리 전체 씬 미디어 처리 중 오류 발생: storyId={}, error={}",
-                        storyId, ex.getMessage(), ex);
-                return null;
-            });
+            // // 이 CompletableFuture를 반환 - 이렇게 하면 future.get()을 호출할 때
+            // // 모든 미디어 처리가 완료될 때까지 대기함
+            // return allMediaFuture.thenRun(() -> {
+            //     log.info("스토리 전체 씬 미디어 처리 완료: storyId={}", storyId);
+            // }).exceptionally(ex -> {
+            //     log.error("스토리 전체 씬 미디어 처리 중 오류 발생: storyId={}, error={}",
+            //             storyId, ex.getMessage(), ex);
+            //     return null;
+            // });
+            // 하나라도 실패하면 전체가 실패하도록 설정
+            return CompletableFuture.allOf(allFutures)
+                .thenRun(() -> {
+                    log.info("스토리 전체 씬 미디어 처리 완료: storyId={}", storyId);
+                });
+            // exceptionally 제거 - 오류를 상위로 전파하도록 함
 
         } catch (Exception e) {
             log.error("스토리 전체 씬 미디어 처리 요청 중 오류 발생: storyId={}, error={}",

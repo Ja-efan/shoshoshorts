@@ -149,7 +149,7 @@ public class OAuthService {
         });
 
         // 5. JWT 발급
-        String accessToken = jwtUtil.createAccessToken(user.getEmail(),user.getRole(),user.getProvider(),20*60*1000L);
+        String accessToken = jwtUtil.createAccessToken(user.getEmail(),user.getRole(),user.getProvider(),10*1000L);
         String refreshToken = jwtUtil.createRefreshToken(user.getEmail(), 7 * 24 * 60 * 60 * 1000L); // 7일
 
         // 5.5 Redis에 Refresh 토큰 저장

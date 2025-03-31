@@ -11,14 +11,20 @@ import com.google.api.services.youtube.model.VideoSnippet;
 import com.google.api.services.youtube.model.VideoStatus;
 import com.sss.backend.api.dto.VideoMetadata;
 import com.sss.backend.api.dto.VideoUploadResponse;
+import com.sss.backend.config.S3Config;
+import com.sss.backend.domain.repository.VideoRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
 
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -28,17 +34,36 @@ public class YoutubeService {
     @Value("${youtube.application.name}")
     private String applicationName;
 
+    private final VideoRepository videoRepository;
+    private final S3Config s3Config;
+
+    public YoutubeService(VideoRepository videoRepository, S3Config s3Config){
+        this.videoRepository = videoRepository;
+        this.s3Config = s3Config;
+    }
+
     // 비동기 방식의 업로드 메서드 (Controller에서 호출)
-    public Mono<VideoUploadResponse> uploadVideo(String accessToken, MultipartFile file, VideoMetadata metadata) {
+    public Mono<VideoUploadResponse> uploadVideo(String accessToken, String videoUrl, VideoMetadata metadata) {
         return Mono.fromCallable(() -> {
             try {
-                // MultipartFile을 임시 File로 변환
-                File tempFile = File.createTempFile("youtube-upload-", ".tmp"); //JVM이 관리하는 임시 디렉토리에 파일 생성
-                file.transferTo(tempFile);
+                if (videoUrl == null || videoUrl.isEmpty()) {
+                    throw new RuntimeException("비디오 URL이 필요합니다.");
+                }
+
+                // 제공된 URL에서 임시 파일로 다운로드
+                File tempFile = File.createTempFile("youtube-upload-", ".tmp");
+
 
                 try {
+
+                    // S3 URL에서 키 추출
+                    String s3key = s3Config.extractS3KeyFromUrl(videoUrl);
+
+                    // S3에서 파일 다운로드
+                    s3Config.downloadFromS3(s3key,tempFile.getAbsolutePath());
+
                     // 동기식 업로드 메서드 호출
-                    String videoId = uploadVideoToYoutube(
+                    String youtubeVideoId = uploadVideoToYoutube(
                             tempFile,
                             metadata.getTitle(),
                             metadata.getDescription(),
@@ -51,11 +76,13 @@ public class YoutubeService {
                     // API 명세에 맞는 응답 생성
                     VideoUploadResponse response = new VideoUploadResponse();
                     response.setMessage("비디오 업로드 성공");
-                    response.setVideoId(videoId);
-                    response.setVideoUrl("https://www.youtube.com/watch?v=" + videoId);
+                    response.setVideoId(youtubeVideoId);
+                    response.setVideoUrl("https://www.youtube.com/watch?v=" + youtubeVideoId);
 
                     return response;
 
+                } catch (Exception e) {
+                    throw e;
                 } finally {
                     // 임시 파일 삭제
                     if (tempFile.exists()) {
@@ -67,6 +94,7 @@ public class YoutubeService {
             }
         });
     }
+
 
 
 

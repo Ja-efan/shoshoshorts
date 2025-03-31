@@ -7,6 +7,7 @@ import lombok.Setter;
 @Setter
 public class VideoMetadata {
 
+    private String videoUrl;
     private String title;
     private String description;
     private String tags;
@@ -17,7 +18,8 @@ public class VideoMetadata {
 
     }
 
-    public VideoMetadata(String title, String description, String tags, String privacyStatus, String categoryId) {
+    public VideoMetadata(String videoUrl, String title, String description, String tags, String privacyStatus, String categoryId) {
+        this.videoUrl = videoUrl;
         this.title = title;
         this.description = description;
         this.tags = tags;

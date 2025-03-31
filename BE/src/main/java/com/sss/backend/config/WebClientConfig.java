@@ -24,13 +24,17 @@ public class WebClientConfig {
                 .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(16 * 1024 * 1024)) // 16MB
                 .build();
 
-        // 타임아웃이 설정된 HttpClient 구성
+        // 타임아웃 설정 (10분)
+        int timeoutSeconds = 600; // 10분
+
         HttpClient httpClient = HttpClient.create()
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000) // 연결 타임아웃: 10초
-                .responseTimeout(Duration.ofSeconds(600)) // 응답 타임아웃: 600초
-                .doOnConnected(conn ->
-                        conn.addHandlerLast(new ReadTimeoutHandler(60, TimeUnit.SECONDS)) // 읽기 타임아웃
-                                .addHandlerLast(new WriteTimeoutHandler(60, TimeUnit.SECONDS))); // 쓰기 타임아웃
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 60000) // 연결 타임아웃 60초
+                .responseTimeout(Duration.ofSeconds(timeoutSeconds)) // 응답 타임아웃 10분
+                .doOnConnected(conn -> 
+                    conn.addHandlerLast(new ReadTimeoutHandler(timeoutSeconds, TimeUnit.SECONDS))
+                        .addHandlerLast(new WriteTimeoutHandler(timeoutSeconds, TimeUnit.SECONDS))
+                );
+
         return builder
                 .exchangeStrategies(exchangeStrategies)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
