@@ -163,7 +163,10 @@ public class VideoService {
                 .addExtraArgs("-map", "[outv]")
                 .addExtraArgs("-map", "[outa]")
                 .setVideoCodec("libx264")
+                .setConstantRateFactor(23) // 품질 설정 (0-51, 낮을수록 고품질)
+                .setVideoPixelFormat("yuv420p") // 유튜브 호환 픽셀 포맷
                 .setAudioCodec("aac")
+                .setAudioBitRate(128000) // 128kbps
                 .setFormat("mp4")
                 .done();
                 
@@ -216,7 +219,10 @@ public class VideoService {
                 .addExtraArgs("-safe", "0")
                 .addOutput(cleanTempOutputPath)
                 .setVideoCodec("libx264")
-                .setAudioCodec("aac") 
+                .setConstantRateFactor(23) // 품질 설정 (0-51, 낮을수록 고품질)
+                .setVideoPixelFormat("yuv420p") // 유튜브 호환 픽셀 포맷
+                .setAudioCodec("aac")
+                .setAudioBitRate(128000) // 128kbps
                 .setFormat("mp4")
                 .done();
                 
@@ -232,7 +238,10 @@ public class VideoService {
                 .addExtraArgs("-y")
                 .addOutput(cleanOutputPath)
                 .setVideoCodec("libx264")
+                .setConstantRateFactor(23) // 품질 설정
+                .setVideoPixelFormat("yuv420p") // 유튜브 호환 픽셀 포맷
                 .setAudioCodec("aac")
+                .setAudioBitRate(128000) // 128kbps
                 .addExtraArgs("-vf", "ass=" + subtitleFile.getAbsolutePath().replace("\\", "\\\\").replace(":", "\\:"))
                 .setFormat("mp4")
                 .done();
