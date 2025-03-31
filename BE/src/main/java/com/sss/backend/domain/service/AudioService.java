@@ -89,17 +89,19 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
                 int audioId = ((Number) audio.get("audioId")).intValue();
 
                 // 오디오 생성
-                try {
+//                 try {
 
-//                    // 각 요청 사이에 500ms 지연
-//                    Thread.sleep(500);
+// //                    // 각 요청 사이에 500ms 지연
+// //                    Thread.sleep(500);
 
-                    generateAudio(storyId, sceneId, audioId);
-                } catch (Exception e) {
-                    log.error("오디오 생성 중 오류 발생: storyId={}, sceneId={}, audioId={}, error={}",
-                            storyId, sceneId, audioId, e.getMessage());
-                    // 오류가 있어도 다음 오디오 계속 처리
-                }
+//                     generateAudio(storyId, sceneId, audioId);
+//                 } catch (Exception e) {
+//                     log.error("오디오 생성 중 오류 발생: storyId={}, sceneId={}, audioId={}, error={}",
+//                             storyId, sceneId, audioId, e.getMessage());
+//                     // 오류가 있어도 다음 오디오 계속 처리
+//                 }
+                // 오류가 발생하면 즉시 전파하도록 수정
+                generateAudio(storyId, sceneId, audioId);
             }
         }
 
