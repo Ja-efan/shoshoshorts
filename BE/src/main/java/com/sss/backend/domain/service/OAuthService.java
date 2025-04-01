@@ -52,21 +52,24 @@ public class OAuthService {
                 userInfoUri = "https://www.googleapis.com/oauth2/v2/userinfo";
                 clientId = System.getenv("GOOGLE_CLIENT_ID");
                 clientSecret = System.getenv("GOOGLE_CLIENT_SECRET");
-//                redirectUri = System.getenv("GOOGLE_REDIRECT_URL");
                 redirectUri = googleRedirectUri;
             }
-//            case "naver" -> {
-//                tokenUri = "https://nid.naver.com/oauth2.0/token";
-//                userInfoUri = "https://openapi.naver.com/v1/nid/me";
-//                // 추가 예정
-//
-//            }
-//            case "kakao" -> {
-//                tokenUri = "https://kauth.kakao.com/oauth/token";
-//                userInfoUri = "https://kapi.kakao.com/v2/user/me";
-//                // 추가 예정
-//
-//            }
+            case "naver" -> {
+                tokenUri = "https://nid.naver.com/oauth2.0/token";
+                userInfoUri = "https://openapi.naver.com/v1/nid/me";
+                clientId = System.getenv("NAVER_CLIENT_ID");
+                clientSecret = System.getenv("NAVER_CLIENT_SECRET");
+                redirectUri = naverRedirectUri;
+
+            }
+            case "kakao" -> {
+                tokenUri = "https://kauth.kakao.com/oauth/token";
+                userInfoUri = "https://kapi.kakao.com/v2/user/me";
+                clientId = System.getenv("KAKAO_CLIENT_ID");
+                redirectUri=kakaoRedirectUri;
+                // 추가 예정
+
+            }
             // 예외처리
             default -> throw new RuntimeException("지원하지 않는 provider : " + provider);
         }
@@ -122,16 +125,17 @@ public class OAuthService {
                 email = (String) userInfo.get("email");
                 name = (String) userInfo.get("name");
             }
-//            case "naver" -> {
-//                email = "";
-//                name = "";
-//                //구현예정
-//            }
-//            case "kakao" -> {
-//                email = "";
-//                name = "";
-//                //구현예정
-//            }
+            //Todo : 구현 예정
+            case "naver" -> {
+                log.info("NAVER response : {}",userInfo);
+                email = "";
+                name = "";
+            }
+            case "kakao" -> {
+                log.info("KAKAO response : {}",userInfo);
+                email = "";
+                name = "";
+            }
             default -> {
                 throw new RuntimeException("지원 X");
             }
