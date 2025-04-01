@@ -53,7 +53,8 @@ public class TokenService {
                 .path("/")
                 .maxAge(7 * 24 * 60 * 60)
                 .sameSite("Lax")
-                .secure(true) // 로컬 테스트 시 false로
+                .secure(false) // 로컬 테스트 시 false로
                 .build();
+        //todo : 배포시 secure true로 변경
     }
 }

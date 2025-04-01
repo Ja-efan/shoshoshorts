@@ -11,10 +11,7 @@ import com.sss.backend.jwt.JWTUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -59,10 +56,41 @@ public class OAuthController {
                             "Invalid or expired token")
                     );
         }
-        log.info("유효한 토큰");
+        log.info("유효한 토큰입니다.");
         // TRUE 반환
         return ResponseEntity.ok(Map.of("valid",true));
     }
+
+    /**
+     * 로그아웃 메소드
+     * refreshToken 제거 및 쿠키 제거
+     * @param request
+     * @return
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request){
+        // 쿠키에서 Refresh 토큰 조회
+        String refreshToken = jwtUtil.extractRefreshTokenFromCookie(request);
+
+        // Refresh 토큰 제거 : Redis에서 refresh:{email} 키 삭제
+        if (refreshToken != null || !jwtUtil.isExpired(refreshToken)) {
+            String email = jwtUtil.getEmail(refreshToken);
+            redisService.deleteToken(email);
+        }
+
+        // HttpOnly 쿠키 삭제 : 프론트에 Set-Cookie 응답 보내서 refresh 쿠키를 빈값으로 설정
+        ResponseCookie deleteCookie = ResponseCookie.from("refreshToken","")
+                .httpOnly(true) // JS에서 접근 불가
+                .secure(false)   // https일때만 쿠키 전송
+                .path("/")
+                .maxAge(60*60)
+                .sameSite("Lax")
+                .build();
+        // todo : 배포시 secure true로 바꿔주자.
+
+        return ResponseEntity.ok(Map.of("message","로그아웃 완료"));
+    }
+
 
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(HttpServletRequest request) {
@@ -99,5 +127,6 @@ public class OAuthController {
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body(new TokenResponse(accessToken));
     }
+
 }
 

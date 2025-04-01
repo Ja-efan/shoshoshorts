@@ -41,4 +41,18 @@ public class RedisService {
 
     }
 
+    public void deleteToken(String email) {
+        log.info("deleteToken 로직 start");
+        try {
+            Boolean result = redisTemplate.delete("refresh:"+email);
+            log.info("{} - 삭제 성공 여부 : {}", email, result);
+
+        } catch (Exception e) {
+            log.error("Redis 삭제중 오류 발생 {}",e.getMessage());
+        }
+
+
+
+    }
+
 }
