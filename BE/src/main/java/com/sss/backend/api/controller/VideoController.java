@@ -6,6 +6,7 @@ import com.sss.backend.domain.entity.Video.VideoStatus;
 import com.sss.backend.domain.service.MediaService;
 import com.sss.backend.domain.service.StoryService;
 import com.sss.backend.domain.service.VideoService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,11 +36,12 @@ public class VideoController {
 
     // 비동기 비디오 생성 요청
     @PostMapping("/generate")
-    public ResponseEntity<VideoStatusResponseDto> generateVideoAsync(@Valid @RequestBody StoryRequestDTO request) {
+    public ResponseEntity<VideoStatusResponseDto> generateVideoAsync(
+            @Valid @RequestBody StoryRequestDTO request,
+            HttpServletRequest httpRequest) {
         try {
             // 스토리 저장
-            log.info("안녀안녕");
-            Long storyId = storyService.saveBasicStory(request);
+            Long storyId = storyService.saveBasicStory(request, httpRequest);
             log.info("스토리 엔티티 생성 완료: {}", storyId);
             
             // 비디오 엔티티 초기 상태로 저장
@@ -100,6 +102,18 @@ public class VideoController {
         } catch (Exception e) {
             log.error("비디오 상태 조회 중 오류: {}", e.getMessage(), e);
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/status/user/{userId}")
+    public ResponseEntity<VideoListResponseDTO> getAllVideoStatusByUser(@PathVariable Long userId){
+        try {
+            VideoListResponseDTO response = videoService.getAllVideoStatusById(userId);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("비디오 상태 조회 중 오류 : {} ",e.getMessage());
+            return ResponseEntity.notFound().build();
+
         }
     }
 
