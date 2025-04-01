@@ -9,6 +9,7 @@ import net.bramp.ffmpeg.FFmpegExecutor;
 import net.bramp.ffmpeg.builder.FFmpegBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import com.sss.backend.domain.document.SceneDocument;
@@ -42,6 +43,8 @@ public class VideoService {
 
     private static final Logger logger = LoggerFactory.getLogger(VideoService.class);
     private static final String TEMP_DIR = System.getProperty("java.io.tmpdir") + File.separator + "sss_app_temp";
+    private static final String BACKGROUND_IMAGE_PATH = "images/background.png";
+    private String backgroundImageFilePath;
     
     private final SceneDocumentRepository sceneDocumentRepository;
     private final S3Config s3Config;
@@ -52,6 +55,7 @@ public class VideoService {
     @PostConstruct
     public void init() {
         createTempDir();
+        copyBackgroundImage();
     }
 
     private void createTempDir() {
@@ -76,6 +80,31 @@ public class VideoService {
                 boolean created = subdirFile.mkdirs();
                 logger.info("서브 디렉토리 생성: {} (성공: {})", subdirFile.getPath(), created);
             }
+        }
+    }
+
+    /**
+     * 클래스패스에서 배경 이미지를 복사하여 임시 디렉토리에 저장하는 메소드
+     */
+    private void copyBackgroundImage() {
+        try {
+            // 리소스 경로에서 이미지 파일 로드
+            ClassPathResource resource = new ClassPathResource(BACKGROUND_IMAGE_PATH);
+            if (!resource.exists()) {
+                logger.error("배경 이미지 파일을 찾을 수 없음: {}", BACKGROUND_IMAGE_PATH);
+                return;
+            }
+
+            // 임시 디렉토리에 복사
+            String destPath = TEMP_DIR + File.separator + "images" + File.separator + "background.png";
+            File destFile = new File(destPath);
+            
+            // 파일 복사
+            Files.copy(resource.getInputStream(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            backgroundImageFilePath = destFile.getAbsolutePath();
+            logger.info("배경 이미지 파일 복사 완료: {}", backgroundImageFilePath);
+        } catch (IOException e) {
+            logger.error("배경 이미지 파일 복사 중 오류 발생: {}", e.getMessage(), e);
         }
     }
 
@@ -148,6 +177,16 @@ public class VideoService {
         try {
             createTempDir();
 
+            // 배경 이미지 파일 확인
+            if (backgroundImageFilePath == null || !new File(backgroundImageFilePath).exists()) {
+                logger.warn("배경 이미지 파일이 없어서 다시 복사를 시도합니다.");
+                copyBackgroundImage();
+                
+                if (backgroundImageFilePath == null) {
+                    logger.error("배경 이미지 파일을 찾을 수 없어 기본 배경으로 대체합니다.");
+                }
+            }
+
             String cleanOutputPath = outputPath.replace("\"", "");
             String tempAudioPath = TEMP_DIR + File.separator + "audios" + File.separator + UUID.randomUUID() + ".mp3";
             String cleanAudioPath = tempAudioPath.replace("\"", "");
@@ -158,31 +197,66 @@ public class VideoService {
             // S3 pre-signed URL 생성
             String imageS3Key = s3Config.extractS3KeyFromUrl(imageUrl);
             String presignedImageUrl = s3Config.generatePresignedUrl(imageS3Key);
+            logger.info("이미지 URL 생성: {}", presignedImageUrl);
 
-            // 바로 최종 출력 경로에 생성
-            FFmpegBuilder builder = new FFmpegBuilder()
-                .setInput(presignedImageUrl)
-                .addInput(cleanAudioPath)
-                .addExtraArgs("-y")
-                .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls")
-                .addOutput(cleanOutputPath)
-                .addExtraArgs("-filter_complex", 
-                    "[0:v]scale=iw*min(1080/iw\\,1920/ih):ih*min(1080/iw\\,1920/ih)," +
-                    "pad=1080:1920:(1080-iw*min(1080/iw\\,1920/ih))/2:(1920-ih*min(1080/iw\\,1920/ih))/2:white[v];" +
-                    "[v][1:a]concat=n=1:v=1:a=1[outv][outa]")
-                .addExtraArgs("-map", "[outv]")
-                .addExtraArgs("-map", "[outa]")
-                .setVideoCodec("libx264")
-                .setConstantRateFactor(23) // 품질 설정 (0-51, 낮을수록 고품질)
-                .setVideoPixelFormat("yuv420p") // 유튜브 호환 픽셀 포맷
-                .setAudioCodec("aac")
-                .setAudioBitRate(128000) // 128kbps
-                .setFormat("mp4")
-                .done();
-                
-            // 실행
             FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
-            executor.createJob(builder).run();
+            
+            if (backgroundImageFilePath != null && new File(backgroundImageFilePath).exists()) {
+                logger.info("배경 이미지 사용: {}", backgroundImageFilePath);
+                
+                // 배경 이미지와 메인 이미지를 한 번에 처리
+                // 1. 배경 이미지 입력
+                // 2. S3 이미지 URL 입력
+                // 3. filter_complex로 이미지 리사이즈 및 오버레이
+                FFmpegBuilder builder = new FFmpegBuilder()
+                    .addInput(backgroundImageFilePath)
+                    .addInput(presignedImageUrl)
+                    .addInput(cleanAudioPath)
+                    .addExtraArgs("-y")
+                    .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls")
+                    .addOutput(cleanOutputPath)
+                    .addExtraArgs("-filter_complex", 
+                        "[1:v]scale=800:800[fg];" +    // 메인 이미지를 800x800으로 조정
+                        "[0:v][fg]overlay=(W-w)/2:(H-h)/2[v];" +  // 중앙에 오버레이
+                        "[v][2:a]concat=n=1:v=1:a=1[outv][outa]")  // 비디오와 오디오 결합
+                    .addExtraArgs("-map", "[outv]")
+                    .addExtraArgs("-map", "[outa]")
+                    .setVideoCodec("libx264")
+                    .setConstantRateFactor(23)
+                    .setVideoPixelFormat("yuv420p")
+                    .setAudioCodec("aac")
+                    .setAudioBitRate(128000)
+                    .setFormat("mp4")
+                    .done();
+                
+                executor.createJob(builder).run();
+                logger.info("비디오 생성 완료 (배경 이미지 적용): {}", cleanOutputPath);
+            } else {
+                logger.warn("배경 이미지를 찾을 수 없어 기본 배경으로 대체합니다.");
+                
+                // 배경 이미지 없이 처리
+                FFmpegBuilder builder = new FFmpegBuilder()
+                    .setInput(presignedImageUrl)
+                    .addInput(cleanAudioPath)
+                    .addExtraArgs("-y")
+                    .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls")
+                    .addOutput(cleanOutputPath)
+                    .addExtraArgs("-filter_complex", 
+                        "[0:v]scale=900:900,pad=1080:1920:90:510:white[v];" +  // 900x900으로 조정 및 흰색 패딩
+                        "[v][1:a]concat=n=1:v=1:a=1[outv][outa]")
+                    .addExtraArgs("-map", "[outv]")
+                    .addExtraArgs("-map", "[outa]")
+                    .setVideoCodec("libx264")
+                    .setConstantRateFactor(23)
+                    .setVideoPixelFormat("yuv420p")
+                    .setAudioCodec("aac")
+                    .setAudioBitRate(128000)
+                    .setFormat("mp4")
+                    .done();
+                
+                executor.createJob(builder).run();
+                logger.info("비디오 생성 완료 (기본 배경): {}", cleanOutputPath);
+            }
             
             // 임시 오디오 파일 삭제
             new File(cleanAudioPath).delete();
@@ -621,5 +695,17 @@ public class VideoService {
         int centiseconds = (int) ((seconds - Math.floor(seconds)) * 100);
         
         return String.format("%d:%02d:%02d.%02d", hours, minutes, secs, centiseconds);
+    }
+    
+    /**
+     * 배경 이미지가 올바르게 초기화되었는지 확인하는 테스트 메소드
+     * @return 배경 이미지 파일 경로 (존재하지 않는 경우 null)
+     */
+    public String getBackgroundImagePath() {
+        if (backgroundImageFilePath == null || !new File(backgroundImageFilePath).exists()) {
+            logger.warn("배경 이미지 경로가 초기화되지 않았거나 파일이 없어서 다시 복사를 시도합니다.");
+            copyBackgroundImage();
+        }
+        return backgroundImageFilePath;
     }
 }
