@@ -217,7 +217,7 @@ public class VideoService {
                     .addOutput(cleanOutputPath)
                     .addExtraArgs("-filter_complex", 
                         "[1:v]scale=800:800[fg];" +    // 메인 이미지를 800x800으로 조정
-                        "[0:v][fg]overlay=(W-w)/2:(H-h)/2[v];" +  // 중앙에 오버레이
+                        "[0:v][fg]overlay=(540-w/2):(1250-h/2)[v];" +  // 이미지 중앙이 (540,1250)에 오도록 배치
                         "[v][2:a]concat=n=1:v=1:a=1[outv][outa]")  // 비디오와 오디오 결합
                     .addExtraArgs("-map", "[outv]")
                     .addExtraArgs("-map", "[outa]")
@@ -637,8 +637,8 @@ public class VideoService {
         assContent.append("[Script Info]\n");
         assContent.append("Title: ").append(sceneDocument.getStoryTitle()).append("\n");
         assContent.append("ScriptType: v4.00+\n");
-        assContent.append("PlayResX: 1280\n");
-        assContent.append("PlayResY: 720\n");
+        assContent.append("PlayResX: 1080\n");
+        assContent.append("PlayResY: 1920\n");
         assContent.append("WrapStyle: 0\n");
         // assContent.append("ScaledBorderAndShadow: yes\n");  // 테두리와 그림자 스케일링 활성화
         assContent.append("\n");
@@ -646,7 +646,7 @@ public class VideoService {
         // 스타일 정의 수정
         assContent.append("[V4+ Styles]\n");
         assContent.append("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n");
-        assContent.append("Style: Default,NanumGothic,20,&H00FFFFFF,&H000000FF,&H00000000,&H88000000,1,0,0,0,100,100,0,0,1,2,2,2,10,10,50,1\n");
+        assContent.append("Style: Default,NanumGothic,60,&H00000000,&H000000FF,&H00FFFFFF,&H88000000,1,0,0,0,100,100,0,0,1,3,2,5,0,0,0,1\n");
         assContent.append("\n");
         
         // 자막 이벤트
@@ -669,11 +669,11 @@ public class VideoService {
                 String startTime = formatAssTime(currentTime);
                 String endTime = formatAssTime(currentTime + duration);
                 
-                // 자막 라인 추가
+                // 자막 라인 추가 - 중앙이 (540,640)에 오도록
                 assContent.append("Dialogue: 0,")
                          .append(startTime).append(",")
                          .append(endTime).append(",")
-                         .append("Default,,0,0,0,,")
+                         .append("Default,,0,0,0,,{\\pos(540,640)}")
                          .append(text.replace(",", "\\,"))
                          .append("\n");
                 
