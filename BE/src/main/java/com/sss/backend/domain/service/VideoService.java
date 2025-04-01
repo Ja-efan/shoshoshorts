@@ -41,7 +41,7 @@ import jakarta.annotation.PostConstruct;
 public class VideoService {
 
     private static final Logger logger = LoggerFactory.getLogger(VideoService.class);
-    private static final String TEMP_DIR = "/app/temp/videos";
+    private static final String TEMP_DIR = System.getProperty("java.io.tmpdir") + File.separator + "sss_app_temp";
     
     private final SceneDocumentRepository sceneDocumentRepository;
     private final S3Config s3Config;
@@ -67,6 +67,16 @@ public class VideoService {
                 dir.mkdirs();
             }
         }
+        
+        // Create subdirectories
+        String[] subdirs = {"audios", "images", "videos", "subtitles"};
+        for (String subdir : subdirs) {
+            File subdirFile = new File(TEMP_DIR + File.separator + subdir);
+            if (!subdirFile.exists()) {
+                boolean created = subdirFile.mkdirs();
+                logger.info("서브 디렉토리 생성: {} (성공: {})", subdirFile.getPath(), created);
+            }
+        }
     }
 
     public File mergeAudioFiles(List<String> audioUrls, String outputPath) {
@@ -78,7 +88,7 @@ public class VideoService {
             createTempDir();
 
             // 임시 출력 경로는 중간 작업에만 사용
-            String tempOutputPath = TEMP_DIR + "/merged_" + UUID.randomUUID() + ".mp3";
+            String tempOutputPath = TEMP_DIR + File.separator + "audios" + File.separator + "merged_" + UUID.randomUUID() + ".mp3";
             String cleanTempPath = tempOutputPath.replace("\"", "");
             String cleanOutputPath = outputPath.replace("\"", "");
 
@@ -100,7 +110,7 @@ public class VideoService {
             
             // 추가 오디오 파일 병합
             for (int i = 1; i < audioUrls.size(); i++) {
-                String tempOutput = TEMP_DIR + "/temp_" + UUID.randomUUID() + ".mp3";
+                String tempOutput = TEMP_DIR + File.separator + "audios" + File.separator + "temp_" + UUID.randomUUID() + ".mp3";
                 String cleanTempOutput = tempOutput.replace("\"", "");
 
                 String s3Key = s3Config.extractS3KeyFromUrl(audioUrls.get(i));
@@ -139,7 +149,7 @@ public class VideoService {
             createTempDir();
 
             String cleanOutputPath = outputPath.replace("\"", "");
-            String tempAudioPath = TEMP_DIR + "/audio_" + UUID.randomUUID() + ".mp3";
+            String tempAudioPath = TEMP_DIR + File.separator + "audios" + File.separator + UUID.randomUUID() + ".mp3";
             String cleanAudioPath = tempAudioPath.replace("\"", "");
 
             // 오디오 파일 복사 (필수 과정)
@@ -189,20 +199,20 @@ public class VideoService {
             createTempDir();
 
             String cleanOutputPath = outputPath.replace("\"", "");
-            String tempOutputPath = TEMP_DIR + "/merged_without_subs_" + UUID.randomUUID() + ".mp4";
+            String tempOutputPath = TEMP_DIR + File.separator + "videos" + File.separator + "merged_without_subs_" + UUID.randomUUID() + ".mp4";
             String cleanTempOutputPath = tempOutputPath.replace("\"", "");
 
             // 비디오 파일을 임시 경로로 복사 (여러 파일 병합 위해 필요한 과정)
             List<String> tempVideoPaths = new ArrayList<>();
             for (int i = 0; i < videoPaths.size(); i++) {
-                String tempVideoPath = TEMP_DIR + "/scene_video_" + i + "_" + UUID.randomUUID() + ".mp4";
+                String tempVideoPath = TEMP_DIR + File.separator + "videos" + File.separator + "scene_video_" + i + "_" + UUID.randomUUID() + ".mp4";
                 String cleanVideoPath = tempVideoPath.replace("\"", "");
                 Files.copy(Paths.get(videoPaths.get(i)), Paths.get(cleanVideoPath), StandardCopyOption.REPLACE_EXISTING);
                 tempVideoPaths.add(cleanVideoPath);
             }
 
             // 임시 파일 생성 (파일 목록)
-            Path listFilePath = Paths.get(TEMP_DIR, "video_list_" + UUID.randomUUID() + ".txt");
+            Path listFilePath = Paths.get(TEMP_DIR, "videos" + File.separator + "video_list_" + UUID.randomUUID() + ".txt");
             
             StringBuilder fileList = new StringBuilder();
             for (String videoPath : tempVideoPaths) {
@@ -294,7 +304,7 @@ public class VideoService {
                 }
                 
                 // 임시 파일 경로 생성
-                String tempSceneDir = TEMP_DIR + "/scene_" + i + "_" + UUID.randomUUID();
+                String tempSceneDir = TEMP_DIR + File.separator + "videos" + File.separator + "scene_" + i + "_" + UUID.randomUUID();
                 
                 File sceneDir = new File(tempSceneDir);
                 if (!sceneDir.exists()) {
@@ -314,11 +324,11 @@ public class VideoService {
                 }
 
                 // 오디오 파일 병합
-                String mergedAudioPath = tempSceneDir + "/merged_audio.mp3";
+                String mergedAudioPath = tempSceneDir + File.separator + "merged_audio.mp3";
                 mergeAudioFiles(audioUrls, mergedAudioPath);
 
                 // 이미지와 병합된 오디오로 비디오 생성
-                String sceneVideoPath = tempSceneDir + "/scene_video.mp4";
+                String sceneVideoPath = tempSceneDir + File.separator + "scene_video.mp4";
                 createVideoFromImageAndAudio((String) scene.get("image_url"), mergedAudioPath, sceneVideoPath);
 
                 sceneVideoPaths.add(sceneVideoPath);
@@ -348,7 +358,7 @@ public class VideoService {
     public String createAndUploadVideo(String storyId, String outputPath) {
         try {
             // UUID를 이용한 임시 파일 경로 생성
-            String tempOutputPath = TEMP_DIR + "/upload_" + UUID.randomUUID() + ".mp4";
+            String tempOutputPath = TEMP_DIR + File.separator + "videos" + File.separator + "upload_" + UUID.randomUUID() + ".mp4";
             String cleanOutputPath = tempOutputPath.replace("\"", "");
             logger.info("비디오 생성 및 업로드 시작", storyId);
 
@@ -546,7 +556,7 @@ public class VideoService {
         List<Map<String, Object>> scenes = sceneDocument.getSceneArr();
         
         // ASS 형식의 자막 파일 생성
-        File subtitleFile = new File(TEMP_DIR + "/" + storyId + "_subtitles.ass");
+        File subtitleFile = new File(TEMP_DIR + File.separator + "subtitles" + File.separator + storyId + "_subtitles.ass");
         StringBuilder assContent = new StringBuilder();
         
         // ASS 헤더 추가
