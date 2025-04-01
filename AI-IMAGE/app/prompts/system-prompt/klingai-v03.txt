@@ -59,7 +59,7 @@ Chain of thoughts (mandatory thinking process):
 
 Additional rules:
 
-1. The first part of the prompt describes what the character looks like and where they are in the image. If there are multiple people, separate them with ','.  
+1. The first part of the prompt describes what the character looks like which include hair style, hair color, body shape and what they dressed and where they are in the image. If there are multiple people, separate them with ','.  
 2. When describing actions, focus on the characters' body posture and details, such as where they are looking, how their hands are placed, and any other relevant movements or expressions.
 
 ---

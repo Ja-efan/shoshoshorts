@@ -1,23 +1,29 @@
 """
 이미지 생성 서비스
 """
-import requests
+import os
+import jwt
 import time
+import requests
 from fastapi import HTTPException
 from typing import Dict, Any, Optional
-import jwt
+import glob
 
 from app.core.config import settings
 from app.core.logger import app_logger
 from app.core.api_config import klingai_config
+from app.services.utils import encode_image_to_base64
 
 class ImageService:
     """Kling AI를 사용한 이미지 생성 서비스"""
     
     @staticmethod
     async def generate_image(
+        story_id: int,
+        scene_id: int,
         prompt: str,
-        negative_prompt: Optional[str] = None
+        negative_prompt: Optional[str] = None,
+        style: str ="GHIBLI",
     ) -> Dict[str, Any]:
         """
         Kling AI API를 사용하여 이미지를 생성합니다.
@@ -56,14 +62,68 @@ class ImageService:
                 "Authorization": f"Bearer {settings.JWT_TOKEN}"
             }
             
-            instruction="""
-            {{{A cheerful character in the style of a classic Disney animated movie, with large expressive eyes, soft lighting, vibrant colors, smooth outlines, and a magical fairytale background, highly detailed and whimsical, 2D animation style}}}
-            """
+            # instruction="""
+            # {{{A cheerful character in the style of a classic Disney animated movie, with large expressive eyes, soft lighting, vibrant colors, smooth outlines, and a magical fairytale background, highly detailed and whimsical, 2D animation style}}}
+            # """
+            
+            ########################################### 이미지 참조 (동일 story_id 내 이미지 참조) ###########################################  
+            # # 현재 scene의 스토리 id에 대한 이전 이미지가 있는 경우 추가 
+            # reference_image = None
+            # previous_scene_id = scene_id - 1
+            # formatted_story_id = f"{story_id:08d}"
+            # formatted_scene_id = f"{scene_id:04d}"
+            # formatted_previous_scene_id = f"{previous_scene_id:04d}"
+            
+            # # 이미지 파일이 {scene_id}_{timestamp}.png 형식으로 저장되어 있는지 확인
+            # # glob을 사용하여 와일드카드 패턴으로 검색
+            # image_path = f"images/{settings.S3_BUCKET_NAME}/{formatted_story_id}/images"
+            # if os.path.exists(image_path):
+            #     # 이전 scene_id로 시작하는 모든 이미지 파일 찾기
+            #     pattern = f"{image_path}/{formatted_previous_scene_id}_*.jpg"
+            #     matching_files = glob.glob(pattern)
+                
+            #     if matching_files:
+            #         # 가장 최근 파일 (알파벳 순으로 마지막 파일이 일반적으로 최신 타임스탬프)
+            #         reference_image = matching_files[-1]
+            #         app_logger.info(f"참조 이미지 찾음: {reference_image}")
+            #     else:
+            #         # 이전 scene_id에 해당하는 이미지가 없으면 디렉토리 내 모든 이미지 중 가장 최근 것 사용
+            #         all_images_pattern = f"{image_path}/*.jpg"
+            #         all_images = glob.glob(all_images_pattern)
+            #         if all_images:
+            #             # 타임스탬프 기준으로 정렬 (가장 최신 파일이 마지막에 오도록)
+            #             all_images.sort()
+            #             reference_image = all_images[-1]
+            #             app_logger.info(f"이전 scene 이미지 없음. 가장 최근 이미지로 대체: {reference_image}")
+            
+            # else: 
+            #     app_logger.info(f"이전 scene 이미지 없음. 참조 이미지 없음")
+                
+            ########################################### 이미지 참조 (동일 style 내 이미지 참조) ###########################################  
+            reference_image = None 
+            style_reference_dict = {
+                "GHIBLI": "images/references/ghibli/ghibli-reference-01.jpg",
+                "ANIME": "images/references/anime/anime-reference-01.jpg",
+                "DISNEY": "images/references/disney/disney-reference-01.jpg"
+            }
+            reference_image = style_reference_dict[style]
+            app_logger.info(f"참조 이미지: {reference_image}")
+            
+            # 참조 이미지가 있는 경우 Base64로 인코딩
+            reference_image_base64 = None
+            if reference_image:
+                reference_image_base64 = encode_image_to_base64(reference_image)
+
             # API 요청 데이터
             payload = {
-                "model": klingai_config.MODEL,
-                "prompt": instruction+prompt,
+                "model": klingai_config.MODEL_V1 if reference_image else klingai_config.MODEL_V1_5,
+                "prompt": prompt,
                 "negative_prompt": negative_prompt if negative_prompt else "",
+                # TODO: "image" 추가 (Reference Image -> Base64 인코딩 or image URL)
+                # image 추가 하는 경우 -> 현재 scene의 스토리 id에 대한 이전 이미지가 있는 경우 추가 
+                # image를 추가하는 경우에 negative_prompt는 무시됨 
+                "image": reference_image_base64 if reference_image_base64 else None,
+                "image_fidelity": klingai_config.IMAGE_FIDELITY if reference_image else 0.5,
                 "n": klingai_config.N,
                 "aspect_ratio": klingai_config.ASPECT_RATIO
             }

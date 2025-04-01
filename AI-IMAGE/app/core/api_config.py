@@ -1,7 +1,10 @@
 class KlingAIConfig:
-    MODEL = "kling-v1-5"
+    MODEL_V1 = "kling-v1"  # 참조 이미지 사용하기 위해서는 kling-v1 사용
+    MODEL_V1_5 = "kling-v1-5"
     ASPECT_RATIO = "1:1"
     N = 1
+    IMAGE_REFERENCE = "subject"  # "subject" or "face"
+    IMAGE_FIDELITY = 0.1  # 참조 이미지 참조 정도 (0 ~ 1 소수)
     KLING_TO_HTTP = {
         # 200 OK
         0: 200,
@@ -35,7 +38,7 @@ class OpenAIConfig:
     MODEL = "gpt-4o"  # "gpt-4o-mini"
     MAX_TOKENS = 500
     TEMPERATURE = 0.5
-    KLINGAI_SYSTEM_PROMPT = "klingai-v02.txt"
+    KLINGAI_SYSTEM_PROMPT = "klingai-v03.txt"
 
 klingai_config = KlingAIConfig()
 openai_config = OpenAIConfig()

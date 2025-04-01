@@ -3,7 +3,6 @@ OpenAI 서비스
 """
 import os
 from enum import Enum
-from pyexpat.errors import messages
 from openai import OpenAI
 from app.schemas.models import Scene, SceneInfo
 from app.core.config import settings    
@@ -30,6 +29,7 @@ class ImageStyle(str, Enum):
     GENRE = "GENRE"
     LIGHTING = "LIGHTING"
     MOOD = "MOOD"
+    GHIBLI = "GHIBLI"
     
     @classmethod
     def _missing_(cls, value):
@@ -46,7 +46,7 @@ class OpenAIService:
     """OpenAI API를 활용하여 이미지 프롬프트를 생성하는 서비스"""
     
     @staticmethod
-    async def generate_scene_info(scene: Scene):
+    async def generate_scene_info(scene: Scene, style: ImageStyle="GHIBLI"):
         """
         장면 정보를 바탕으로 이미지 프롬프트 생성에 필요한 장면 정보(scene_info)를 생성합니다.
         """
@@ -115,7 +115,7 @@ AND THEN YOU MUST:
 
 장면 제목: 빵타지아 입사시험  
 ID: 2  
-스타일: ANIME  
+스타일: GHIBLI  
 등장인물:  
 - 감독관 (남자): 중년 남성, 검은 머리, 사나운 인상, 요리사 복장  
 - 여자 (여자): 10대 소녀, 핑크머리, 단발머리에 양갈래 묶은 머리, 요리사 복장  
@@ -143,7 +143,7 @@ ID: 2
 **장면 메타데이터**:  
 - 제목: 빵타지아 입사시험  
 - ID: 2  
-- 스타일: ANIME
+- 스타일: GHIBLI
 </system_prompt>
 
         """
@@ -151,7 +151,7 @@ ID: 2
         scene_info = f"""
     장면 제목: {scene.story_metadata.title}
     장면 ID: {scene.scene_id}
-    장면 스타일: ANIME
+    장면 스타일: {style}
 
     등장인물:
     """
@@ -184,7 +184,7 @@ ID: 2
         return response.choices[0].message.parsed
     
     @staticmethod
-    async def generate_image_prompt(scene: Scene, style: Union[str, ImageStyle]=ImageStyle.ANIME) -> str:
+    async def generate_image_prompt(scene: Scene, style: Union[str, ImageStyle]=ImageStyle.GHIBLI) -> str:
         """
         장면 정보를 바탕으로 이미지 생성(KLING AI)에 사용할 이미지 프롬프트를 생성합니다.
         
@@ -208,11 +208,11 @@ ID: 2
             try:
                 style = ImageStyle(style)
             except ValueError:
-                app_logger.warning(f"유효하지 않은 이미지 스타일 '{style}'. 기본값 'ANIME'를 사용합니다.")
-                style = ImageStyle.ANIME
+                app_logger.warning(f"유효하지 않은 이미지 스타일 '{style}'. 기본값 'GHIBLI'를 사용합니다.")
+                style = ImageStyle.GHIBLI
         
         # 장면 정보 생성 (gpt-4o-mini)
-        scene_info = await OpenAIService.generate_scene_info(scene)
+        scene_info = await OpenAIService.generate_scene_info(scene, style)
         app_logger.debug(f"이미지 프롬프트 생성을 위해 생성된 장면 정보: \n{scene_info}")
                 
         app_logger.debug(f"시스템 프롬프트 ver: {openai_config.KLINGAI_SYSTEM_PROMPT}")
@@ -246,20 +246,26 @@ ID: 2
                 temperature=openai_config.TEMPERATURE
             )
             
-            # TODO 시스템 프롬프트 수정해서 이미지 프롬프트 길지 않게 생성 (2250자 임시 조치)
+            negative_prompt = None
+            if style==ImageStyle.GHIBLI:
+                negative_prompt = "Disney Style"
+            else:
+                negative_prompt = "low quality, bad anatomy, blurry, pixelated, disfigured"
+                
             image_prompt = response.choices[0].message.content.strip()
-            app_logger.debug(f"생성된 이미지 프롬프트: \n{image_prompt}")
-            app_logger.debug(f"생성된 이미지 프롬프트 길이: {len(image_prompt)}")
-
-            # 생성된 프롬프트 반환
-            return image_prompt
+            app_logger.debug(f"Positive Prompt: \n{image_prompt}")
+            app_logger.debug(f"Positive Prompt 길이: {len(image_prompt)}")
+            app_logger.debug(f"Negative Prompt: {negative_prompt}")
             
-        except Exception as e:
+            # 생성된 프롬프트 반환
+            return image_prompt, negative_prompt
+            
+        except Exception as e:  
             # 오류 발생 시 기본 프롬프트 반환
             app_logger.error(f"OpenAI API 오류: {str(e)}")
             
             # 기본 프롬프트 생성
-            default_prompt = f"A scene from the story '{context['title']}' in {style} style, showing "
+            default_prompt = f"A scene from the story '{scene.story_metadata.title}' in {style} style, showing "
             
             # 스타일별 추가 지시사항
             style_str = style.value if isinstance(style, ImageStyle) else str(style)
@@ -281,13 +287,13 @@ ID: 2
                 default_prompt += "with dreamy, vibrant, textured style, "
             
             # 등장인물 정보 추가
-            characters_str = ", ".join([f"{c['name']}" for c in context["characters"]])
+            characters_str = ", ".join([f"{c['name']}" for c in scene_info.characters])
             default_prompt += f"{characters_str}. "
             
             # 첫 번째 나레이션이나 대화 내용 추가
-            for audio in context["audios"]:
-                if audio["type"] in ["narration", "dialogue"]:
-                    default_prompt += f"{audio['text']}"
+            for audio in scene.audios:
+                if audio.type in ["narration", "dialogue"]:
+                    default_prompt += f"{audio.text}"
                     break
             
             return default_prompt
