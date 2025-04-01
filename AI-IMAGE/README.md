@@ -47,10 +47,13 @@ KLING_SECRET_KEY=your_kling_secret_key
 OPENAI_API_KEY=your_openai_api_key
 
 # AWS S3
-AWS_ACCESS_KEY_ID=your_aws_access_key
-AWS_SECRET_ACCESS_KEY=your_aws_secret_key
-S3_BUCKET_NAME=your_bucket_name
-AWS_REGION=ap-northeast-2
+S3_ACCESS_KEY=your_s3_access_key
+S3_SECRET_KEY=your_s3_secret_key
+S3_BUCKET_NAME=your_s3_bucket_name
+S3_REGION=ap-northeast-2
+
+# 오류 처리 설정
+USE_LOCAL_URL_ON_S3_FAILURE=false
 ```
 
 ### Docker를 사용한 실행

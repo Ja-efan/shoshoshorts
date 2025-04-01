@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     RELEASE_S3_ACCESS_KEY: str = os.getenv("RELEASE_S3_ACCESS_KEY", S3_ACCESS_KEY)
     RELEASE_S3_SECRET_KEY: str = os.getenv("RELEASE_S3_SECRET_KEY", S3_SECRET_KEY)
 
+    # S3 오류 설정
+    USE_LOCAL_URL_ON_S3_FAILURE: bool = os.getenv("USE_LOCAL_URL_ON_S3_FAILURE", "false").lower() == "true"
+
     # API 비밀번호
     API_PWD: str = os.getenv("API_PWD")
 

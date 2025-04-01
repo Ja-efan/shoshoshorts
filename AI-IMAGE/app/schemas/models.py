@@ -34,3 +34,16 @@ class ImageGenerationResponse(BaseModel):
     scene_id: int
     image_prompt: str
     image_url: str 
+    
+class SceneMetadata(BaseModel):
+    """장면 메타데이터 모델"""
+    title: str
+    scene_id: int
+    style: str
+
+class SceneInfo(BaseModel):
+    """장면 정보 모델"""
+    characters: List[Character]
+    scene_content: str
+    scene_summary: str
+    scene_metadata: SceneMetadata

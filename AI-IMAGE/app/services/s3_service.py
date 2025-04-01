@@ -75,7 +75,7 @@ class S3Service:
             region_name=self.s3_region
         )
 
-    async def upload_image(self, image_path: str, story_id: int, scene_id: int) -> Optional[str]:
+    async def upload_image(self, image_path: str, story_id: int, scene_id: int) -> Optional[dict]:
         """
         이미지를 S3에 업로드합니다.
         
@@ -85,11 +85,18 @@ class S3Service:
             scene_id: 장면 ID
             
         Returns:
-            업로드된 이미지의 S3 URL 또는 None (실패 시)
+            Dict 형태로 다음 정보 반환:
+            - 성공 시: {"success": True, "url": S3 URL}
+            - 실패 시: {"success": False, "error": 오류 메시지, "error_type": 오류 유형, "local_path": 로컬 이미지 경로}
         """
         if not self.s3_client or not self.s3_bucket:
             app_logger.error("S3 자격 증명 또는 버킷 이름이 설정되지 않았습니다.")
-            return None
+            return {
+                "success": False,
+                "error": "S3 자격 증명 또는 버킷 이름이 설정되지 않았습니다.",
+                "error_type": "credentials_missing",
+                "local_path": image_path
+            }
         
         try:
             # ID를 형식에 맞게 변환 (story_id: 8자리, scene_id: 4자리)
@@ -123,17 +130,38 @@ class S3Service:
             
             # S3 URL 생성
             s3_url = f"https://{self.s3_bucket}.s3.{self.s3_region}.amazonaws.com/{object_key}"
-            return s3_url
+            return {
+                "success": True,
+                "url": s3_url
+            }
             
         except FileNotFoundError:
-            app_logger.error(f"업로드할 파일을 찾을 수 없습니다: {image_path}")
-            return None
+            error_msg = f"업로드할 파일을 찾을 수 없습니다: {image_path}"
+            app_logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "error_type": "file_not_found",
+                "local_path": image_path
+            }
         except NoCredentialsError:
-            app_logger.error("AWS 자격 증명이 잘못되었습니다.")
-            return None
+            error_msg = "AWS 자격 증명이 잘못되었습니다."
+            app_logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "error_type": "invalid_credentials",
+                "local_path": image_path
+            }
         except Exception as e:
-            app_logger.error(f"S3 업로드 중 오류 발생: {str(e)}")
-            return None
+            error_msg = f"S3 업로드 중 오류 발생: {str(e)}"
+            app_logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "error_type": "upload_error",
+                "local_path": image_path
+            }
 
 # 서비스 인스턴스 생성
 s3_service = S3Service() 

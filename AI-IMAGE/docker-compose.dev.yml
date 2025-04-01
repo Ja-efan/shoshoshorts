@@ -1,0 +1,15 @@
+services:
+  ai-image:
+    build: .
+    container_name: ai-image-service-dev
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/app  # 개발환경 핫 리로딩을 위한 바인드 마운트
+      - ./images:/app/images
+    env_file:
+      - .env
+    restart: unless-stopped
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1  # 파이썬 캐시 파일 생성 방지
+      - PYTHONUNBUFFERED=1  # 파이썬 로그가 즉시 출력되도록 설정 

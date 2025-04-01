@@ -5,6 +5,7 @@ services:
     ports:
       - "8001:8001"
     volumes:
+      # - .:/app  # 개발환경 hot-reloading
       - ./images:/app/images
     env_file:
       - .env
