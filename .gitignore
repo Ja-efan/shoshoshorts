@@ -121,9 +121,6 @@ sketch
 # 설정 파일 (환경별로 다를 수 있음)
 #########################
 *.env
-*.properties
-application.yml
-application.properties
 
 #########################
 # DB / 캐시 파일
