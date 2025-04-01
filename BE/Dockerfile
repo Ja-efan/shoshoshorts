@@ -28,10 +28,9 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # 나눔 고딕 폰트만 직접 다운로드 및 설치
-WORKDIR /tmp
 RUN mkdir -p /usr/share/fonts/truetype/nanum && \
-    wget "https://github.com/googlefonts/nanum-gothic/blob/main/fonts/NanumGothic-Regular.ttf?raw=true" -O /usr/share/fonts/truetype/nanum/NanumGothic-Regular.ttf && \
-    wget "https://github.com/googlefonts/nanum-gothic/blob/main/fonts/NanumGothic-Bold.ttf?raw=true" -O /usr/share/fonts/truetype/nanum/NanumGothic-Bold.ttf && \
+    wget "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Regular.ttf" -O /usr/share/fonts/truetype/nanum/NanumGothic-Regular.ttf && \
+    wget "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf" -O /usr/share/fonts/truetype/nanum/NanumGothic-Bold.ttf && \
     chmod 644 /usr/share/fonts/truetype/nanum/*.ttf
 
 # 폰트 캐시 갱신 및 확인
