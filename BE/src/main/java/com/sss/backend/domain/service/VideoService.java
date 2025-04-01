@@ -647,11 +647,19 @@ public class VideoService {
         assContent.append("[V4+ Styles]\n");
         assContent.append("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n");
         assContent.append("Style: Default,NanumGothic,60,&H00000000,&H000000FF,&H00FFFFFF,&H88000000,1,0,0,0,100,100,0,0,1,3,2,5,0,0,0,1\n");
+        assContent.append("Style: Title,NanumGothic,70,&H00000000,&H000000FF,&H00FFFFFF,&HCC000000,1,0,0,0,100,100,0,0,1,3,2,1,0,0,0,1\n");
         assContent.append("\n");
         
         // 자막 이벤트
         assContent.append("[Events]\n");
         assContent.append("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
+        
+        // 제목 추가 (영상 전체 시간동안 좌상단에 표시)
+        // 자막 시작 시간을 0으로, 종료 시간을 충분히 길게 설정(10시간)
+        String storyTitle = sceneDocument.getStoryTitle();
+        assContent.append("Dialogue: 0,0:00:00.00,10:00:00.00,Title,,0,0,0,,{\\pos(70,355)}")
+                 .append(storyTitle.replace(",", "\\,"))
+                 .append("\n");
         
         double currentTime = 0.0;
         
