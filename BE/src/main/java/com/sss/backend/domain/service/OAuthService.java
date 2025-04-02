@@ -24,6 +24,7 @@ public class OAuthService {
     private final JWTUtil jwtUtil;
     private final RestTemplate restTemplate = new RestTemplate();
     private final UserRepository userRepository ;
+    private final TokenService tokenService;
 
     @Value("${oauth2.redirect.google}")
     private String googleRedirectUri;
@@ -148,24 +149,38 @@ public class OAuthService {
             return userRepository.save(newUser);
         });
 
-        // 5. JWT 발급
-        String accessToken = jwtUtil.createAccessToken(user.getEmail(),user.getRole(),user.getProvider(),10*1000L);
-        String refreshToken = jwtUtil.createRefreshToken(user.getEmail(), 7 * 24 * 60 * 60 * 1000L); // 7일
+        // 5. 토큰 생성
+        String accessToken = tokenService.createAccessToken(user);
+        String refreshToken = tokenService.createAndStoreRefreshToken(user.getEmail());
+        ResponseCookie refreshCookie = tokenService.createRefreshTokenCookie(refreshToken);
 
-        // 6. Refresh Token -> HttpOnly 쿠키에 담기
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
-                .httpOnly(true)
-                .path("/")
-                .maxAge(7 * 24 * 60 * 60) // 7일
-                .sameSite("Lax")
-                .secure(true) // https 환경에서만 전송되도록 (로컬은 false)
-                .build();
-
-        // 7. AccessToken은 Body에 응답
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE,refreshCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(new TokenResponse(accessToken));
+
+//        // 5. JWT 발급
+//        String accessToken = jwtUtil.createAccessToken(user.getEmail(),user.getRole(),user.getProvider(),10 * 60 *1000L);
+//        String refreshToken = jwtUtil.createRefreshToken(user.getEmail(), 7 * 24 * 60 * 60 * 1000L); // 7일
+//
+//        // 5.5 Redis에 Refresh 토큰 저장
+//        redisService.saveToken(email,refreshToken);
+//
+//        // 6. Refresh Token -> HttpOnly 쿠키에 담기
+//        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
+//                .httpOnly(true)
+//                .path("/")
+//                .maxAge(7 * 24 * 60 * 60) // 7일
+//                .sameSite("Lax")
+//                .secure(true) // https 환경에서만 전송되도록 (로컬은 false)
+//                .build();
+//
+//        // 7. AccessToken은 Body에 응답
+//        return ResponseEntity.ok()
+//                .header(HttpHeaders.SET_COOKIE,refreshCookie.toString())
+//                .body(new TokenResponse(accessToken));
     }
+
+
 
     /**
      * 닉네임 자동 메소드
