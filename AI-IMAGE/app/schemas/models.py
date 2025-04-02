@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 class Character(BaseModel):
     """등장 인물 모델"""
     name: str
-    gender: int  # 1: 남자, 2: 여자
+    gender: int  # 0: 남자, 1: 여자
     description: str
 
 class StoryMetadata(BaseModel):
