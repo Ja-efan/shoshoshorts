@@ -6,6 +6,7 @@ import com.sss.backend.jwt.JWTUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
@@ -66,7 +67,8 @@ public class Securityconfig {
      */
     private void configureAuthorization(AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
         auth
-                .requestMatchers("/", "/api/auth/oauth", "/api/auth/check", "/api/auth/refresh", "/api/redis/*").permitAll()
+                .requestMatchers("/", "/api/auth/oauth", "/api/auth/check", "/api/auth/refresh", "/api/youtube/auth", "/api/youtube/auth/callback", "/api/youtube/auth/validate","/api/redis/*").permitAll()
+                .requestMatchers(HttpMethod.POST,"/api/youtube/upload","/api/youtube/auth/logout").permitAll()
                 .anyRequest().authenticated();
     }
 
