@@ -18,8 +18,13 @@ import java.util.Date;
 public class JWTUtil {
     private SecretKey secretKey;
 
-    public JWTUtil(@Value("${spring.jwt.secret}")String secret) {
+    public JWTUtil() {
         // Serect key 기반으로 JWT 서명 키 생성.
+        String secret = System.getenv("JWT_SECRET_KEY");
+        log.info("Secret 정상적으로 불러와짐??? {}",secret);
+        if (secret == null) {
+            throw new IllegalStateException("환경변수 JWT_SECRET이 설정되지 않음");
+        }
         secretKey = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8),
                 Jwts.SIG.HS256.key().build().getAlgorithm());
 
