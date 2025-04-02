@@ -50,9 +50,8 @@ public class YoutubeService {
                     throw new RuntimeException("비디오 URL이 필요합니다.");
                 }
 
-                // 제공된 URL에서 임시 파일로 다운로드
+                // 임시로 동영상 파일을 담을 file 공간 생성
                 File tempFile = File.createTempFile("youtube-upload-", ".tmp");
-
 
                 try {
 
@@ -103,50 +102,63 @@ public class YoutubeService {
                                         String tags, String privacyStatus, String categoryId,
                                         String accessToken) throws IOException {
 
-        // 인증 정보 생성
-        Credential credential = new GoogleCredential().setAccessToken(accessToken);
+        try {
+            System.out.println("YouTube 업로드 시작 - 파일 크기: " + videoFile.length() + " bytes");
+            System.out.println("사용 토큰 (부분): " + accessToken.substring(0, Math.min(10, accessToken.length())) + "...");
 
-        // YouTube 서비스 객체 생성
-        YouTube youtube = new YouTube.Builder(
-                new NetHttpTransport(),
-                JacksonFactory.getDefaultInstance(),
-                credential)
-                .setApplicationName(applicationName)
-                .build();
+            // 인증 정보 생성
+            Credential credential = new GoogleCredential().setAccessToken(accessToken);
 
-        // 동영상 메타데이터 설정
-        Video videoMetadata = new Video();
+            // YouTube 서비스 객체 생성
+            YouTube youtube = new YouTube.Builder(
+                    new NetHttpTransport(),
+                    JacksonFactory.getDefaultInstance(),
+                    credential)
+                    .setApplicationName(applicationName)
+                    .build();
 
-        // 기본 정보 설정
-        VideoSnippet snippet = new VideoSnippet();
-        snippet.setTitle(title != null ? title : "Untitled");
-        snippet.setDescription(description != null ? description : "");
+            // 동영상 메타데이터 설정
+            Video videoMetadata = new Video();
 
-        // 태그 설정 (있는 경우)
-        if (tags != null && !tags.isEmpty()) {
-            snippet.setTags(Arrays.asList(tags.split(",")));
+            // 기본 정보 설정
+            VideoSnippet snippet = new VideoSnippet();
+            snippet.setTitle(title != null ? title : "Untitled");
+            snippet.setDescription(description != null ? description : "");
+
+            // 태그 설정 (있는 경우)
+            if (tags != null && !tags.isEmpty()) {
+                snippet.setTags(Arrays.asList(tags.split(",")));
+            }
+
+            // 카테고리 설정
+            snippet.setCategoryId(categoryId != null ? categoryId : "22"); // 기본값 22 (People & Blogs)
+
+            // 개인정보 설정
+            VideoStatus status = new VideoStatus();
+            status.setPrivacyStatus(privacyStatus != null ? privacyStatus : "private"); // 기본값 private
+
+            videoMetadata.setSnippet(snippet);
+            videoMetadata.setStatus(status);
+
+            // 업로드 요청 생성
+            YouTube.Videos.Insert videoInsert = youtube.videos()
+                    .insert(Collections.singletonList("snippet,status"), videoMetadata,
+                            new FileContent("video/*", videoFile));
+
+            System.out.println("YouTube API 호출 전...");
+
+            // 업로드 실행 및 결과 받기
+            Video uploadedVideo = videoInsert.execute();
+
+            System.out.println("YouTube API 호출 성공!");
+
+            // 비디오 ID 반환
+            return uploadedVideo.getId();
+        } catch (IOException e) {
+            System.out.println("YouTube 업로드 실패: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-
-        // 카테고리 설정
-        snippet.setCategoryId(categoryId != null ? categoryId : "22"); // 기본값 22 (People & Blogs)
-
-        // 개인정보 설정
-        VideoStatus status = new VideoStatus();
-        status.setPrivacyStatus(privacyStatus != null ? privacyStatus : "private"); // 기본값 private
-
-        videoMetadata.setSnippet(snippet);
-        videoMetadata.setStatus(status);
-
-        // 업로드 요청 생성
-        YouTube.Videos.Insert videoInsert = youtube.videos()
-                .insert(Collections.singletonList("snippet,status"), videoMetadata,
-                        new FileContent("video/*", videoFile));
-
-        // 업로드 실행 및 결과 받기
-        Video uploadedVideo = videoInsert.execute();
-
-        // 비디오 ID 반환
-        return uploadedVideo.getId();
     }
 
 
