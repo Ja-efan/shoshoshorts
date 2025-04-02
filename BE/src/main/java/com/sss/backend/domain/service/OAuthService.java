@@ -24,6 +24,7 @@ public class OAuthService {
     private final JWTUtil jwtUtil;
     private final RestTemplate restTemplate = new RestTemplate();
     private final UserRepository userRepository ;
+    private final TokenService tokenService;
 
     @Value("${oauth2.redirect.google}")
     private String googleRedirectUri;
@@ -51,21 +52,24 @@ public class OAuthService {
                 userInfoUri = "https://www.googleapis.com/oauth2/v2/userinfo";
                 clientId = System.getenv("GOOGLE_CLIENT_ID");
                 clientSecret = System.getenv("GOOGLE_CLIENT_SECRET");
-//                redirectUri = System.getenv("GOOGLE_REDIRECT_URL");
                 redirectUri = googleRedirectUri;
             }
-//            case "naver" -> {
-//                tokenUri = "https://nid.naver.com/oauth2.0/token";
-//                userInfoUri = "https://openapi.naver.com/v1/nid/me";
-//                // 추가 예정
-//
-//            }
-//            case "kakao" -> {
-//                tokenUri = "https://kauth.kakao.com/oauth/token";
-//                userInfoUri = "https://kapi.kakao.com/v2/user/me";
-//                // 추가 예정
-//
-//            }
+            case "naver" -> {
+                tokenUri = "https://nid.naver.com/oauth2.0/token";
+                userInfoUri = "https://openapi.naver.com/v1/nid/me";
+                clientId = System.getenv("NAVER_CLIENT_ID");
+                clientSecret = System.getenv("NAVER_CLIENT_SECRET");
+                redirectUri = naverRedirectUri;
+
+            }
+            case "kakao" -> {
+                tokenUri = "https://kauth.kakao.com/oauth/token";
+                userInfoUri = "https://kapi.kakao.com/v2/user/me";
+                clientId = System.getenv("KAKAO_CLIENT_ID");
+                redirectUri=kakaoRedirectUri;
+                // 추가 예정
+
+            }
             // 예외처리
             default -> throw new RuntimeException("지원하지 않는 provider : " + provider);
         }
@@ -121,16 +125,17 @@ public class OAuthService {
                 email = (String) userInfo.get("email");
                 name = (String) userInfo.get("name");
             }
-//            case "naver" -> {
-//                email = "";
-//                name = "";
-//                //구현예정
-//            }
-//            case "kakao" -> {
-//                email = "";
-//                name = "";
-//                //구현예정
-//            }
+            //Todo : 구현 예정
+            case "naver" -> {
+                log.info("NAVER response : {}",userInfo);
+                email = "";
+                name = "";
+            }
+            case "kakao" -> {
+                log.info("KAKAO response : {}",userInfo);
+                email = "";
+                name = "";
+            }
             default -> {
                 throw new RuntimeException("지원 X");
             }
@@ -148,24 +153,38 @@ public class OAuthService {
             return userRepository.save(newUser);
         });
 
-        // 5. JWT 발급
-        String accessToken = jwtUtil.createAccessToken(user.getEmail(),user.getRole(),user.getProvider(),20*60*1000L);
-        String refreshToken = jwtUtil.createRefreshToken(user.getEmail(), 7 * 24 * 60 * 60 * 1000L); // 7일
+        // 5. 토큰 생성
+        String accessToken = tokenService.createAccessToken(user);
+        String refreshToken = tokenService.createAndStoreRefreshToken(user.getEmail());
+        ResponseCookie refreshCookie = tokenService.createRefreshTokenCookie(refreshToken);
 
-        // 6. Refresh Token -> HttpOnly 쿠키에 담기
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
-                .httpOnly(true)
-                .path("/")
-                .maxAge(7 * 24 * 60 * 60) // 7일
-                .sameSite("Lax")
-                .secure(true) // https 환경에서만 전송되도록 (로컬은 false)
-                .build();
-
-        // 7. AccessToken은 Body에 응답
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE,refreshCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(new TokenResponse(accessToken));
+
+//        // 5. JWT 발급
+//        String accessToken = jwtUtil.createAccessToken(user.getEmail(),user.getRole(),user.getProvider(),10 * 60 *1000L);
+//        String refreshToken = jwtUtil.createRefreshToken(user.getEmail(), 7 * 24 * 60 * 60 * 1000L); // 7일
+//
+//        // 5.5 Redis에 Refresh 토큰 저장
+//        redisService.saveToken(email,refreshToken);
+//
+//        // 6. Refresh Token -> HttpOnly 쿠키에 담기
+//        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
+//                .httpOnly(true)
+//                .path("/")
+//                .maxAge(7 * 24 * 60 * 60) // 7일
+//                .sameSite("Lax")
+//                .secure(true) // https 환경에서만 전송되도록 (로컬은 false)
+//                .build();
+//
+//        // 7. AccessToken은 Body에 응답
+//        return ResponseEntity.ok()
+//                .header(HttpHeaders.SET_COOKIE,refreshCookie.toString())
+//                .body(new TokenResponse(accessToken));
     }
+
+
 
     /**
      * 닉네임 자동 메소드

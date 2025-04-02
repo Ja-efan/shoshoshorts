@@ -15,6 +15,9 @@ public class Story {
     private Long id;
 
     // User
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private UserEntity user;
 
     @Column(nullable = false)
     private String title;

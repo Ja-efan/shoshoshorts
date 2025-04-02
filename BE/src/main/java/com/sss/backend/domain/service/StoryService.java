@@ -1,15 +1,21 @@
 package com.sss.backend.domain.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jwt.JWT;
 import com.sss.backend.api.dto.StoryRequestDTO;
 import com.sss.backend.domain.document.CharacterDocument;
 import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.entity.Story;
+import com.sss.backend.domain.entity.UserEntity;
 import com.sss.backend.domain.repository.CharacterRepository;
 import com.sss.backend.domain.repository.SceneRepository;
 import com.sss.backend.domain.repository.StoryRepository;
 
+import com.sss.backend.domain.repository.UserRepository;
+import com.sss.backend.jwt.JWTUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotBlank;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -29,14 +35,16 @@ import java.util.Optional;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class StoryService {
 
     private final StoryRepository storyRepository;
     private final CharacterRepository characterRepository;
     private final WebClient webClient;
     private final ScriptTransformService scriptTransformService;
-    private final SceneRepository sceneRepository;
+    private final JWTUtil jwtUtil;
     private final MongoTemplate mongoTemplate;
+    private final UserRepository userRepository;
 
     @Value("${api.password}")
     private String apiPassword;
@@ -45,28 +53,20 @@ public class StoryService {
     private String activeProfile;
 
     // 생성자 주입
-    public StoryService(StoryRepository storyRepository,
-                        CharacterRepository characterRepository,
-                        WebClient webClient,
-                        ScriptTransformService scriptTransformService,
-                        SceneRepository sceneRepository,
-                        MongoTemplate mongoTemplate) {
-        this.storyRepository = storyRepository;
-        this.characterRepository = characterRepository;
-        this.webClient = webClient;
-        this.scriptTransformService = scriptTransformService;
-        this.sceneRepository = sceneRepository;
-        this.mongoTemplate = mongoTemplate;
-    }
-
     @Transactional
-    public Long saveBasicStory(StoryRequestDTO request) {
+    public Long saveBasicStory(StoryRequestDTO request,
+                               HttpServletRequest httpRequest) {
         // 1. 유효성 검사 메서드 호출
         validateRequest(request);
         log.info("사용자 입력 인풋 :{}",request);
+        // 1.5 유저 정보 추출
+        String token = jwtUtil.extractTokenFromRequest(httpRequest);
+        String email = jwtUtil.getEmail(token);
+        UserEntity user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("유저 정보 없음"));
 
         // 2. RDBMS에 스토리 저장.
-        Story storyEntity = convertToEntity(request);
+        Story storyEntity = convertToEntity(request, user);
         storyEntity = storyRepository.save(storyEntity);
         log.info("엔티티 :{}", storyEntity);
 
@@ -234,10 +234,11 @@ public class StoryService {
     }
 
     // DTO -> Entity 변환 메소드
-    private Story convertToEntity(StoryRequestDTO request) {
+    private Story convertToEntity(StoryRequestDTO request, UserEntity user) {
         Story entity = new Story();
         entity.setTitle(request.getTitle());
         entity.setStory(request.getStory());
+        entity.setUser(user);
         return entity;
     }
     // MongoDB에 캐릭터 정보 저장하는 메소드.

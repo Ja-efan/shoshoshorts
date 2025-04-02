@@ -6,6 +6,7 @@ import com.sss.backend.domain.entity.Video.VideoStatus;
 import com.sss.backend.domain.service.MediaService;
 import com.sss.backend.domain.service.StoryService;
 import com.sss.backend.domain.service.VideoService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,11 +36,12 @@ public class VideoController {
 
     // 비동기 비디오 생성 요청
     @PostMapping("/generate")
-    public ResponseEntity<VideoStatusResponseDto> generateVideoAsync(@Valid @RequestBody StoryRequestDTO request) {
+    public ResponseEntity<VideoStatusResponseDto> generateVideoAsync(
+            @Valid @RequestBody StoryRequestDTO request,
+            HttpServletRequest httpRequest) {
         try {
             // 스토리 저장
-            log.info("안녀안녕");
-            Long storyId = storyService.saveBasicStory(request);
+            Long storyId = storyService.saveBasicStory(request, httpRequest);
             log.info("스토리 엔티티 생성 완료: {}", storyId);
             
             // 비디오 엔티티 초기 상태로 저장
@@ -53,10 +55,18 @@ public class VideoController {
                     // 상태 업데이트: 처리 중
                     videoService.updateVideoStatus(storyId.toString(), VideoStatus.PROCESSING, null);
                     
-                    // 미디어 생성 처리
-                    CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
-                    future.get(30, TimeUnit.MINUTES);
-                    
+                    // // 미디어 생성 처리
+                    // CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
+                    // future.get(30, TimeUnit.MINUTES);
+                    // 미디어 생성 처리 - 실패 시 즉시 예외 전파
+                    try {
+                        CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
+                        future.get(30, TimeUnit.MINUTES);
+                    } catch (Exception e) {
+                        log.error("미디어 생성 중 오류 발생: {}", e.getMessage(), e);
+                        videoService.updateVideoStatus(storyId.toString(), VideoStatus.FAILED, "미디어 생성 실패: " + e.getMessage());
+                        throw e; // 예외를 상위로 전파하여 비디오 생성 중단
+                    }
                     // 비디오 생성 및 업로드
                     String outputPath = tempDirectory + "/" + UUID.randomUUID() + "_final.mp4";
                     String videoUrl = videoService.createAndUploadVideo(storyId.toString(), outputPath);
@@ -92,6 +102,18 @@ public class VideoController {
         } catch (Exception e) {
             log.error("비디오 상태 조회 중 오류: {}", e.getMessage(), e);
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/status/user/{userId}")
+    public ResponseEntity<VideoListResponseDTO> getAllVideoStatusByUser(@PathVariable Long userId){
+        try {
+            VideoListResponseDTO response = videoService.getAllVideoStatusById(userId);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("비디오 상태 조회 중 오류 : {} ",e.getMessage());
+            return ResponseEntity.notFound().build();
+
         }
     }
 

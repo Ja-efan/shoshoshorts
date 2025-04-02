@@ -15,9 +15,9 @@ export const API_ENDPOINTS = {
   YOUTUBE_UPLOAD: `${API_BASE_URL}/api/youtube/upload`,
   AUTH: {
     OAUTH: `${API_BASE_URL}/api/auth/oauth`,
-    REFRESH: `${API_BASE_URL}/api/auth/oauth/refresh`,
-    LOGOUT: `${API_BASE_URL}/api/auth/oauth/logout`,
-    VALIDATE: `${API_BASE_URL}/api/auth/oauth/validate`,
+    REFRESH: `${API_BASE_URL}/api/auth//refresh`,
+    LOGOUT: `${API_BASE_URL}/api/auth/logout`,
+    VALIDATE: `${API_BASE_URL}/api/auth/check`,
   },
 };
 

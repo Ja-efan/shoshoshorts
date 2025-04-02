@@ -163,7 +163,10 @@ public class VideoService {
                 .addExtraArgs("-map", "[outv]")
                 .addExtraArgs("-map", "[outa]")
                 .setVideoCodec("libx264")
+                .setConstantRateFactor(23) // 품질 설정 (0-51, 낮을수록 고품질)
+                .setVideoPixelFormat("yuv420p") // 유튜브 호환 픽셀 포맷
                 .setAudioCodec("aac")
+                .setAudioBitRate(128000) // 128kbps
                 .setFormat("mp4")
                 .done();
                 
@@ -216,7 +219,10 @@ public class VideoService {
                 .addExtraArgs("-safe", "0")
                 .addOutput(cleanTempOutputPath)
                 .setVideoCodec("libx264")
-                .setAudioCodec("aac") 
+                .setConstantRateFactor(23) // 품질 설정 (0-51, 낮을수록 고품질)
+                .setVideoPixelFormat("yuv420p") // 유튜브 호환 픽셀 포맷
+                .setAudioCodec("aac")
+                .setAudioBitRate(128000) // 128kbps
                 .setFormat("mp4")
                 .done();
                 
@@ -232,7 +238,10 @@ public class VideoService {
                 .addExtraArgs("-y")
                 .addOutput(cleanOutputPath)
                 .setVideoCodec("libx264")
+                .setConstantRateFactor(23) // 품질 설정
+                .setVideoPixelFormat("yuv420p") // 유튜브 호환 픽셀 포맷
                 .setAudioCodec("aac")
+                .setAudioBitRate(128000) // 128kbps
                 .addExtraArgs("-vf", "ass=" + subtitleFile.getAbsolutePath().replace("\\", "\\\\").replace(":", "\\:"))
                 .setFormat("mp4")
                 .done();
@@ -426,58 +435,7 @@ public class VideoService {
         return dto;
     }
 
-    /**
-     * title :          story.title
-     * status :         video.status
-     * completedAt :    생성 완료 시간 : video.completedAt
-     * sumnail_url :    썸네일(00:00) -> 첫번째 이미지 보여주자! => 첫 번째 scene의 image URL을 pre-signed url 로 변경해서 반환
-     * videoUrl:        video URL을 Presigned URL로 변경해서 반환
-     * storyId :        story.story_id
-     */
-    public VideoListResponseDTO getAllVideoStatus() {
-        // 모든 비디오 엔티티 가져옴
-        List<Video> videos = videoRepository.findAll();
 
-        // 메소드 결과를 담을 리스트
-        List<VideoStatusAllDTO> result = new ArrayList<>();
-
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-        // 각 비디오에 대해 반복
-        for (Video video : videos) {
-            // Video 연관된 story 정보 가져옴
-            Story story = video.getStory();
-
-            String title = story.getTitle();
-            String storyId = String.valueOf(story.getId());
-            String completedAt = video.getCompletedAt() != null
-                    ? video.getCompletedAt().format(formatter)
-                    : null;
-
-            //썸네일용 Presigned Url 생성
-            String thumbnailUrl = getFirstImageURL(storyId);
-            
-            // video_url이 있는 경우에만 presigned URL 생성
-            String videoUrl = null;
-            if (video.getVideo_url() != null) {
-                String videoS3Key = s3Config.extractS3KeyFromUrl(video.getVideo_url());
-                videoUrl = s3Config.generatePresignedUrl(videoS3Key);
-            }
-
-            VideoStatusAllDTO dto = new VideoStatusAllDTO(
-                    title,
-                    video.getStatus(),
-                    completedAt,
-                    thumbnailUrl,
-                    videoUrl,
-                    storyId
-            );
-
-            //결과 list에 추가
-            result.add(dto);
-        }
-        return new VideoListResponseDTO(result);
-    }
 
     //이미지 presigned URL 생성 메소드
     private String getFirstImageURL(String storyId) {
@@ -602,5 +560,78 @@ public class VideoService {
         int centiseconds = (int) ((seconds - Math.floor(seconds)) * 100);
         
         return String.format("%d:%02d:%02d.%02d", hours, minutes, secs, centiseconds);
+    }
+
+    /**
+     * title :          story.title
+     * status :         video.status
+     * completedAt :    생성 완료 시간 : video.completedAt
+     * sumnail_url :    썸네일(00:00) -> 첫번째 이미지 보여주자! => 첫 번째 scene의 image URL을 pre-signed url 로 변경해서 반환
+     * videoUrl:        video URL을 Presigned URL로 변경해서 반환
+     * storyId :        story.story_id
+     */
+    public VideoListResponseDTO getAllVideoStatus() {
+        // 모든 비디오 엔티티 가져옴
+        List<Video> videos = videoRepository.findAll();
+        // 메소드 결과를 담을 리스트
+        List<VideoStatusAllDTO> result = new ArrayList<>();
+
+
+        // 각 비디오에 대해 반복
+        for (Video video : videos) {
+            VideoStatusAllDTO dto = mapToVideoStatusDTO(video);
+            //결과 list에 추가
+            result.add(dto);
+        }
+        return new VideoListResponseDTO(result);
+    }
+
+    public VideoListResponseDTO getAllVideoStatusById(Long userId) {
+        // 유저 아이디로 검색
+        List<Video> videos = videoRepository.findByStory_User_Id(userId);
+        List<VideoStatusAllDTO> result = new ArrayList<>();
+
+        // 각 비디오에 대해 반복
+        for (Video video : videos) {
+            VideoStatusAllDTO dto = mapToVideoStatusDTO(video);
+            //결과 list에 추가
+            result.add(dto);
+        }
+        return new VideoListResponseDTO(result);
+
+    }
+    private VideoStatusAllDTO mapToVideoStatusDTO(Video video) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        // Video 연관된 story 정보 가져옴
+        Story story = video.getStory();
+
+        String title = story.getTitle();
+        String storyId = String.valueOf(story.getId());
+        String completedAt = video.getCompletedAt() != null
+                ? video.getCompletedAt().format(formatter)
+                : null;
+
+        //썸네일용 Presigned Url 생성
+        String thumbnailUrl = getFirstImageURL(storyId);
+
+        // video_url이 있는 경우에만 presigned URL 생성
+        String videoUrl = null;
+        if (video.getVideo_url() != null) {
+            String videoS3Key = s3Config.extractS3KeyFromUrl(video.getVideo_url());
+            videoUrl = s3Config.generatePresignedUrl(videoS3Key);
+        }
+
+        VideoStatusAllDTO dto = new VideoStatusAllDTO(
+                title,
+                video.getStatus(),
+                completedAt,
+                thumbnailUrl,
+                videoUrl,
+                storyId
+        );
+
+        return dto;
+
     }
 }

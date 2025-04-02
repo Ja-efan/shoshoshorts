@@ -48,6 +48,7 @@ public class JWTUtil {
      * 만료되었다면 true 리턴
      */
     public Boolean isExpired(String token) {
+        log.info("expired check.. {}",token);
         try {
             Date expiration = Jwts.parser()
                     .verifyWith(secretKey)
@@ -93,6 +94,7 @@ public class JWTUtil {
     public String extractTokenFromRequest(HttpServletRequest request) {
         // 1. Authorization 헤더
         String bearerToken = request.getHeader("Authorization");
+        log.info("bearerToken {}",bearerToken);
 
             // Bearer 제외하고 return
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
@@ -103,13 +105,34 @@ public class JWTUtil {
             // 토큰만 리턴
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if ("Authorization".equals(cookie.getName())) {
+                if ("refreshToken".equals(cookie.getName())) {
                     return cookie.getValue();
                 }
             }
         }
 
         return null;
+    }
 
+    public String extractRefreshTokenFromCookie(HttpServletRequest request) {
+        // 1. Authorization 헤더
+//        String bearerToken = request.getHeader("Authorization");
+//
+//        // Bearer 제외하고 return
+//        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+//            return bearerToken.substring(7);
+//        }
+
+        // 2. 쿠키
+        // 토큰만 리턴
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                if ("refreshToken".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+
+        return null;
     }
 }
