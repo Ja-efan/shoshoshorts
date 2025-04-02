@@ -14,6 +14,9 @@ public class FFmpegConfig {
     @Value("${ffmpeg.path}")
     private String ffmpegPath;
     
+    @Value("${ffprobe.path}")
+    private String ffprobePath;
+    
     @Bean
     public FFmpeg ffmpeg() throws Exception {
         return new FFmpeg(ffmpegPath);
@@ -21,6 +24,6 @@ public class FFmpegConfig {
 
     @Bean
     public FFprobe ffprobe() throws IOException {
-        return new FFprobe("/usr/bin/ffprobe"); // 실제 ffprobe 경로에 맞게 조정
+        return new FFprobe(ffprobePath); // Use the configured ffprobe path
     }
 } 

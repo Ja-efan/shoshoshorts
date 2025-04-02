@@ -9,6 +9,7 @@ import net.bramp.ffmpeg.FFmpegExecutor;
 import net.bramp.ffmpeg.builder.FFmpegBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import com.sss.backend.domain.document.SceneDocument;
@@ -41,7 +42,9 @@ import jakarta.annotation.PostConstruct;
 public class VideoService {
 
     private static final Logger logger = LoggerFactory.getLogger(VideoService.class);
-    private static final String TEMP_DIR = "/app/temp/videos";
+    private static final String TEMP_DIR = System.getProperty("java.io.tmpdir") + File.separator + "sss_app_temp";
+    private static final String BACKGROUND_IMAGE_PATH = "images/background.png";
+    private String backgroundImageFilePath;
     
     private final SceneDocumentRepository sceneDocumentRepository;
     private final S3Config s3Config;
@@ -52,6 +55,7 @@ public class VideoService {
     @PostConstruct
     public void init() {
         createTempDir();
+        copyBackgroundImage();
     }
 
     private void createTempDir() {
@@ -67,6 +71,41 @@ public class VideoService {
                 dir.mkdirs();
             }
         }
+
+        // Create subdirectories
+        String[] subdirs = {"audios", "images", "videos", "subtitles"};
+        for (String subdir : subdirs) {
+            File subdirFile = new File(TEMP_DIR + File.separator + subdir);
+            if (!subdirFile.exists()) {
+                boolean created = subdirFile.mkdirs();
+                logger.info("서브 디렉토리 생성: {} (성공: {})", subdirFile.getPath(), created);
+            }
+        }
+    }
+
+    /**
+     * 클래스패스에서 배경 이미지를 복사하여 임시 디렉토리에 저장하는 메소드
+     */
+    private void copyBackgroundImage() {
+        try {
+            // 리소스 경로에서 이미지 파일 로드
+            ClassPathResource resource = new ClassPathResource(BACKGROUND_IMAGE_PATH);
+            if (!resource.exists()) {
+                logger.error("배경 이미지 파일을 찾을 수 없음: {}", BACKGROUND_IMAGE_PATH);
+                return;
+            }
+
+            // 임시 디렉토리에 복사
+            String destPath = TEMP_DIR + File.separator + "images" + File.separator + "background.png";
+            File destFile = new File(destPath);
+
+            // 파일 복사
+            Files.copy(resource.getInputStream(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            backgroundImageFilePath = destFile.getAbsolutePath();
+            logger.info("배경 이미지 파일 복사 완료: {}", backgroundImageFilePath);
+        } catch (IOException e) {
+            logger.error("배경 이미지 파일 복사 중 오류 발생: {}", e.getMessage(), e);
+        }
     }
 
     public File mergeAudioFiles(List<String> audioUrls, String outputPath) {
@@ -78,7 +117,7 @@ public class VideoService {
             createTempDir();
 
             // 임시 출력 경로는 중간 작업에만 사용
-            String tempOutputPath = TEMP_DIR + "/merged_" + UUID.randomUUID() + ".mp3";
+            String tempOutputPath = TEMP_DIR + File.separator + "audios" + File.separator + "merged_" + UUID.randomUUID() + ".mp3";
             String cleanTempPath = tempOutputPath.replace("\"", "");
             String cleanOutputPath = outputPath.replace("\"", "");
 
@@ -100,7 +139,7 @@ public class VideoService {
             
             // 추가 오디오 파일 병합
             for (int i = 1; i < audioUrls.size(); i++) {
-                String tempOutput = TEMP_DIR + "/temp_" + UUID.randomUUID() + ".mp3";
+                String tempOutput = TEMP_DIR + File.separator + "audios" + File.separator + "temp_" + UUID.randomUUID() + ".mp3";
                 String cleanTempOutput = tempOutput.replace("\"", "");
 
                 String s3Key = s3Config.extractS3KeyFromUrl(audioUrls.get(i));
@@ -138,8 +177,18 @@ public class VideoService {
         try {
             createTempDir();
 
+            // 배경 이미지 파일 확인
+            if (backgroundImageFilePath == null || !new File(backgroundImageFilePath).exists()) {
+                logger.warn("배경 이미지 파일이 없어서 다시 복사를 시도합니다.");
+                copyBackgroundImage();
+
+                if (backgroundImageFilePath == null) {
+                    logger.error("배경 이미지 파일을 찾을 수 없어 기본 배경으로 대체합니다.");
+                }
+            }
+
             String cleanOutputPath = outputPath.replace("\"", "");
-            String tempAudioPath = TEMP_DIR + "/audio_" + UUID.randomUUID() + ".mp3";
+            String tempAudioPath = TEMP_DIR + File.separator + "audios" + File.separator + UUID.randomUUID() + ".mp3";
             String cleanAudioPath = tempAudioPath.replace("\"", "");
 
             // 오디오 파일 복사 (필수 과정)
@@ -148,31 +197,66 @@ public class VideoService {
             // S3 pre-signed URL 생성
             String imageS3Key = s3Config.extractS3KeyFromUrl(imageUrl);
             String presignedImageUrl = s3Config.generatePresignedUrl(imageS3Key);
+            logger.info("이미지 URL 생성: {}", presignedImageUrl);
 
-            // 바로 최종 출력 경로에 생성
-            FFmpegBuilder builder = new FFmpegBuilder()
-                .setInput(presignedImageUrl)
-                .addInput(cleanAudioPath)
-                .addExtraArgs("-y")
-                .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls")
-                .addOutput(cleanOutputPath)
-                .addExtraArgs("-filter_complex", 
-                    "[0:v]scale=iw*min(1080/iw\\,1920/ih):ih*min(1080/iw\\,1920/ih)," +
-                    "pad=1080:1920:(1080-iw*min(1080/iw\\,1920/ih))/2:(1920-ih*min(1080/iw\\,1920/ih))/2:white[v];" +
-                    "[v][1:a]concat=n=1:v=1:a=1[outv][outa]")
-                .addExtraArgs("-map", "[outv]")
-                .addExtraArgs("-map", "[outa]")
-                .setVideoCodec("libx264")
-                .setConstantRateFactor(23) // 품질 설정 (0-51, 낮을수록 고품질)
-                .setVideoPixelFormat("yuv420p") // 유튜브 호환 픽셀 포맷
-                .setAudioCodec("aac")
-                .setAudioBitRate(128000) // 128kbps
-                .setFormat("mp4")
-                .done();
-                
-            // 실행
             FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
-            executor.createJob(builder).run();
+
+            if (backgroundImageFilePath != null && new File(backgroundImageFilePath).exists()) {
+                logger.info("배경 이미지 사용: {}", backgroundImageFilePath);
+
+                // 배경 이미지와 메인 이미지를 한 번에 처리
+                // 1. 배경 이미지 입력
+                // 2. S3 이미지 URL 입력
+                // 3. filter_complex로 이미지 리사이즈 및 오버레이
+                FFmpegBuilder builder = new FFmpegBuilder()
+                    .addInput(backgroundImageFilePath)
+                    .addInput(presignedImageUrl)
+                    .addInput(cleanAudioPath)
+                    .addExtraArgs("-y")
+                    .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls")
+                    .addOutput(cleanOutputPath)
+                    .addExtraArgs("-filter_complex",
+                        "[1:v]scale=800:800[fg];" +    // 메인 이미지를 800x800으로 조정
+                        "[0:v][fg]overlay=(540-w/2):(1250-h/2)[v];" +  // 이미지 중앙이 (540,1250)에 오도록 배치
+                        "[v][2:a]concat=n=1:v=1:a=1[outv][outa]")  // 비디오와 오디오 결합
+                    .addExtraArgs("-map", "[outv]")
+                    .addExtraArgs("-map", "[outa]")
+                    .setVideoCodec("libx264")
+                    .setConstantRateFactor(23)
+                    .setVideoPixelFormat("yuv420p")
+                    .setAudioCodec("aac")
+                    .setAudioBitRate(128000)
+                    .setFormat("mp4")
+                    .done();
+
+                executor.createJob(builder).run();
+                logger.info("비디오 생성 완료 (배경 이미지 적용): {}", cleanOutputPath);
+            } else {
+                logger.warn("배경 이미지를 찾을 수 없어 기본 배경으로 대체합니다.");
+
+                // 배경 이미지 없이 처리
+                FFmpegBuilder builder = new FFmpegBuilder()
+                    .setInput(presignedImageUrl)
+                    .addInput(cleanAudioPath)
+                    .addExtraArgs("-y")
+                    .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls")
+                    .addOutput(cleanOutputPath)
+                    .addExtraArgs("-filter_complex",
+                        "[0:v]scale=900:900,pad=1080:1920:90:510:white[v];" +  // 900x900으로 조정 및 흰색 패딩
+                        "[v][1:a]concat=n=1:v=1:a=1[outv][outa]")
+                    .addExtraArgs("-map", "[outv]")
+                    .addExtraArgs("-map", "[outa]")
+                    .setVideoCodec("libx264")
+                    .setConstantRateFactor(23)
+                    .setVideoPixelFormat("yuv420p")
+                    .setAudioCodec("aac")
+                    .setAudioBitRate(128000)
+                    .setFormat("mp4")
+                    .done();
+                
+                executor.createJob(builder).run();
+                logger.info("비디오 생성 완료 (기본 배경): {}", cleanOutputPath);
+            }
             
             // 임시 오디오 파일 삭제
             new File(cleanAudioPath).delete();
@@ -189,20 +273,20 @@ public class VideoService {
             createTempDir();
 
             String cleanOutputPath = outputPath.replace("\"", "");
-            String tempOutputPath = TEMP_DIR + "/merged_without_subs_" + UUID.randomUUID() + ".mp4";
+            String tempOutputPath = TEMP_DIR + File.separator + "videos" + File.separator + "merged_without_subs_" + UUID.randomUUID() + ".mp4";
             String cleanTempOutputPath = tempOutputPath.replace("\"", "");
 
             // 비디오 파일을 임시 경로로 복사 (여러 파일 병합 위해 필요한 과정)
             List<String> tempVideoPaths = new ArrayList<>();
             for (int i = 0; i < videoPaths.size(); i++) {
-                String tempVideoPath = TEMP_DIR + "/scene_video_" + i + "_" + UUID.randomUUID() + ".mp4";
+                String tempVideoPath = TEMP_DIR + File.separator + "videos" + File.separator + "scene_video_" + i + "_" + UUID.randomUUID() + ".mp4";
                 String cleanVideoPath = tempVideoPath.replace("\"", "");
                 Files.copy(Paths.get(videoPaths.get(i)), Paths.get(cleanVideoPath), StandardCopyOption.REPLACE_EXISTING);
                 tempVideoPaths.add(cleanVideoPath);
             }
 
             // 임시 파일 생성 (파일 목록)
-            Path listFilePath = Paths.get(TEMP_DIR, "video_list_" + UUID.randomUUID() + ".txt");
+            Path listFilePath = Paths.get(TEMP_DIR, "videos" + File.separator + "video_list_" + UUID.randomUUID() + ".txt");
             
             StringBuilder fileList = new StringBuilder();
             for (String videoPath : tempVideoPaths) {
@@ -294,7 +378,7 @@ public class VideoService {
                 }
                 
                 // 임시 파일 경로 생성
-                String tempSceneDir = TEMP_DIR + "/scene_" + i + "_" + UUID.randomUUID();
+                String tempSceneDir = TEMP_DIR + File.separator + "videos" + File.separator + "scene_" + i + "_" + UUID.randomUUID();
                 
                 File sceneDir = new File(tempSceneDir);
                 if (!sceneDir.exists()) {
@@ -314,11 +398,11 @@ public class VideoService {
                 }
 
                 // 오디오 파일 병합
-                String mergedAudioPath = tempSceneDir + "/merged_audio.mp3";
+                String mergedAudioPath = tempSceneDir + File.separator + "merged_audio.mp3";
                 mergeAudioFiles(audioUrls, mergedAudioPath);
 
                 // 이미지와 병합된 오디오로 비디오 생성
-                String sceneVideoPath = tempSceneDir + "/scene_video.mp4";
+                String sceneVideoPath = tempSceneDir + File.separator + "scene_video.mp4";
                 createVideoFromImageAndAudio((String) scene.get("image_url"), mergedAudioPath, sceneVideoPath);
 
                 sceneVideoPaths.add(sceneVideoPath);
@@ -348,7 +432,7 @@ public class VideoService {
     public String createAndUploadVideo(String storyId, String outputPath) {
         try {
             // UUID를 이용한 임시 파일 경로 생성
-            String tempOutputPath = TEMP_DIR + "/upload_" + UUID.randomUUID() + ".mp4";
+            String tempOutputPath = TEMP_DIR + File.separator + "videos" + File.separator + "upload_" + UUID.randomUUID() + ".mp4";
             String cleanOutputPath = tempOutputPath.replace("\"", "");
             logger.info("비디오 생성 및 업로드 시작", storyId);
 
@@ -495,15 +579,15 @@ public class VideoService {
         List<Map<String, Object>> scenes = sceneDocument.getSceneArr();
         
         // ASS 형식의 자막 파일 생성
-        File subtitleFile = new File(TEMP_DIR + "/" + storyId + "_subtitles.ass");
+        File subtitleFile = new File(TEMP_DIR + File.separator + "subtitles" + File.separator + storyId + "_subtitles.ass");
         StringBuilder assContent = new StringBuilder();
         
         // ASS 헤더 추가
         assContent.append("[Script Info]\n");
         assContent.append("Title: ").append(sceneDocument.getStoryTitle()).append("\n");
         assContent.append("ScriptType: v4.00+\n");
-        assContent.append("PlayResX: 1280\n");
-        assContent.append("PlayResY: 720\n");
+        assContent.append("PlayResX: 1080\n");
+        assContent.append("PlayResY: 1920\n");
         assContent.append("WrapStyle: 0\n");
         // assContent.append("ScaledBorderAndShadow: yes\n");  // 테두리와 그림자 스케일링 활성화
         assContent.append("\n");
@@ -511,13 +595,21 @@ public class VideoService {
         // 스타일 정의 수정
         assContent.append("[V4+ Styles]\n");
         assContent.append("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n");
-        assContent.append("Style: Default,NanumGothic,20,&H00FFFFFF,&H000000FF,&H00000000,&H88000000,1,0,0,0,100,100,0,0,1,2,2,2,10,10,50,1\n");
+        assContent.append("Style: Default,NanumGothic,60,&H00000000,&H000000FF,&H00FFFFFF,&H88000000,1,0,0,0,100,100,0,0,1,3,2,5,0,0,0,1\n");
+        assContent.append("Style: Title,NanumGothic,70,&H00000000,&H000000FF,&H00FFFFFF,&HCC000000,1,0,0,0,100,100,0,0,1,3,2,1,0,0,0,1\n");
         assContent.append("\n");
         
         // 자막 이벤트
         assContent.append("[Events]\n");
         assContent.append("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
         
+        // 제목 추가 (영상 전체 시간동안 좌상단에 표시)
+        // 자막 시작 시간을 0으로, 종료 시간을 충분히 길게 설정(10시간)
+        String storyTitle = sceneDocument.getStoryTitle();
+        assContent.append("Dialogue: 0,0:00:00.00,10:00:00.00,Title,,0,0,0,,{\\pos(70,355)}")
+                 .append(storyTitle.replace(",", "\\,"))
+                 .append("\n");
+
         double currentTime = 0.0;
         
         // 각 씬과 오디오에 대한 자막 추가
@@ -534,11 +626,11 @@ public class VideoService {
                 String startTime = formatAssTime(currentTime);
                 String endTime = formatAssTime(currentTime + duration);
                 
-                // 자막 라인 추가
+                // 자막 라인 추가 - 중앙이 (540,640)에 오도록
                 assContent.append("Dialogue: 0,")
                          .append(startTime).append(",")
                          .append(endTime).append(",")
-                         .append("Default,,0,0,0,,")
+                         .append("Default,,0,0,0,,{\\pos(540,640)}")
                          .append(text.replace(",", "\\,"))
                          .append("\n");
                 
@@ -560,6 +652,18 @@ public class VideoService {
         int centiseconds = (int) ((seconds - Math.floor(seconds)) * 100);
         
         return String.format("%d:%02d:%02d.%02d", hours, minutes, secs, centiseconds);
+    }
+
+    /**
+     * 배경 이미지가 올바르게 초기화되었는지 확인하는 테스트 메소드
+     * @return 배경 이미지 파일 경로 (존재하지 않는 경우 null)
+     */
+    public String getBackgroundImagePath() {
+        if (backgroundImageFilePath == null || !new File(backgroundImageFilePath).exists()) {
+            logger.warn("배경 이미지 경로가 초기화되지 않았거나 파일이 없어서 다시 복사를 시도합니다.");
+            copyBackgroundImage();
+        }
+        return backgroundImageFilePath;
     }
 
     /**
