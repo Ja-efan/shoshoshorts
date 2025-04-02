@@ -66,8 +66,8 @@ public class Securityconfig {
      */
     private void configureAuthorization(AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
         auth
-                .requestMatchers("/", "/api/auth/oauth", "/api/auth/check", "/api/auth/refresh", "/api/youtube/auth", "/api/youtube/auth/callback", "/api/youtube/auth/validate","/api/youtube/auth/logout").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/youtube/auth/validate",  "/api/youtube/upload").permitAll()
+                .requestMatchers("/", "/api/auth/oauth", "/api/auth/check", "/api/auth/refresh", "/api/youtube/auth", "/api/youtube/auth/callback", "/api/youtube/auth/validate").permitAll()
+                .requestMatchers(HttpMethod.POST,"/api/youtube/upload","/api/youtube/auth/logout").permitAll()
                 .anyRequest().authenticated();
     }
 
