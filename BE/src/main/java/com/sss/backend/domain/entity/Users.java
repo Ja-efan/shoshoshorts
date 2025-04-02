@@ -9,13 +9,15 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class UserEntity {
+public class Users {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true) // Unique 추가
     private String email;
+
     private String password;
 
     @Column(name = "user_name")
@@ -41,7 +43,7 @@ public class UserEntity {
     // Java 규칙에서는 변수나 필드명을 camelCase로 쓰는 게 표준
     // 반면, DB컬럼명은 대부분 snake_case를 쓰는 게 관례임.
 
-    public UserEntity(String email, String userName, String role, String provider){
+    public Users(String email, String userName, String role, String provider){
         this.email = email;
         this.userName = userName;
         this.role = role;

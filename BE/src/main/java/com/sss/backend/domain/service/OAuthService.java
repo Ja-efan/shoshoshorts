@@ -1,7 +1,7 @@
 package com.sss.backend.domain.service;
 
 import com.sss.backend.api.dto.TokenResponse;
-import com.sss.backend.domain.entity.UserEntity;
+import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.jwt.JWTUtil;
 import lombok.RequiredArgsConstructor;
@@ -143,9 +143,9 @@ public class OAuthService {
         log.info("사용자 이메일: {}, 이름: {}", email, name);
 
         // 4. 유저 DB에서 조회, 없으면 회원 가입
-        UserEntity user = userRepository.findByEmail(email).orElseGet(() -> {
+        Users user = userRepository.findByEmail(email).orElseGet(() -> {
             log.info("등록된 유저가 없습니다. 새로운 User 생성");
-            UserEntity newUser = new UserEntity(email, name, "ROLE_USER",provider);
+            Users newUser = new Users(email, name, "ROLE_USER",provider);
 
             // 닉네임 생성 및 추가
             String nickname = generateRandomNickanme();

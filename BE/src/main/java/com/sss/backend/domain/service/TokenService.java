@@ -1,7 +1,7 @@
 package com.sss.backend.domain.service;
 
 import com.sss.backend.api.dto.TokenResponse;
-import com.sss.backend.domain.entity.UserEntity;
+import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.jwt.JWTUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +31,7 @@ public class TokenService {
      * @param user 사용자 정보(이메일, 역할, provider)
      * @return 생성된 Access Token 문자열
      */
-    public String createAccessToken(UserEntity user) {
+    public String createAccessToken(Users user) {
         return jwtUtil.createAccessToken(
                 user.getEmail(),
                 user.getRole(),
@@ -88,7 +88,7 @@ public class TokenService {
         }
 
         // 사용자 정보 조회
-        UserEntity user = userRepository.findByEmail(email)
+        Users user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("사용자 정보를 찾을 수 없음"));
 
         // Access / Refresh Token 갱신

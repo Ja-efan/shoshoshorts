@@ -2,7 +2,7 @@ package com.sss.backend.domain.service;
 
 
 import com.sss.backend.api.dto.OAuth.*;
-import com.sss.backend.domain.entity.UserEntity;
+import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.repository.UserRepository;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
@@ -44,13 +44,13 @@ public class CustomOauth2UserService extends DefaultOAuth2UserService {
         // 추후 작성
         //리소스 서버에서 발급 받은 정보로 사용자를 특정할 아이디값을 만듬
         String username = oAuth2Response.getProvider() + " " + oAuth2Response.getProviderId();
-        Optional<UserEntity> existData = userRepository.findByUserName(username);
+        Optional<Users> existData = userRepository.findByUserName(username);
 
-        UserEntity userEntity;
+        Users userEntity;
 
         if (existData.isEmpty()) {
             // 신규 유저
-            userEntity = new UserEntity();
+            userEntity = new Users();
             userEntity.setUserName(username);
             userEntity.setEmail(oAuth2Response.getEmail());
             userEntity.setNickname(oAuth2Response.getName());
