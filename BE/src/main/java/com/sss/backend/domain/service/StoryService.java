@@ -1,14 +1,12 @@
 package com.sss.backend.domain.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nimbusds.jwt.JWT;
 import com.sss.backend.api.dto.StoryRequestDTO;
 import com.sss.backend.domain.document.CharacterDocument;
 import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.entity.Story;
-import com.sss.backend.domain.entity.UserEntity;
+import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.repository.CharacterRepository;
-import com.sss.backend.domain.repository.SceneRepository;
 import com.sss.backend.domain.repository.StoryRepository;
 
 import com.sss.backend.domain.repository.UserRepository;
@@ -62,7 +60,7 @@ public class StoryService {
         // 1.5 유저 정보 추출
         String token = jwtUtil.extractTokenFromRequest(httpRequest);
         String email = jwtUtil.getEmail(token);
-        UserEntity user = userRepository.findByEmail(email)
+        Users user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("유저 정보 없음"));
 
         // 2. RDBMS에 스토리 저장.
@@ -234,7 +232,7 @@ public class StoryService {
     }
 
     // DTO -> Entity 변환 메소드
-    private Story convertToEntity(StoryRequestDTO request, UserEntity user) {
+    private Story convertToEntity(StoryRequestDTO request, Users user) {
         Story entity = new Story();
         entity.setTitle(request.getTitle());
         entity.setStory(request.getStory());
