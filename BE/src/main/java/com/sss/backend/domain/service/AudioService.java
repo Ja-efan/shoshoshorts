@@ -34,6 +34,9 @@ public class AudioService {
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
 
+    @Value("${audio.api.url}")
+    private String audioApiUrl;
+
     public AudioService(SceneDocumentRepository sceneDocumentRepository, WebClient webClient, 
                        S3Config s3Config, FFmpeg ffmpeg, FFprobe ffprobe) {
         this.sceneDocumentRepository = sceneDocumentRepository;
@@ -55,8 +58,7 @@ public class AudioService {
 //    @Value("${audio.default.output-format}")
 //    private String defaultOutputFormat;
 
-//    private final String audioApiUrl = ":8000/elevenlabs/tts";
-private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
+
 //    private final String defaultVoiceCode = "uyVNoMrnUku1dZyVEXwD";
     private final String defaultModelId = "eleven_multilingual_v2";
     private final String defaultOutputFormat = "mp3";
