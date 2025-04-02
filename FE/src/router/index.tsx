@@ -2,48 +2,55 @@ import React from "react";
 import { useRoutes } from "react-router-dom";
 import Layout from "../components/layout";
 import NotFound from "../pages/notFound";
-import LandingPage from "@/pages/landingPage";
+import LandingPage from "@/pages/LandingPage";
 import CreateVideoPage from "@/pages/createPage";
 import DashboardPage from "@/pages/dashboardPage";
 import LoginPage from "@/pages/loginPage";
 import TermsPage from "@/pages/terms";
 import { ProtectedRoute } from "@/components/common/ProtectedRoute";
 import AuthCallbackPage from "@/pages/auth/callback";
+import Mypage from "../pages/Mypage/Mypage";
 
 const Router: React.FC = () => {
   return useRoutes([
     {
       path: "/",
       element: <Layout />,
-      children: [
-        { path: '/', element: <LandingPage /> },
-      ],
+      children: [{ path: "/", element: <LandingPage /> }],
     },
-    { path: '/login', element: <LoginPage /> },
-    { path: '/terms', element: <TermsPage /> },
+    { path: "/login", element: <LoginPage /> },
+    { path: "/terms", element: <TermsPage /> },
     {
-      path: '/create',
-      element: (
-          <CreateVideoPage />
-      ),
+      path: "/create",
+      element: <CreateVideoPage />,
     },
     {
-      path: '/dashboard',
-      element: (
-          <DashboardPage />
-      ),
+      path: "/dashboard",
+      element: <DashboardPage />,
     },
     {
       path: "/dashboard/debug",
-      element: <ProtectedRoute><DashboardPage /></ProtectedRoute>,
+      element: (
+        <ProtectedRoute>
+          <DashboardPage />
+        </ProtectedRoute>
+      ),
     },
     {
       path: "/create/debug",
-      element: <ProtectedRoute><CreateVideoPage /></ProtectedRoute>,
+      element: (
+        <ProtectedRoute>
+          <CreateVideoPage />
+        </ProtectedRoute>
+      ),
     },
     {
       path: "/auth/:provider/callback",
       element: <AuthCallbackPage />,
+    },
+    {
+      path: "/mypage",
+      element: <Mypage />,
     },
     { path: "*", element: <NotFound /> },
   ]);

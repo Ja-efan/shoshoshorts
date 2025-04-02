@@ -6,6 +6,7 @@ import com.sss.backend.jwt.JWTUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
@@ -40,6 +41,7 @@ public class Securityconfig {
 
                 // CORS 설정
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // Todo : cors 하나 지우기.
 
                 // From 로그인 비활성화
                 .formLogin((auth) -> auth.disable())
@@ -54,7 +56,7 @@ public class Securityconfig {
                 // 인증/인가 설정
                 .authorizeHttpRequests(auth -> configureAuthorization(auth))
 
-                // JWTFilter를 Spring Security 필터 체인 앞에 추가
+                // JWTFilter를 Spring Security 필터 체인 앞에 추가 (토큰 검사)
                 .addFilterBefore(new JWTFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
@@ -65,7 +67,8 @@ public class Securityconfig {
      */
     private void configureAuthorization(AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
         auth
-                .requestMatchers("/", "/api/auth/oauth", "/api/auth/check", "/api/auth/refresh").permitAll()
+                .requestMatchers("/", "/api/auth/oauth", "/api/auth/check", "/api/auth/refresh", "/api/youtube/auth", "/api/youtube/auth/callback", "/api/youtube/auth/validate","/api/redis/*").permitAll()
+                .requestMatchers(HttpMethod.POST,"/api/youtube/upload","/api/youtube/auth/logout").permitAll()
                 .anyRequest().authenticated();
     }
 

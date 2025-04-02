@@ -42,6 +42,9 @@ public class ImageService {
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
 
+    @Value("${image.api.url}")
+    private String apiUrl;
+
     public ImageService(WebClient webClient, AppProperties appProperties,
                         MongoTemplate mongoTemplate, ObjectMapper objectMapper,
                         SceneDocumentRepository sceneDocumentRepository) {
@@ -125,7 +128,7 @@ public class ImageService {
 
             // gender가 String이면 Integer로 변환 (예: "남자" :0, "여자":1)
             String genderStr = (String) charMap.get("gender");
-            character.setGender("남자".equals(genderStr) ? 0 : 1);
+            character.setGender(genderStr.equals("남자") ? 0 : 1);
 
             character.setDescription((String) charMap.get("properties"));
             characters.add(character);
@@ -161,8 +164,6 @@ public class ImageService {
         log.info("이미지 생성 API 호출 - 씬 ID: {}", sceneRequest.getSceneId());
 
         try {
-            // 이미지 생성 API URL
-            String apiUrl = "http://35.216.58.38:8001/api/v1/images/generations/external";
 
             // API 호출 (오류 응답 로깅 추가)
             return webClient

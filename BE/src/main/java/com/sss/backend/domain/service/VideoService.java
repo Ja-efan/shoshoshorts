@@ -71,7 +71,7 @@ public class VideoService {
                 dir.mkdirs();
             }
         }
-        
+
         // Create subdirectories
         String[] subdirs = {"audios", "images", "videos", "subtitles"};
         for (String subdir : subdirs) {
@@ -98,7 +98,7 @@ public class VideoService {
             // 임시 디렉토리에 복사
             String destPath = TEMP_DIR + File.separator + "images" + File.separator + "background.png";
             File destFile = new File(destPath);
-            
+
             // 파일 복사
             Files.copy(resource.getInputStream(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
             backgroundImageFilePath = destFile.getAbsolutePath();
@@ -181,7 +181,7 @@ public class VideoService {
             if (backgroundImageFilePath == null || !new File(backgroundImageFilePath).exists()) {
                 logger.warn("배경 이미지 파일이 없어서 다시 복사를 시도합니다.");
                 copyBackgroundImage();
-                
+
                 if (backgroundImageFilePath == null) {
                     logger.error("배경 이미지 파일을 찾을 수 없어 기본 배경으로 대체합니다.");
                 }
@@ -200,10 +200,10 @@ public class VideoService {
             logger.info("이미지 URL 생성: {}", presignedImageUrl);
 
             FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
-            
+
             if (backgroundImageFilePath != null && new File(backgroundImageFilePath).exists()) {
                 logger.info("배경 이미지 사용: {}", backgroundImageFilePath);
-                
+
                 // 배경 이미지와 메인 이미지를 한 번에 처리
                 // 1. 배경 이미지 입력
                 // 2. S3 이미지 URL 입력
@@ -215,7 +215,7 @@ public class VideoService {
                     .addExtraArgs("-y")
                     .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls")
                     .addOutput(cleanOutputPath)
-                    .addExtraArgs("-filter_complex", 
+                    .addExtraArgs("-filter_complex",
                         "[1:v]scale=800:800[fg];" +    // 메인 이미지를 800x800으로 조정
                         "[0:v][fg]overlay=(540-w/2):(1250-h/2)[v];" +  // 이미지 중앙이 (540,1250)에 오도록 배치
                         "[v][2:a]concat=n=1:v=1:a=1[outv][outa]")  // 비디오와 오디오 결합
@@ -228,12 +228,12 @@ public class VideoService {
                     .setAudioBitRate(128000)
                     .setFormat("mp4")
                     .done();
-                
+
                 executor.createJob(builder).run();
                 logger.info("비디오 생성 완료 (배경 이미지 적용): {}", cleanOutputPath);
             } else {
                 logger.warn("배경 이미지를 찾을 수 없어 기본 배경으로 대체합니다.");
-                
+
                 // 배경 이미지 없이 처리
                 FFmpegBuilder builder = new FFmpegBuilder()
                     .setInput(presignedImageUrl)
@@ -241,7 +241,7 @@ public class VideoService {
                     .addExtraArgs("-y")
                     .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls")
                     .addOutput(cleanOutputPath)
-                    .addExtraArgs("-filter_complex", 
+                    .addExtraArgs("-filter_complex",
                         "[0:v]scale=900:900,pad=1080:1920:90:510:white[v];" +  // 900x900으로 조정 및 흰색 패딩
                         "[v][1:a]concat=n=1:v=1:a=1[outv][outa]")
                     .addExtraArgs("-map", "[outv]")
@@ -519,58 +519,7 @@ public class VideoService {
         return dto;
     }
 
-    /**
-     * title :          story.title
-     * status :         video.status
-     * completedAt :    생성 완료 시간 : video.completedAt
-     * sumnail_url :    썸네일(00:00) -> 첫번째 이미지 보여주자! => 첫 번째 scene의 image URL을 pre-signed url 로 변경해서 반환
-     * videoUrl:        video URL을 Presigned URL로 변경해서 반환
-     * storyId :        story.story_id
-     */
-    public VideoListResponseDTO getAllVideoStatus() {
-        // 모든 비디오 엔티티 가져옴
-        List<Video> videos = videoRepository.findAll();
 
-        // 메소드 결과를 담을 리스트
-        List<VideoStatusAllDTO> result = new ArrayList<>();
-
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-        // 각 비디오에 대해 반복
-        for (Video video : videos) {
-            // Video 연관된 story 정보 가져옴
-            Story story = video.getStory();
-
-            String title = story.getTitle();
-            String storyId = String.valueOf(story.getId());
-            String completedAt = video.getCompletedAt() != null
-                    ? video.getCompletedAt().format(formatter)
-                    : null;
-
-            //썸네일용 Presigned Url 생성
-            String thumbnailUrl = getFirstImageURL(storyId);
-            
-            // video_url이 있는 경우에만 presigned URL 생성
-            String videoUrl = null;
-            if (video.getVideo_url() != null) {
-                String videoS3Key = s3Config.extractS3KeyFromUrl(video.getVideo_url());
-                videoUrl = s3Config.generatePresignedUrl(videoS3Key);
-            }
-
-            VideoStatusAllDTO dto = new VideoStatusAllDTO(
-                    title,
-                    video.getStatus(),
-                    completedAt,
-                    thumbnailUrl,
-                    videoUrl,
-                    storyId
-            );
-
-            //결과 list에 추가
-            result.add(dto);
-        }
-        return new VideoListResponseDTO(result);
-    }
 
     //이미지 presigned URL 생성 메소드
     private String getFirstImageURL(String storyId) {
@@ -660,7 +609,7 @@ public class VideoService {
         assContent.append("Dialogue: 0,0:00:00.00,10:00:00.00,Title,,0,0,0,,{\\pos(70,355)}")
                  .append(storyTitle.replace(",", "\\,"))
                  .append("\n");
-        
+
         double currentTime = 0.0;
         
         // 각 씬과 오디오에 대한 자막 추가
@@ -704,7 +653,7 @@ public class VideoService {
         
         return String.format("%d:%02d:%02d.%02d", hours, minutes, secs, centiseconds);
     }
-    
+
     /**
      * 배경 이미지가 올바르게 초기화되었는지 확인하는 테스트 메소드
      * @return 배경 이미지 파일 경로 (존재하지 않는 경우 null)
@@ -715,5 +664,78 @@ public class VideoService {
             copyBackgroundImage();
         }
         return backgroundImageFilePath;
+    }
+
+    /**
+     * title :          story.title
+     * status :         video.status
+     * completedAt :    생성 완료 시간 : video.completedAt
+     * sumnail_url :    썸네일(00:00) -> 첫번째 이미지 보여주자! => 첫 번째 scene의 image URL을 pre-signed url 로 변경해서 반환
+     * videoUrl:        video URL을 Presigned URL로 변경해서 반환
+     * storyId :        story.story_id
+     */
+    public VideoListResponseDTO getAllVideoStatus() {
+        // 모든 비디오 엔티티 가져옴
+        List<Video> videos = videoRepository.findAll();
+        // 메소드 결과를 담을 리스트
+        List<VideoStatusAllDTO> result = new ArrayList<>();
+
+
+        // 각 비디오에 대해 반복
+        for (Video video : videos) {
+            VideoStatusAllDTO dto = mapToVideoStatusDTO(video);
+            //결과 list에 추가
+            result.add(dto);
+        }
+        return new VideoListResponseDTO(result);
+    }
+
+    public VideoListResponseDTO getAllVideoStatusById(Long userId) {
+        // 유저 아이디로 검색
+        List<Video> videos = videoRepository.findByStory_User_Id(userId);
+        List<VideoStatusAllDTO> result = new ArrayList<>();
+
+        // 각 비디오에 대해 반복
+        for (Video video : videos) {
+            VideoStatusAllDTO dto = mapToVideoStatusDTO(video);
+            //결과 list에 추가
+            result.add(dto);
+        }
+        return new VideoListResponseDTO(result);
+
+    }
+    private VideoStatusAllDTO mapToVideoStatusDTO(Video video) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        // Video 연관된 story 정보 가져옴
+        Story story = video.getStory();
+
+        String title = story.getTitle();
+        String storyId = String.valueOf(story.getId());
+        String completedAt = video.getCompletedAt() != null
+                ? video.getCompletedAt().format(formatter)
+                : null;
+
+        //썸네일용 Presigned Url 생성
+        String thumbnailUrl = getFirstImageURL(storyId);
+
+        // video_url이 있는 경우에만 presigned URL 생성
+        String videoUrl = null;
+        if (video.getVideo_url() != null) {
+            String videoS3Key = s3Config.extractS3KeyFromUrl(video.getVideo_url());
+            videoUrl = s3Config.generatePresignedUrl(videoS3Key);
+        }
+
+        VideoStatusAllDTO dto = new VideoStatusAllDTO(
+                title,
+                video.getStatus(),
+                completedAt,
+                thumbnailUrl,
+                videoUrl,
+                storyId
+        );
+
+        return dto;
+
     }
 }

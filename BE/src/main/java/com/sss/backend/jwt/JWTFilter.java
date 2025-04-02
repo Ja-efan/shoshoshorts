@@ -36,7 +36,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
         if (token == null || jwtUtil.isExpired(token)) {
             log.warn("JWT 토큰 없음 또는 만료");
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response); // 인증 없이 다음 필터로 진행
             return;
         }
 
