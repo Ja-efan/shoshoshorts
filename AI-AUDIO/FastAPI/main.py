@@ -56,46 +56,46 @@ app = FastAPI(
 #     return response
 
 # 비밀번호 관련 middleware
-# @app.middleware("http")
-# async def check_pwd_middleware(request: Request, call_next):
-#     # POST 요청에만 적용
-#     if request.method == "POST":
-#         api_pwd = request.headers.get("apiPwd")
+@app.middleware("http")
+async def check_pwd_middleware(request: Request, call_next):
+    # POST 요청에만 적용
+    if request.method == "POST":
+        api_pwd = request.headers.get("apiPwd")
         
-#         # 비밀번호가 없거나 유효하지 않은 경우
-#         if not api_pwd:
-#             return JSONResponse(
-#                 status_code=401,
-#                 content={"message": "Missing API pwd"}
-#             )
+        # 비밀번호가 없거나 유효하지 않은 경우
+        if not api_pwd:
+            return JSONResponse(
+                status_code=401,
+                content={"message": "Missing API pwd"}
+            )
         
-#         # 개발 환경 비밀번호 확인 (dev로 시작하는 비밀번호는 개발 환경으로 인식)
-#         if api_pwd.startswith("dev"):
-#             # 개발 환경으로 설정
-#             set_environment(is_dev_environment=True)
-#             # 유효한 개발 환경 비밀번호인지 확인
-#             if api_pwd != "dev"+API_PWD:
-#                 return JSONResponse(
-#                     status_code=401,
-#                     content={"message": "Invalid development API pwd"}
-#                 )
-#         elif api_pwd.startswith("prod"):
-#             # 프로덕션 환경으로 설정
-#             set_environment(is_dev_environment=False)
-#             # 유효한 프로덕션 비밀번호인지 확인
-#             if api_pwd != "prod"+API_PWD:
-#                 return JSONResponse(
-#                     status_code=401,
-#                     content={"message": "Invalid production API pwd"}
-#                 )
-#         else:
-#             return JSONResponse(
-#                     status_code=401,
-#                     content={"message": "API pwd 앞에 dev 또는 prod가 없습니다."}
-#                 )
+        # 개발 환경 비밀번호 확인 (dev로 시작하는 비밀번호는 개발 환경으로 인식)
+        if api_pwd.startswith("dev"):
+            # 개발 환경으로 설정
+            set_environment(is_dev_environment=True)
+            # 유효한 개발 환경 비밀번호인지 확인
+            if api_pwd != "dev"+API_PWD:
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid development API pwd"}
+                )
+        elif api_pwd.startswith("prod"):
+            # 프로덕션 환경으로 설정
+            set_environment(is_dev_environment=False)
+            # 유효한 프로덕션 비밀번호인지 확인
+            if api_pwd != "prod"+API_PWD:
+                return JSONResponse(
+                    status_code=401,
+                    content={"message": "Invalid production API pwd"}
+                )
+        else:
+            return JSONResponse(
+                    status_code=401,
+                    content={"message": "API pwd 앞에 dev 또는 prod가 없습니다."}
+                )
 
-#     response = await call_next(request)
-#     return response
+    response = await call_next(request)
+    return response
 
 # CORS 설정
 app.add_middleware(
