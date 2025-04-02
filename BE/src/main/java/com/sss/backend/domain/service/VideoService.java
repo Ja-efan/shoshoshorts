@@ -596,7 +596,8 @@ public class VideoService {
         assContent.append("[V4+ Styles]\n");
         assContent.append("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n");
         assContent.append("Style: Default,NanumGothic,60,&H00000000,&H000000FF,&H00FFFFFF,&H88000000,1,0,0,0,100,100,0,0,1,3,2,5,0,0,0,1\n");
-        assContent.append("Style: Title,NanumGothic,70,&H00000000,&H000000FF,&H00FFFFFF,&HCC000000,1,0,0,0,100,100,0,0,1,3,2,1,0,0,0,1\n");
+        assContent.append("Style: Title,NanumGothic,80,&H00000000,&H000000FF,&H00FFFFFF,&HCC000000,1,0,0,0,100,100,0,0,1,3,2,1,0,0,0,1\n");
+        assContent.append("Style: UserInfo,NanumGothic,40,&H80808000,&H000000FF,&H00FFFFFF,&HCC000000,0,0,0,0,100,100,0,0,0,0,0,1,0,0,0,1\n");
         assContent.append("\n");
         
         // 자막 이벤트
@@ -604,15 +605,17 @@ public class VideoService {
         assContent.append("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n");
         
         // 제목 추가 (영상 전체 시간동안 좌상단에 표시)
-        // 자막 시작 시간을 0으로, 종료 시간을 충분히 길게 설정(10시간)
         String storyTitle = sceneDocument.getStoryTitle();
-        assContent.append("Dialogue: 0,0:00:00.00,10:00:00.00,Title,,0,0,0,,{\\pos(70,355)}")
+        assContent.append("Dialogue: 0,0:00:00.00,10:00:00.00,Title,,0,0,0,,{\\pos(70,365)}")
                  .append(storyTitle.replace(",", "\\,"))
                  .append("\n");
-
-        double currentTime = 0.0;
         
-        // 각 씬과 오디오에 대한 자막 추가
+        // 사용자 정보 추가 (닉네임과 생성 시간)
+        assContent.append("Dialogue: 0,0:00:00.00,10:00:00.00,UserInfo,,0,0,0,,{\\pos(70,435)}카리나 • 25-04-02\n");
+
+        // 자막 시간 추적을 위한 변수 초기화
+        double currentTime = 0.0;
+         
         for (Map<String, Object> scene : scenes) {
             List<Map<String, Object>> audioArr = (List<Map<String, Object>>) scene.get("audioArr");
             
