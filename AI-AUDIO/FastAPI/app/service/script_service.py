@@ -37,9 +37,9 @@ class ScriptService:
 졸지에 미친놈 되버림...
 엘베 타는데 어째 사람들이 같이 안타려고하더라."""
             preprocessed_story_ex1 = """윗집에 애가 셋인데 시간을 안가리고 층간소음 장난 아니었음.
-몇번 가서 말해도
+몇번 가서 말해도 성의 없이 대답하더라.
 "예예. 알겠습니다."
-하고 바뀌는 건 없었음.
+바뀌는 건 없었음.
 한참 참다가 누나가 빡친 얼굴로 해결한다고 올라감.
 그러고 평온한 얼굴로 내려와서는
 해결했다고 말했는데
@@ -69,6 +69,8 @@ class ScriptService:
                     2. 서술 중간에 대사가 들어가 있는 경우, 서술과 대사를 자연스럽게 분리합니다. 문장을 자주 쪼개서 대사를 분리합니다.
                     - '~라고 말했다.', '~이라고 대답했다.' 등의 구조를 '대답했다. "~".' 형식으로 분리합니다.
                     - 서술 사이에 "", '' 로 감싸여진 대화가 나오면 분리합니다.
+
+                    3. 데이터를 json 양식에서 불러오기 때문에 \' 또는 \, 와 같은 escape sequence를 ' 또는 , 의 문자로 다시 변환해줍니다.
                     
                     예시:
                     원문: '윗집에 몇번 가서 말해도 "예예. 조용히 할게요."하고 바뀌는 건 없었음.'
@@ -150,7 +152,7 @@ class ScriptService:
                         },
                         "gender": {
                             "type": "string",
-                            "description": "캐릭터 성별"
+                            "description": "캐릭터 성별. 남자 또는 여자."
                         },
                         "properties": {
                             "type": "string",
@@ -172,13 +174,13 @@ class ScriptService:
                                 },
                                 "type": {
                                     "type": "string",
-                                    "enum": ["narration", "dialogue", "sound"],
-                                    "description": "장면 요소의 유형 (나레이션, 대사, 효과음)"
+                                    "enum": ["narration", "dialogue"],
+                                    "description": "장면 요소의 유형 (나레이션, 대사)"
                                 },
                                 "character": {
                                     "type": "string",
                                     "enum": [character_names, "etc", "narration"],
-                                    "description": "대사('dialogue') 유형일 때 누가 말하는지 나타내는 필드. character_names 배열에 없는 이름일 경우 'etc'로 표시. 나레이션일 경우 narration으로 표시."
+                                    "description": "대사('dialogue') 유형일 때 누가 말하는지 나타내는 필드. character_names 배열에 없는 이름일 경우 'etc'로 표시. type이 나레이션일 경우 narration으로 표시."
                                 },
                                 "emotion": {
                                     "type": "string",
@@ -225,121 +227,398 @@ class ScriptService:
             }
 
             # 캐릭터 정보 변환
+            additional_prompt=":"
+
             characters = []
+            temp_characters = []
             for character in request.characterArr:
-                characters.append({
-                    "name": character.name,
-                    "gender": character.gender,
-                    "properties": character.properties,
-                    "voiceCode": character.voiceCode
-                })
+                    characters.append({
+                        "name": character.name,
+                        "gender": character.gender,
+                        "properties": character.properties,
+                    })
+                    temp_characters.append({
+                        "name": character.name,
+                        "gender": character.gender,
+                        "properties": character.properties,
+                        "voiceCode": character.voiceCode
+                    })
+
+            if request.characterArr == []:
+                additional_prompt = ". 현재 json에 캐릭터 정보가 주어지지 않았기 때문에 스토리에서 인물 정보를 추출하여 characterArr를 완성해주세요. 머리 색, 머리 모양, 눈동자 색, 복장을 상세하게 입력하세요. 스토리에서 알 수 없다면 상상해서 쓰세요."
+                
 
             # 예시 스토리 제공
             example_story = """
-            외국 여행 갔을 때 기차역에서 있었던 일이야. 내 앞에 어떤 여자가 역무원이랑 얘기하다가 진짜 멘붕 온 표정으로 서 있는 거야. 듣다 보니까 기차표를 잘못 사서 지금 기차를 못 탄다는 거였는데 문제는 역무원이 영어를 아예 못 한다는 거지. 내가 그 상황 보다가 좀 답답해서 그냥 끼어들었어. 현지 언어로 상황 설명 했더니 역무원이 알았다는 듯이 바로 기차표를 바꿔 주더라.
-    여자가 "땡큐 쏘 머치!" 라고 해서 나도 "유어 웰컴" 이라고 대답했고, 이제 가려는데, 그 여자가 혼잣말로 "와... 진짜 다행이다..." 라고 하는거야.
+            외국 여행 갔을 때 기차역에서 있었던 일이야. 내 앞에 어떤 여자가 역무원이랑 얘기하다가 진짜 멘붕 온 표정으로 서 있는 거야. 듣다 보니까 기차표를 잘못 사서 지금 기차를 못 탄다는 거였는데, 문제는 역무원이 영어를 아예 못 한다는 거지. 내가 그 상황 보다가 좀 답답해서 그냥 끼어들었어. 현지 언어로 상황 설명 했더니, 역무원이 알았다는 듯이 바로 기차표를  바꿔 주더라. 여자가 고맙다고 했어. "땡큐 쏘 머치!". 그래서 나도 대답했지. "유어 웰컴!". 이제 가려는데, 그 여자가 혼잣말로 그러는 거야. "와... 진짜 다행이다...". 나 순간 너무 놀라서 물어봤어. "어? 한국분이세요?". 했더니, 그 여자도 놀라서 대답했어. "헐! 한국 분이셨구나! 진짜 감사해요!". 이러는데, 뭔가 급 친해진 느낌? 그러다 어쩌다 보니 같이 기차 타고 얘기하면서 진짜 재밌는 시간을 보냈어. 내릴 때 여자가 연락처를 주면서 그러더라고. "한국 돌아가면 꼭 한번 만나요". 솔직히 그냥 별 생각 없었는데, 한국 들어오는 날 카톡이 딱 온 거야. "혹시 오늘 한국 들어오시는 날 맞죠? 그때 진짜 감사했어요! 시간 괜찮으시면 밥 같이 먹을래요?". 이러는데, 뭔가 싶어서 일단 나갔지. 근데 그게 밥 한끼가 두끼 되고, 영화 한 편이 두 편 되고, 결론은??? 지금 같이 살고 있고, 애도 있어. 아내가 가끔 그때 얘기하면 이렇게 말해. "그때 당신, 나한테 백마탄 왕자님이였어!". 이러는데, 내가 먼저 꼬셨다고 주장하더라. 여행에서 이렇게 인생 파트 너 만날 줄 누가 알았겠냐? 인생 모르니까 누구에게나 잘해줘!
             """
             # 예시 JSON 제공
             example_json = {
-                "storyId": 1,
-                "storyTitle": "기차역에서 만난 인연",
-                "characterArr": [
+        "storyId": 1,
+        "storyTitle": "운명을 믿으시나요?",
+        "characterArr": [
+            {
+                "name": "나",
+                "gender": "남자",
+                "properties": "흑발에 검은 눈. 한국인. 여자를 도와주고 결혼까지 한다.",
+            },
+            {
+                "name": "아내",
+                "gender": "여자",
+                "properties": "갈색 머리에 긴 장발. 한국인. 외국에서 기차표를 잘못 샀다가 내가 도와주었다.",
+            }
+        ],
+        "sceneArr": [
+            {
+                "audioArr": [
                     {
-                        "name": "나",
-                        "gender": "남성",
-                        "properties": "한국인, 여행자"
-                    },
-                    {
-                        "name": "여자",
-                        "gender": "여성",
-                        "properties": "한국인, 여행객"
-                    },
-                    {
-                        "name": "역무원",
-                        "gender": "남성",
-                        "properties": "현지인, 영어를 못 함"
+                        "text": "외국 여행 갔을 때 기차역에서 있었던 일이야.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "neutral",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
                     }
-                ],
-                "sceneArr": [
+                ]
+            },
+            {
+                "audioArr": [
                     {
-                        "audioArr": [{
-                            "text": "외국 여행 갔을 때 기차역에서 있었던 일이야.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "neutral",
-                            "emotionParams": {"neutral": 1.0}
-                        }]
+                        "text": "내 앞에 어떤 여자가 역무원이랑 얘기하다가 진짜 멘붕 온 표정으로 서 있는 거야.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "surprise",
+                        "emotionParams": {
+                            "surprise": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "듣다 보니까 기차표를 잘못 사서 지금 기차를 못 탄다는 거였는데, 문제는 역무원이 영어를 아예 못 한다는 거지.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "worry",
+                        "emotionParams": {
+                            "fear": 0.5,
+                            "neutral": 0.5
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "내가 그 상황 보다가 좀 답답해서 그냥 끼어들었어.",
+                        "type": "narration",
+                        "character": "나",
+                        "emotion": "neutral",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "현지 언어로 상황 설명 했더니, 역무원이 알았다는 듯이 바로 기차표를 바꿔 주더라.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "relief",
+                        "emotionParams": {
+                            "happiness": 0.5,
+                            "neutral": 0.5
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "여자가 고맙다고 했어.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "gratitude",
+                        "emotionParams": {
+                            "happiness": 0.5
+                        }
                     },
                     {
-                        "audioArr": [{
-                            "text": "내 앞에 어떤 여자가 역무원이랑 얘기하다가 진짜 멘붕 온 표정으로 서 있는 거야.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "surprise",
-                            "emotionParams": {"surprise": 1.0}
-                        }]
+                        "text": "땡큐 쏘 머치!",
+                        "type": "dialogue",
+                        "character": "아내",
+                        "emotion": "gratitude",
+                        "emotionParams": {
+                            "happiness": 1.0
+                        }
                     },
                     {
-                        "audioArr": [{
-                            "text": "듣다 보니까 기차표를 잘못 사서 지금 기차를 못 탄다는 거였는데 문제는 역무원이 영어를 아예 못 한다는 거지.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "worry",
-                            "emotionParams": {"fear": 0.5, "neutral": 0.5}
-                        }]
+                        "text": "그래서 나도 대답했지.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "neutral",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
                     },
                     {
-                        "audioArr": [{
-                            "text": "내가 그 상황 보다가 좀 답답해서 그냥 끼어들었어.",
-                            "type": "narration",
-                            "character": "나",
-                            "emotion": "neutral",
-                            "emotionParams": {"neutral": 1.0}
-                        }]
+                        "text": "유어 웰컴!",
+                        "type": "dialogue",
+                        "character": "나",
+                        "emotion": "neutral",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "이제 가려는데, 그 여자가 혼잣말로 그러는 거야.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "neutral",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "와... 진짜 다행이다...",
+                        "type": "dialogue",
+                        "character": "아내",
+                        "emotion": "relief",
+                        "emotionParams": {
+                            "happiness": 0.5,
+                            "neutral": 0.5
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "나 순간 너무 놀라서 물어봤어.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "surprise",
+                        "emotionParams": {
+                            "surprise": 1.0
+                        }
                     },
                     {
-                        "audioArr": [{
-                            "text": "현지 언어로 상황 설명 했더니 역무원이 알았다는 듯이 바로 기차표를 바꿔 주더라.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "relief",
-                            "emotionParams": {"happiness": 0.5, "neutral": 0.5}
-                        }]
+                        "text": "어? 한국분이세요?",
+                        "type": "dialogue",
+                        "character": "나",
+                        "emotion": "surprise",
+                        "emotionParams": {
+                            "surprise": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "했더니, 그 여자도 놀라서 대답했어.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "surprise",
+                        "emotionParams": {
+                            "surprise": 1.0
+                        }
                     },
                     {
-                        "audioArr": [{
-                            "text": "땡큐 쏘 머치!",
-                            "type": "dialogue",
-                            "character": "여자",
-                            "emotion": "gratitude",
-                            "emotionParams": {"happiness": 1.0}
-                        },
-                        {
-                            "text": "유어 웰컴!",
-                            "type": "dialogue",
-                            "character": "나",
-                            "emotion": "neutral",
-                            "emotionParams": {"neutral": 1.0}
-                        },
-                        {
-                            "text": "그렇게 대화하고 이제 가려고 했거든? 그런데 그 여자가 혼잣말을 하는거야.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "relief",
-                            "emotionParams": {"neutral": 1.0}
-                        }]
+                        "text": "헐! 한국 분이셨구나! 진짜 감사해요!",
+                        "type": "dialogue",
+                        "character": "아내",
+                        "emotion": "gratitude",
+                        "emotionParams": {
+                            "happiness": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "이러는데, 뭔가 급 친해진 느낌?",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "neutral",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "그러다 어쩌다 보니 같이 기차 타고 얘기하면서 진짜 재밌는 시간을 보냈어.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "happiness",
+                        "emotionParams": {
+                            "happiness": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "내릴 때 여자가 연락처를 주면서 그러더라고.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "neutral",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
                     },
                     {
-                        "audioArr": [{
-                            "text": "와... 진짜 다행이다...",
-                            "type": "dialogue",
-                            "character": "여자",
-                            "emotion": "relief",
-                            "emotionParams": {"happiness": 0.5, "neutral": 0.5}
-                        }]
-                    },
+                        "text": "한국 돌아가면 꼭 한번 만나요.",
+                        "type": "dialogue",
+                        "character": "아내",
+                        "emotion": "hope",
+                        "emotionParams": {
+                            "happiness": 0.5,
+                            "neutral": 0.5
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "솔직히 그냥 별 생각 없었는데, 한국 들어오는 날 카톡이 딱 온 거야.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "surprise",
+                        "emotionParams": {
+                            "surprise": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "혹시 오늘 한국 들어오시는 날 맞죠? 그때 진짜 감사했어요! 시간 괜찮으시면 밥 같이 먹을래요?",
+                        "type": "dialogue",
+                        "character": "아내",
+                        "emotion": "hope",
+                        "emotionParams": {
+                            "happiness": 0.5,
+                            "neutral": 0.5
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "이러는데, 뭔가 싶어서 일단 나갔지.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "curiosity",
+                        "emotionParams": {
+                            "surprise": 0.5,
+                            "neutral": 0.5
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "근데 그게 밥 한끼가 두끼 되고, 영화 한 편이 두 편 되고, 결론은??? 지금 같이 살고 있고, 애도 있어.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "happiness",
+                        "emotionParams": {
+                            "happiness": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "아내가 가끔 그때 얘기하면 이렇게 말해.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "neutral",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "그때 당신, 나한테 백마탄 왕자님이였어!",
+                        "type": "dialogue",
+                        "character": "아내",
+                        "emotion": "happiness",
+                        "emotionParams": {
+                            "happiness": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "이러는데, 내가 먼저 꼬셨다고 주장하더라.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "neutral",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "여행에서 이렇게 인생 파트너 만날 줄 누가 알았겠냐?",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "reflection",
+                        "emotionParams": {
+                            "neutral": 0.5,
+                            "surprise": 0.5
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "인생 모르니까 누구에게나 잘해줘!",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "advice",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
+                    }
                 ]
             }
+        ]
+    }
+
 
             # skeleton_json 작성
             skeleton_json = {
@@ -386,11 +665,12 @@ class ScriptService:
 
                     중요한 건 대사와 나레이션을 분리할 때
                     **story 내용이 중복거나 생략되지 않도록 해주세요.**
+                    나래이션으로 시작했다면, '.' 로 문장을 마무리하고 다음 문장에서 대사를 출력하세요.
                     """
                 },
                 {
                     "role": "user",
-                    "content": f"""다음 스토리를 주어진 Json 스켈레톤의 sceneArr 필드에 맞게 변환해주세요:
+                    "content": f"""다음 스토리를 주어진 Json 스켈레톤의 sceneArr 필드에 맞게 변환해주세요{additional_prompt}
                     
                     Json 스켈레톤:
                     {json.dumps(skeleton_json, indent=2, ensure_ascii=False)}
@@ -433,7 +713,32 @@ class ScriptService:
             script_json["storyId"] = request.storyId
             script_json["storyTitle"] = request.storyTitle
             script_json["narVoiceCode"] = request.narVoiceCode
-            script_json["characterArr"] = characters
+
+            if request.characterArr == []:#기존에 받은 정보가 없어서 임의로 생성한 경우. voice code만 추가하면 됨.
+                add_voicecode_arr = []
+                for character in script_json["characterArr"]:
+                        new_voice_code = ""
+                        if character["gender"] == "남자":
+                            new_voice_code = "4JJwo477JUAx3HV0T7n7"
+                        elif character["gender"] == "여자":
+                            new_voice_code = "uyVNoMrnUku1dZyVEXwD"
+                            add_voicecode_arr.append({
+                                "name": character["name"],
+                                "gender": character["gender"],
+                                "properties": character["properties"],
+                                "voiceCode": new_voice_code
+                            })
+                        else:
+                            add_voicecode_arr.append({
+                                "name": character["name"],
+                                "gender": character["gender"],
+                                "properties": character["properties"],
+                                "voiceCode": request.narVoiceCode
+                            })
+                script_json["characterArr"] = add_voicecode_arr
+                
+            else: 
+                script_json["characterArr"] = temp_characters
             
             
             return ScriptResponse(script_json=script_json)
