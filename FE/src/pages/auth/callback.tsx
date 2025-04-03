@@ -42,12 +42,7 @@ export default function AuthCallbackPage() {
   }, [searchParams, navigate])
 
   useEffect(() => {
-    // 렌더링이 완료된 후 실행
-    const timer = setTimeout(() => {
-      handleCallback()
-    }, 0)
-
-    return () => clearTimeout(timer)
+    handleCallback()
   }, [handleCallback])
 
   return (
