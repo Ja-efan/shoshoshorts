@@ -1,55 +1,95 @@
 import { Button } from "@/components/ui/button"
 import { Play, Pause } from "lucide-react"
 import { Character, CurrentlyPlaying } from "@/types/character"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
-// 음성 파일 import
-import male1 from "@/assets/voices/male/male1.mp3"
-import male2 from "@/assets/voices/male/male2.mp3"
-import male3 from "@/assets/voices/male/male3.mp3"
-import male4 from "@/assets/voices/male/male4.mp3"
-import female1 from "@/assets/voices/female/female1.mp3"
-import female2 from "@/assets/voices/female/female2.mp3"
-import female3 from "@/assets/voices/female/female3.mp3"
-import female4 from "@/assets/voices/female/female4.mp3"
+// Zonos 음성 파일 import
+import zonosMale1 from "@/assets/voices/zonos/male/male1.mp3"
+import zonosMale2 from "@/assets/voices/zonos/male/male2.mp3"
+import zonosMale3 from "@/assets/voices/zonos/male/male3.mp3"
+import zonosMale4 from "@/assets/voices/zonos/male/male4.mp3"
+import zonosFemale1 from "@/assets/voices/zonos/female/female1.mp3"
+import zonosFemale2 from "@/assets/voices/zonos/female/female2.mp3"
+import zonosFemale3 from "@/assets/voices/zonos/female/female3.mp3"
+import zonosFemale4 from "@/assets/voices/zonos/female/female4.mp3"
+
+// ElevenLabs 음성 파일 import
+import elevenLabsMale1 from "@/assets/voices/elevenlabs/male/male1.mp3"
+import elevenLabsMale2 from "@/assets/voices/elevenlabs/male/male2.mp3"
+import elevenLabsMale3 from "@/assets/voices/elevenlabs/male/male3.mp3"
+import elevenLabsMale4 from "@/assets/voices/elevenlabs/male/male4.mp3"
+import elevenLabsFemale1 from "@/assets/voices/elevenlabs/female/female1.mp3"
+import elevenLabsFemale2 from "@/assets/voices/elevenlabs/female/female2.mp3"
+import elevenLabsFemale3 from "@/assets/voices/elevenlabs/female/female3.mp3"
+import elevenLabsFemale4 from "@/assets/voices/elevenlabs/female/female4.mp3"
 
 interface VoiceButtonsProps {
   character: Character
   updateCharacter: (id: string, field: keyof Character, value: any) => void
   currentlyPlaying: CurrentlyPlaying
   setCurrentlyPlaying: (value: CurrentlyPlaying) => void
+  voiceModel: string // 추가: 현재 선택된 음성 모델
 }
-
-// 전역 오디오 참조
-const globalAudioRef = { current: null as HTMLAudioElement | null }
 
 type VoiceFileKey = "male1" | "male2" | "male3" | "male4" | "female1" | "female2" | "female3" | "female4"
 
 // 음성 파일 매핑
-const voiceFiles: Record<"male" | "female", Record<VoiceFileKey, string>> = {
-  male: {
-    male1,
-    male2,
-    male3,
-    male4,
-    female1: "",
-    female2: "",
-    female3: "",
-    female4: ""
+const voiceFiles: Record<string, Record<"male" | "female", Record<VoiceFileKey, string>>> = {
+  "Zonos": {
+    male: {
+      male1: zonosMale1,
+      male2: zonosMale2,
+      male3: zonosMale3,
+      male4: zonosMale4,
+      female1: "",
+      female2: "",
+      female3: "",
+      female4: ""
+    },
+    female: {
+      female1: zonosFemale1,
+      female2: zonosFemale2,
+      female3: zonosFemale3,
+      female4: zonosFemale4,
+      male1: "",
+      male2: "",
+      male3: "",
+      male4: ""
+    }
   },
-  female: {
-    female1,
-    female2,
-    female3,
-    female4,
-    male1: "",
-    male2: "",
-    male3: "",
-    male4: ""
+  "ElevenLabs": {
+    male: {
+      male1: elevenLabsMale1,
+      male2: elevenLabsMale2,
+      male3: elevenLabsMale3,
+      male4: elevenLabsMale4,
+      female1: "",
+      female2: "",
+      female3: "",
+      female4: ""
+    },
+    female: {
+      female1: elevenLabsFemale1,
+      female2: elevenLabsFemale2,
+      female3: elevenLabsFemale3,
+      female4: elevenLabsFemale4,
+      male1: "",
+      male2: "",
+      male3: "",
+      male4: ""
+    }
   }
 }
 
-export function VoiceButtons({ character, updateCharacter, currentlyPlaying, setCurrentlyPlaying }: VoiceButtonsProps) {
+export function VoiceButtons({ 
+  character, 
+  updateCharacter, 
+  currentlyPlaying, 
+  setCurrentlyPlaying,
+  voiceModel 
+}: VoiceButtonsProps) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const voiceOptions = character.gender === "male" 
     ? ["male1", "male2", "male3", "male4"]
     : ["female1", "female2", "female3", "female4"]
@@ -59,9 +99,9 @@ export function VoiceButtons({ character, updateCharacter, currentlyPlaying, set
   }
 
   const handlePlayVoice = (voiceOption: string) => {
-    if (globalAudioRef.current) {
-      globalAudioRef.current.pause()
-      globalAudioRef.current.currentTime = 0
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
       if (currentlyPlaying.voiceOption === voiceOption && currentlyPlaying.characterId === character.id) {
         setCurrentlyPlaying({ voiceOption: null, characterId: null })
         return
@@ -69,12 +109,12 @@ export function VoiceButtons({ character, updateCharacter, currentlyPlaying, set
     }
 
     try {
-      const audio = new Audio(voiceFiles[character.gender!][voiceOption as VoiceFileKey])
+      const audio = new Audio(voiceFiles[voiceModel][character.gender!][voiceOption as VoiceFileKey])
       audio.addEventListener('ended', () => {
         setCurrentlyPlaying({ voiceOption: null, characterId: null })
       })
       audio.play().catch(error => console.error('Error playing audio:', error))
-      globalAudioRef.current = audio
+      audioRef.current = audio
       setCurrentlyPlaying({ voiceOption, characterId: character.id })
     } catch (error) {
       console.error('Error creating audio:', error)
@@ -87,6 +127,15 @@ export function VoiceButtons({ character, updateCharacter, currentlyPlaying, set
       updateCharacter(character.id, "voice", defaultVoice)
     }
   }, [character.gender, character.voice, character.id, updateCharacter])
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+      }
+    }
+  }, [voiceModel])
 
   if (!character.gender) {
     return (
