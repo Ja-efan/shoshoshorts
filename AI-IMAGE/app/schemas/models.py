@@ -48,3 +48,9 @@ class SceneInfo(BaseModel):
     scene_content: str
     scene_summary: str
     scene_metadata: SceneMetadata
+    
+class ImagePromptRequest(BaseModel):
+    """간단한 이미지 프롬프트 요청 모델"""
+    prompt: str
+    negative_prompt: Optional[str] = None
+    style: str = "DISNEY"
