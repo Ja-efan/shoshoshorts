@@ -1,9 +1,12 @@
 package com.sss.backend.domain.service;
 
+import com.nimbusds.openid.connect.sdk.claims.UserInfo;
+import com.sss.backend.api.dto.OAuth.UserInfoDTO;
 import com.sss.backend.api.dto.TokenResponse;
 import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.jwt.JWTUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -194,5 +197,20 @@ public class OAuthService {
         String timestamp = LocalDateTime.now().format(formatter);
         return "user_" + timestamp;
 
+    }
+
+    public ResponseEntity<UserInfoDTO> getUserInfo(HttpServletRequest request) {
+        String token = jwtUtil.extractTokenFromRequest(request);
+        String email = jwtUtil.getEmail(token);
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("유저 없음"));
+        log.info("User : {}",user);
+
+        UserInfoDTO dto = new UserInfoDTO();
+        dto.setNickname(user.getNickname());
+        dto.setEmail(user.getEmail());
+        dto.setPhoneNumber(user.getPhoneNumber());
+
+        return ResponseEntity.ok(dto);
     }
 }

@@ -1,6 +1,7 @@
 package com.sss.backend.api.controller;
 
 import com.sss.backend.api.dto.OAuth.OAuthLoginRequest;
+import com.sss.backend.api.dto.OAuth.UserInfoDTO;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.domain.service.OAuthService;
 import com.sss.backend.domain.service.RedisService;
@@ -57,6 +58,13 @@ public class OAuthController {
         log.info("refresh 로직 On. {} ###",request);
         return tokenService.refreshToken(request);
 
+    }
+
+    @GetMapping("/info")
+    public ResponseEntity<UserInfoDTO> getUserInfo(HttpServletRequest request) {
+        log.info("유저 정보 조회 API 호출");
+
+        return oAuthService.getUserInfo(request);
     }
 
 }
