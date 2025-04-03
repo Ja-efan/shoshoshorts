@@ -14,6 +14,7 @@ interface CharacterFormProps {
   removeCharacter: (id: string) => void
   currentlyPlaying: CurrentlyPlaying
   setCurrentlyPlaying: (value: CurrentlyPlaying) => void
+  voiceModel: string
 }
 
 export function CharacterForm({
@@ -22,7 +23,8 @@ export function CharacterForm({
   updateCharacter,
   removeCharacter,
   currentlyPlaying,
-  setCurrentlyPlaying
+  setCurrentlyPlaying,
+  voiceModel
 }: CharacterFormProps) {
   return (
     <div>
@@ -79,7 +81,7 @@ export function CharacterForm({
                   />
                 </div>
                 <div>
-                  <Label>성별 (선택사항)</Label>
+                  <Label>성별</Label>
                   <div className="mt-1 flex gap-3">
                     <Button
                       type="button"
@@ -115,6 +117,7 @@ export function CharacterForm({
                       updateCharacter={updateCharacter}
                       currentlyPlaying={currentlyPlaying}
                       setCurrentlyPlaying={setCurrentlyPlaying}
+                      voiceModel={voiceModel}
                     />
                   </div>
                 </div>
