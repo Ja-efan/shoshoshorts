@@ -127,14 +127,17 @@ public class OAuthService {
             }
             //Todo : 구현 예정
             case "naver" -> {
-                log.info("NAVER response : {}",userInfo);
-                email = "";
-                name = "";
+                Map<String, Object> responseData = (Map<String, Object>) userInfo.get("response");
+                log.info("NAVER response : {}",responseData);
+                email = (String) responseData.get("email");
+                name = (String) responseData.get("name");
             }
             case "kakao" -> {
                 log.info("KAKAO response : {}",userInfo);
-                email = "";
-                name = "";
+                Map<String, Object> kakaoAccount = (Map<String, Object>) userInfo.get("kakao_account");
+                Map<String, Object> kakaoProfile = (Map<String, Object>) kakaoAccount.get("profile");
+                email = (String) kakaoAccount.get("email");
+                name = (String) kakaoProfile.get("nickname");
             }
             default -> {
                 throw new RuntimeException("지원 X");
