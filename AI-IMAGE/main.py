@@ -72,7 +72,7 @@ async def check_pwd_middleware(request: Request, call_next):
                     status_code=401,
                     content={"message": "API pwd 앞에 dev 또는 prod가 없습니다."}
                 )
-    app_logger.info("다음으로")
+    app_logger.info("Next")
     response = await call_next(request)
     return response
 
