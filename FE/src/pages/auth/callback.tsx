@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { authService } from "@/lib/auth"
 
@@ -6,34 +6,49 @@ export default function AuthCallbackPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    const handleCallback = async () => {
-      try {
-        const provider = window.location.pathname.split("/")[2] as "google" | "naver" | "kakao"
-        const code = searchParams.get("code")
-        const state = searchParams.get("state")
+  const handleCallback = useCallback(async () => {
+    try {
+      const provider = window.location.pathname.split("/")[2] as "google" | "naver" | "kakao"
+      const code = searchParams.get("code")
+      const state = searchParams.get("state")
 
-        if (!code) {
-          throw new Error("인증 코드가 없습니다.")
-        }
+      console.log("소셜 로그인 콜백 - Provider:", provider)
+      console.log("소셜 로그인 콜백 - Code:", code)
+      console.log("소셜 로그인 콜백 - State:", state)
 
-        await authService.handleSocialLoginCallback(provider, code)
-
-        // 이전 페이지 정보가 있으면 해당 페이지로, 없으면 대시보드로 이동
-        if (state) {
-          const { from } = JSON.parse(decodeURIComponent(state))
-          navigate(from)
-        } else {
-          navigate("/dashboard")
-        }
-      } catch (error) {
-        console.error("소셜 로그인 콜백 처리 실패:", error)
-        navigate("/login")
+      if (!code) {
+        throw new Error("인증 코드가 없습니다.")
       }
-    }
 
-    handleCallback()
+      await authService.handleSocialLoginCallback(provider, code)
+
+      // 이전 페이지 정보가 있으면 해당 페이지로, 없으면 대시보드로 이동
+      if (state) {
+        try {
+          const decodedState = decodeURIComponent(state);
+          const { from } = JSON.parse(decodedState);
+          navigate(from);
+        } catch (error) {
+          console.error("state 파싱 실패:", error);
+          navigate("/dashboard");
+        }
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      console.error("소셜 로그인 콜백 처리 실패:", error)
+      navigate("/login")
+    }
   }, [searchParams, navigate])
+
+  useEffect(() => {
+    // 렌더링이 완료된 후 실행
+    const timer = setTimeout(() => {
+      handleCallback()
+    }, 0)
+
+    return () => clearTimeout(timer)
+  }, [handleCallback])
 
   return (
     <div className="flex min-h-screen items-center justify-center">
