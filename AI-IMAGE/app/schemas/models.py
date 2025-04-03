@@ -14,6 +14,7 @@ class StoryMetadata(BaseModel):
     """스토리 메타데이터 모델"""
     title: str
     story_id: int
+    original_story: str
     characters: List[Character]
 
 class Audio(BaseModel):
