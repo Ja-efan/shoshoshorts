@@ -67,7 +67,7 @@ public class OAuthController {
      * User 프로필정보 업데이트를 위한 API
      * @return
      */
-    @PostMapping("/updateprofile")
+    @PostMapping("/update")
     public ResponseEntity<?> updateProfile(HttpServletRequest request,
                                            @Valid @RequestBody UpdateProfileDTO dto) {
         log.info("유저 정보 업데이트 로직 시작 {}",request);
