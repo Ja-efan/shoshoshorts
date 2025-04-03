@@ -58,7 +58,7 @@ export function ModelSelector({
   const selectImageModel = (index: number) => {
     const model = imageModels[index];
     if (model.name === "Stable Diffusion") {
-      toast("아직 개발 중에 있습니다.", {
+      toast("Stable Diffusion은 아직 개발 중에 있습니다. 많은 응원 바랍니다!", {
         icon: "🔨",
         duration: 2000,
       });
@@ -127,8 +127,8 @@ export function ModelSelector({
                     <Button
                       onClick={() => selectImageModel(index)}
                       variant={model.isSelected ? "default" : "outline"}
-                      className="w-full"
-                      disabled={model.name === "Stable Diffusion"}
+                      className={`w-full ${model.name === "Stable Diffusion" ? "opacity-50 cursor-pointer" : ""}`}
+                      aria-disabled={model.name === "Stable Diffusion"}
                     >
                       <img
                         src={model.logo}
