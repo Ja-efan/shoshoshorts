@@ -7,7 +7,6 @@ import { Loader2 } from "lucide-react";
 import { apiService } from "@/api/api";
 import { useCharacter } from "@/hooks/useCharacter";
 import { CharacterForm } from "@/components/create/CharacterForm";
-import { StoryForm } from "@/components/create/StoryForm";
 import { ModelSelector } from "@/components/create/ModelSelector";
 import { NarratorSettings, NarratorRef } from "@/components/create/NarratorSettings";
 import { CurrentlyPlaying } from "@/types/character";
@@ -18,6 +17,10 @@ import {
   defaultImageModels, 
   voiceCodes
 } from "@/constants/voiceData";
+import { toast } from "react-hot-toast";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function CreateVideoPage() {
   const { characters, addCharacter, updateCharacter, removeCharacter } =
@@ -25,6 +28,11 @@ export default function CreateVideoPage() {
   const [story, setStory] = useState("");
   const [title, setTitle] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({
+    title: false,
+    story: false,
+    characters: false
+  });
   const [currentlyPlaying, setCurrentlyPlaying] = useState<CurrentlyPlaying>({
     voiceOption: null,
     characterId: null,
@@ -35,6 +43,13 @@ export default function CreateVideoPage() {
   const [imageModels, setImageModels] = useState<ModelType[]>(defaultImageModels);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const narratorRef = useRef<NarratorRef>(null);
+
+  const validateCharacters = () => {
+    return characters.every(character => 
+      character.name.trim() !== "" && 
+      (character.description?.trim() || "").length > 0
+    );
+  };
 
   // 모델 변경 시 재생 중인 모든 오디오 정지
   const handleVoiceModelChange = () => {
@@ -53,7 +68,36 @@ export default function CreateVideoPage() {
     return voiceModels.find(model => model.isSelected)?.name || "ElevenLabs";
   };
 
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value.length <= 20) {
+      setTitle(value);
+    }
+  };
+
+  const handleStoryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    if (value.length <= 500) {
+      setStory(value);
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {
+      title: title.trim() === "" || title.length > 20,
+      story: story.trim() === "" || story.length > 500,
+      characters: characters.length > 0 && !validateCharacters()
+    };
+    setValidationErrors(errors);
+    return !Object.values(errors).some(error => error);
+  };
+
   const handleGenerateVideo = async () => {
+    if (!validateForm()) {
+      toast.error("모든 캐릭터의 이름과 설명을 입력해주세요.🫰");
+      return;
+    }
+
     setIsGenerating(true);
 
     const selectedVoiceModel = getSelectedVoiceModel();
@@ -126,12 +170,39 @@ export default function CreateVideoPage() {
             </p>
 
             <div className="mt-8 space-y-6">
-              <StoryForm
-                title={title}
-                story={story}
-                onTitleChange={setTitle}
-                onStoryChange={setStory}
-              />
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="title">제목</Label>
+                  <div className="relative">
+                    <Input
+                      id="title"
+                      value={title}
+                      onChange={handleTitleChange}
+                      placeholder="비디오 제목을 입력하세요"
+                      className={validationErrors.title ? "border-red-500" : ""}
+                    />
+                    <span className={`absolute right-2 top-2 text-sm ${title.length > 20 ? "text-red-500" : "text-gray-500"}`}>
+                      {title.length}/20
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="story">스토리</Label>
+                  <div className="relative">
+                    <Textarea
+                      id="story"
+                      value={story}
+                      onChange={handleStoryChange}
+                      placeholder="스토리를 입력하세요"
+                      className={`min-h-[200px] ${validationErrors.story ? "border-red-500" : ""}`}
+                    />
+                    <span className={`absolute right-2 bottom-2 text-sm ${story.length > 500 ? "text-red-500" : "text-gray-500"}`}>
+                      {story.length}/500
+                    </span>
+                  </div>
+                </div>
+              </div>
 
               <NarratorSettings 
                 ref={narratorRef}
@@ -150,6 +221,7 @@ export default function CreateVideoPage() {
                 currentlyPlaying={currentlyPlaying}
                 setCurrentlyPlaying={setCurrentlyPlaying}
                 voiceModel={getSelectedVoiceModel()}
+                validationErrors={validationErrors}
               />
 
               <Button

@@ -15,6 +15,9 @@ interface CharacterFormProps {
   currentlyPlaying: CurrentlyPlaying
   setCurrentlyPlaying: (value: CurrentlyPlaying) => void
   voiceModel: string
+  validationErrors?: {
+    characters: boolean
+  }
 }
 
 export function CharacterForm({
@@ -24,7 +27,8 @@ export function CharacterForm({
   removeCharacter,
   currentlyPlaying,
   setCurrentlyPlaying,
-  voiceModel
+  voiceModel,
+  validationErrors = { characters: false }
 }: CharacterFormProps) {
   return (
     <div>
@@ -61,24 +65,31 @@ export function CharacterForm({
                 </Button>
               </div>
               <div className="mt-3 space-y-3">
-                <div>
-                  <Label htmlFor={`name-${character.id}`}>이름</Label>
-                  <Input
-                    id={`name-${character.id}`}
-                    value={character.name}
-                    onChange={(e) => updateCharacter(character.id, "name", e.target.value)}
-                    placeholder="캐릭터 이름"
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>설명</Label>
-                  <Textarea
-                    value={character.description || ""}
-                    onChange={(e) => updateCharacter(character.id, "description", e.target.value)}
-                    placeholder="빨간 머리, 25세, 밝은 성격, 눈이 작음"
-                    className="mt-1 min-h-[80px]"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">
+                      캐릭터 이름 <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="name"
+                      value={character.name}
+                      onChange={(e) => updateCharacter(character.id, "name", e.target.value)}
+                      placeholder="홍길동"
+                      className={`${character.name.trim() === "" && validationErrors.characters ? "border-red-500" : ""}`}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="description">
+                      캐릭터 설명 <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="description"
+                      value={character.description || ""}
+                      onChange={(e) => updateCharacter(character.id, "description", e.target.value)}
+                      placeholder="빨간 머리, 초록색 가디건, 25세, 이쁨"
+                      className={`min-h-[100px] ${(character.description || "").trim() === "" && validationErrors.characters ? "border-red-500" : ""}`}
+                    />
+                  </div>
                 </div>
                 <div>
                   <Label>성별</Label>
