@@ -38,7 +38,7 @@ class OpenAIConfig:
     MODEL = "gpt-4o"  # "gpt-4o-mini"
     MAX_TOKENS = 500
     TEMPERATURE = 0.5
-    KLINGAI_SYSTEM_PROMPT = "klingai-v03.txt"
+    KLINGAI_SYSTEM_PROMPT = "klingai-v04.txt"
 
 klingai_config = KlingAIConfig()
 openai_config = OpenAIConfig()

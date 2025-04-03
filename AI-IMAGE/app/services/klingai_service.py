@@ -5,31 +5,34 @@ import os
 import jwt
 import time
 import json
+import glob
 import requests
 from fastapi import HTTPException
-from typing import Tuple, Dict, Any, Optional
-import glob
-from datetime import datetime
+from typing import Dict, Any, Optional
 
 from app.core.config import settings
 from app.core.logger import app_logger
 from app.core.api_config import klingai_config
 from app.services.utils import encode_image_to_base64
+from app.schemas.models import SceneInfo
 
-class ImageService:
+class KlingAIService:
     """Kling AI를 사용한 이미지 생성 서비스"""
     
     @staticmethod
-    def get_reference_image_path(story_id: int, scene_id: int, return_base64: bool = True) -> str:
-        """참조 이미지를 반환합니다. 
-        return_base64 가 True 인 경우 Base64로 인코딩된 이미지를 반환합니다.
+    def get_reference_image_base64(story_id: int, scene_id: int, style: str) -> str:
+        """참조 이미지를 Base64로 인코딩하여 반환합니다.
+        참조 이미지는 story_id, scene_id, style 에 따라 결정됩니다.
+            1. 이전 씬의 이미지가 존재하는 경우 이전 씬의 이미지를 사용
+            2. 이전 씬의 이미지가 존재하지 않는 경우 스타일별 참조 이미지를 사용
+            
         Args:
             story_id (int): 스토리 ID
             scene_id (int): 씬 ID
-            return_base64 (bool, optional): 참조 이미지를 Base64로 인코딩 여부. Defaults to True.
+            style (str): 이미지 스타일
 
         Returns:
-            str: 참조 이미지 경로
+            str: Base64로 인코딩된 이미지
         """
         reference_image_path = None
         previous_scene_id = scene_id - 1
@@ -54,8 +57,8 @@ class ImageService:
                 if previous_scene_image_files:
                     # 가장 최근 파일 (어차피 하나의 스토리의 하나의 씬에는 하나의 이미지만 존재.)
                     previous_scene_image_files.sort()
-                    reference_image = previous_scene_image_files[-1]
-                    app_logger.info(f"참조 이미지 찾음(이전 scene 이미지): {reference_image}")
+                    reference_image_path = previous_scene_image_files[-1]
+                    app_logger.info(f"참조 이미지 찾음(이전 scene 이미지): {reference_image_path}")
                 else:
                     # 이전 scene_id에 해당하는 이미지가 없으면 같은 스토리 내 가장 최근 이미지 사용
                     all_scene_image_pattern = f"{images_dir_by_story}/*.jpg"
@@ -63,8 +66,8 @@ class ImageService:
                     if all_scene_image_files:
                         # 타임스탬프 기준으로 정렬 (가장 최신 파일이 마지막에 오도록)
                         all_scene_image_files.sort()
-                        reference_image = all_scene_image_files[-1]
-                        app_logger.info(f"이전 scene 이미지 없음. 가장 최근 이미지로 대체: {reference_image}")
+                        reference_image_path = all_scene_image_files[-1]
+                        app_logger.info(f"이전 scene 이미지 없음. 가장 최근 이미지로 대체: {reference_image_path}")
         
         # 이전 씬 이미지가 없는 경우 스타일별 참조 이미지 사용
         if not reference_image_path:
@@ -76,10 +79,17 @@ class ImageService:
             }
             reference_image_path = style_reference_dict.get(style)
             app_logger.info(f"스타일 참조 이미지 경로: {reference_image_path}")
+            
+            # 참조 이미지가 존재하지 않는 경우 기본 이미지 사용
+            if not reference_image_path or not os.path.exists(reference_image_path):
+                app_logger.warning(f"{style} 스타일의 참조 이미지가 존재하지 않습니다. 기본 참조 이미지를 사용합니다.")
+                # 지브리 이미지를 기본 참조 이미지로 사용
+                reference_image_path = "images/references/ghibli/ghibli-reference-01.jpg"
+                app_logger.info(f"기본 참조 이미지 경로: {reference_image_path}")
         
         
         # 참조 이미지 Base64로 인코딩 후 반환
-        return encode_image_to_base64(reference_image_path) if return_base64 else reference_image_path
+        return encode_image_to_base64(reference_image_path)
         
     @staticmethod
     def get_scene_data_path(story_id: int, scene_id: int) -> str:
@@ -99,7 +109,7 @@ class ImageService:
             return None
             
         previous_scene_id = scene_id - 1
-        previous_scene_data_path = ImageService.get_scene_data_path(story_id, previous_scene_id)
+        previous_scene_data_path = KlingAIService.get_scene_data_path(story_id, previous_scene_id)
         
         if not os.path.exists(previous_scene_data_path):
             app_logger.info(f"이전 씬 데이터 파일 없음: {previous_scene_data_path}")
@@ -108,6 +118,11 @@ class ImageService:
         try:
             with open(previous_scene_data_path, 'r', encoding='utf-8') as f:
                 previous_scene_data = json.load(f)
+            
+            app_logger.info(f"이전 씬 scene_info: \n{json.dumps(previous_scene_data['scene_info'], ensure_ascii=False, indent=2)}")
+            app_logger.info(f"이전 씬 image_prompt: \n{json.dumps(previous_scene_data['image_prompt'], ensure_ascii=False, indent=2)}")
+            
+            # 이전 씬 데이터 반환
             return {
                 "scene_info": previous_scene_data["scene_info"],
                 "image_prompt": previous_scene_data["image_prompt"]
@@ -118,18 +133,19 @@ class ImageService:
             return None
     
     @staticmethod
-    def save_scene_data(story_id: int, scene_id: int, scene_info: Dict[str, Any], image_prompt: Dict[str, Any]) -> None:
+    def save_scene_data(story_id: int, scene_id: int, scene_info: SceneInfo, image_prompt: Dict[str, Any]) -> None:
         """씬 데이터를 JSON 파일에 저장합니다."""
-        file_path = ImageService.get_scene_data_path(story_id, scene_id)
         
-        # 씬 데이터 구조화
-        data = {
-            "scene_info": scene_info,
-            "image_prompt": image_prompt
-        }
         
         # 파일 저장
         try:
+            file_path = KlingAIService.get_scene_data_path(story_id, scene_id)
+            # 씬 데이터 구조화
+            data = {
+                "scene_info": scene_info.model_dump(),
+                "image_prompt": image_prompt
+            }
+        
             with open(file_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             app_logger.info(f"씬 데이터 저장 완료: story_id={story_id}, scene_id={scene_id}")
@@ -145,9 +161,10 @@ class ImageService:
     async def generate_image(
         story_id: int,
         scene_id: int,
+        scene_info: SceneInfo,
         prompt: str,
         negative_prompt: Optional[str] = None,
-        style: str ="GHIBLI",
+        style: str ="DISNEY"
     ) -> Dict[str, Any]:
         """
         Kling AI API를 사용하여 이미지를 생성합니다.
@@ -187,16 +204,20 @@ class ImageService:
             }
             
             ########################################### 이미지 레퍼런스 ###########################################
-            reference_image_base64 = ImageService.get_reference_image_path(story_id, scene_id, return_base64=True)
+            reference_image_base64 = KlingAIService.get_reference_image_base64(story_id, scene_id, style)
             
             ############################### 이전 씬 정보 및 이미지 프롬프트 레퍼런스 ################################
-            previous_scene_data = ImageService.get_previous_scene_data(story_id, scene_id)
+            previous_scene_data = KlingAIService.get_previous_scene_data(story_id, scene_id)
             
+            original_prompt = prompt
             if previous_scene_data:
+                previous_scene_info_string = json.dumps(previous_scene_data["scene_info"], ensure_ascii=False)
+                previous_scene_image_prompt_string = json.dumps(previous_scene_data["image_prompt"]["original_prompt"], ensure_ascii=False)
+                
                 # TODO 이전 씬 정보 참조 전략 추가 필요 (prompt + previous_scene_info + previous_image_prompt)
-                prompt = f"{prompt}, 
-                previous scene info: {previous_scene_data['scene_info']}, 
-                previous image prompt: {previous_scene_data['image_prompt']}"
+                prompt = f"{prompt}, \
+                previous scene info: {previous_scene_info_string}, \
+                previous image prompt: {previous_scene_image_prompt_string}"
                 
             # API 요청 데이터
             payload = {
@@ -223,7 +244,7 @@ class ImageService:
                     error_message = response.text
                 
                 # Kling AI API의 응답 코드를 표준 HTTP 상태 코드로 변환
-                http_status_code = ImageService.get_standard_http_status_code(response_code)
+                http_status_code = KlingAIService.get_standard_http_status_code(response_code)
                 
                 raise HTTPException(
                     status_code=http_status_code,  
@@ -231,31 +252,26 @@ class ImageService:
                 )
             
             # 응답 데이터
+            app_logger.info(f"응답 데이터: \n{json.dumps(response, ensure_ascii=False, indent=2)}")
             try:
                 response_data = response["data"]
                 if response_code == 0 and response_data:
                     task_id = response_data["task_id"]
-                    image_urls = await ImageService.get_task_result(task_id)
+                    image_urls = await KlingAIService.get_task_result(task_id)
 
                     if image_urls and len(image_urls) > 0:
-                        # 씬 기본 정보 구성
-                        scene_info = {
-                            "story_id": story_id,
-                            "scene_id": scene_id,
-                            "created_at": datetime.now().isoformat(),
-                            
-                        }
+                    
                         
                         # 이미지 프롬프트 정보 구성
                         image_prompt = {
                             "prompt": prompt,
-                            "original_prompt": prompt,
+                            "original_prompt": original_prompt,
                             "negative_prompt": negative_prompt,
                             "style": style,
                         }
                         
                         # 씬 데이터를 JSON 파일에 저장
-                        ImageService.save_scene_data(story_id, scene_id, scene_info, image_prompt)
+                        KlingAIService.save_scene_data(story_id, scene_id, scene_info, image_prompt)
                         
                         # 결과 반환
                         return {
@@ -311,5 +327,5 @@ class ImageService:
         return None
 
 # 서비스 인스턴스 생성
-image_service = ImageService()
+klingai_service = KlingAIService()
 

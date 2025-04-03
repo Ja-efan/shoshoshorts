@@ -5,9 +5,10 @@ import time
 from fastapi import APIRouter, HTTPException
 from app.schemas.models import Scene, ImageGenerationResponse
 from app.services.openai_service import openai_service
-from app.services.klingai_service import image_service
+from app.services.klingai_service import klingai_service
 from app.services.download_service import download_service
 from app.services.s3_service import s3_service
+from app.services.utils import check_scene
 from app.core.logger import app_logger
 from app.core.config import settings
 
@@ -21,7 +22,7 @@ async def generate_scene_image(scene: Scene):
     
     흐름:
     1. SpringBoot BE로부터 scene 객체 수신
-    2. OpenAI를 사용하여 이미지 프롬프트 생성
+    2. OpenAI(gpt-4o)를 사용하여 이미지 프롬프트 생성
     3. KLING AI를 사용하여 이미지 생성
     4. 생성된 이미지를 로컬에 저장
     5. 이미지를 S3에 업로드
@@ -31,41 +32,29 @@ async def generate_scene_image(scene: Scene):
     app_logger.info("이미지 생성 함수 시작")
     app_logger.debug(f"scene: \n{scene}")
     try:
-        # 1. 장면 정보 검증
-        if not scene.scene_id:
-            raise HTTPException(status_code=400, detail="장면 ID가 누락되었습니다.")
-        if not scene.story_metadata:
-            raise HTTPException(status_code=400, detail="스토리 메타데이터가 누락되었습니다.")
-        if not scene.story_metadata.story_id:
-            raise HTTPException(status_code=400, detail="스토리 ID가 누락되었습니다.")
-        if not scene.audios or len(scene.audios) == 0:
-            raise HTTPException(status_code=400, detail="장면 오디오 정보가 누락되었습니다.")
+        # 1. 장면 정보 검증 - 비즈니스 로직 유효성 검사
+        check_scene_result = check_scene(scene)
+        if check_scene_result["result"] == False:
+            raise HTTPException(status_code=400, detail=check_scene_result["validation_errors"])
         
         # 필요한 ID 추출
         story_id = scene.story_metadata.story_id
         scene_id = scene.scene_id
         
         # 2. OpenAI를 사용하여 이미지 프롬프트 생성
-        # image_prompt_start_time = time.time()   
         app_logger.info(f"스토리 {story_id}, 장면 {scene_id}")
-        image_prompt, negative_prompt = await openai_service.generate_image_prompt(scene)
-        # app_logger.debug(f"생성된 이미지 프롬프트: \n{image_prompt}")
-        # image_prompt_end_time = time.time()
-        # image_prompt_time = image_prompt_end_time - image_prompt_start_time
-        # app_logger.info(f"이미지 프롬프트 생성 시간: {image_prompt_time}초")
+        image_prompt, negative_prompt, scene_info = await openai_service.generate_image_prompt(scene)
+
         
         # 3. KLING AI를 사용하여 이미지 생성
-        # image_generation_start_time = time.time()
         app_logger.info("이미지 생성 중...")
-        image_data = await image_service.generate_image(
+        image_data = await klingai_service.generate_image(
             story_id=story_id,
             scene_id=scene_id,
             prompt=image_prompt,
-            negative_prompt=negative_prompt
+            negative_prompt=negative_prompt,
+            scene_info=scene_info,
         )
-        # image_generation_end_time = time.time()
-        # image_generation_time = image_generation_end_time - image_generation_start_time
-        # app_logger.info(f"이미지 생성 시간: {image_generation_time}초")
         
         if not image_data or "image_url" not in image_data:
             raise HTTPException(status_code=500, detail="이미지 생성에 실패했습니다.")
@@ -74,23 +63,13 @@ async def generate_scene_image(scene: Scene):
         app_logger.info(f"이미지 생성 완료: {image_url}")
         
         # 4. 생성된 이미지를 로컬에 저장
-        # download_start_time = time.time()   
-        # app_logger.info("이미지 다운로드 중...")
         local_image_path = await download_service.download_image(image_url, story_id, scene_id)
-        download_end_time = time.time()
-        # download_time = download_end_time - download_start_time
-        # app_logger.info(f"이미지 다운로드 시간: {download_time}초")
-        
         if not local_image_path:
             raise HTTPException(status_code=500, detail="이미지 다운로드에 실패했습니다.")
         
         # 5. 이미지를 S3에 업로드
-        # image_upload_start_time = time.time()
         app_logger.info("이미지 S3 업로드 중...")
         s3_result = await s3_service.upload_image(local_image_path, story_id, scene_id)
-        # image_upload_end_time = time.time()
-        # image_upload_time = image_upload_end_time - image_upload_start_time
-        # app_logger.info(f"이미지 S3 업로드 시간: {image_upload_time}초")
         
         # S3 업로드 결과 처리
         if s3_result["success"]:
