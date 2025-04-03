@@ -15,7 +15,7 @@ export const API_ENDPOINTS = {
   YOUTUBE_UPLOAD: `${API_BASE_URL}/api/youtube/upload`,
   AUTH: {
     OAUTH: `${API_BASE_URL}/api/auth/oauth`,
-    REFRESH: `${API_BASE_URL}/api/auth//refresh`,
+    REFRESH: `${API_BASE_URL}/api/auth/refresh`,
     LOGOUT: `${API_BASE_URL}/api/auth/logout`,
     VALIDATE: `${API_BASE_URL}/api/auth/check`,
   },
@@ -61,6 +61,7 @@ export const apiService = {
         API_ENDPOINTS.AUTH.OAUTH,
         { provider, code }
       );
+      console.log(response)
       // 액세스 토큰 저장 및 Redux store 업데이트
       const token = response.data.accessToken;
       localStorage.setItem("accessToken", token);
@@ -110,7 +111,14 @@ export const apiService = {
       await axios.get(API_ENDPOINTS.AUTH.VALIDATE, getAuthConfig(token));
       return true;
     } catch (error) {
-      return false;
+      try {
+        // 토큰 검증 실패 시 refreshToken 시도
+        await this.refreshToken();
+        return true;
+      } catch (refreshError) {
+        console.error("토큰 갱신 실패:", refreshError);
+        return false;
+      }
     }
   },
 
@@ -155,65 +163,6 @@ export const apiService = {
       console.error("유튜브 업로드 실패:", error);
       throw error;
     }
-  },
-};
-
-// 소셜 로그인 관련 설정
-type SocialAuthConfig = {
-  google: {
-    clientId: string;
-    redirectUri: string;
-    scope: string;
-    authUrl: string;
-  };
-  naver: {
-    clientId: string;
-    redirectUri: string;
-    authUrl: string;
-  };
-  kakao: {
-    clientId: string;
-    redirectUri: string;
-    authUrl: string;
-  };
-};
-
-const SOCIAL_AUTH_CONFIG: SocialAuthConfig = {
-  google: {
-    clientId: import.meta.env.REACT_APP_GOOGLE_CLIENT_ID,
-    redirectUri: `${window.location.origin}/auth/google/callback`,
-    scope: "email profile",
-    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-  },
-  naver: {
-    clientId: import.meta.env.REACT_APP_NAVER_CLIENT_ID,
-    redirectUri: `${window.location.origin}/auth/naver/callback`,
-    authUrl: "https://nid.naver.com/oauth2.0/authorize",
-  },
-  kakao: {
-    clientId: import.meta.env.REACT_APP_KAKAO_CLIENT_ID,
-    redirectUri: `${window.location.origin}/auth/kakao/callback`,
-    authUrl: "https://kauth.kakao.com/oauth/authorize",
-  },
-};
-
-export const socialAuth = {
-  getSocialLoginUrl(provider: SocialProvider, state?: string) {
-    const config = SOCIAL_AUTH_CONFIG[provider];
-    const params = new URLSearchParams({
-      client_id: config.clientId,
-      redirect_uri: config.redirectUri,
-      response_type: "code",
-      ...(state && { state }),
-    });
-
-    if (provider === "google" && "scope" in config) {
-      params.append("scope", config.scope);
-      params.append("access_type", "offline");
-      params.append("prompt", "consent");
-    }
-
-    return `${config.authUrl}?${params.toString()}`;
   },
 };
 

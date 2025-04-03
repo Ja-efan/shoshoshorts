@@ -19,18 +19,18 @@ type SocialAuthConfig = {
 
 const SOCIAL_AUTH_CONFIG: SocialAuthConfig = {
   google: {
-    clientId: "446448118294-54suhjh7ltfj18ska0j3aufl1hmn244k.apps.googleusercontent.com",
+    clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
     redirectUri: `${window.location.origin}/auth/google/callback`,
     scope: "email profile",
     authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
   },
   naver: {
-    clientId: "h1MhZbPaPsiiZhVhII4d",
+    clientId: import.meta.env.VITE_NAVER_CLIENT_ID,
     redirectUri: `${window.location.origin}/auth/naver/callback`,
     authUrl: "https://nid.naver.com/oauth2.0/authorize",
   },
   kakao: {
-    clientId: "YOUR_KAKAO_CLIENT_ID",
+    clientId: import.meta.env.VITE_KAKAO_CLIENT_ID,
     redirectUri: `${window.location.origin}/auth/kakao/callback`,
     authUrl: "https://kauth.kakao.com/oauth/authorize",
   },
