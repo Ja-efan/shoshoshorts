@@ -607,7 +607,8 @@ public class VideoService {
         // 제목 추가 (영상 전체 시간동안 좌상단에 표시)
         String storyTitle = sceneDocument.getStoryTitle();
         assContent.append("Dialogue: 0,0:00:00.00,10:00:00.00,Title,,0,0,0,,{\\pos(70,365)}")
-                 .append(storyTitle.replace(",", "\\,"))
+                //  .append(storyTitle.replace(",", "\\,"))
+                .append(storyTitle)
                  .append("\n");
         
         // 사용자 정보 추가 (닉네임과 생성 시간)
@@ -634,7 +635,8 @@ public class VideoService {
                          .append(startTime).append(",")
                          .append(endTime).append(",")
                          .append("Default,,0,0,0,,{\\pos(540,640)}")
-                         .append(text.replace(",", "\\,"))
+                        //  .append(text.replace(",", "\\,"))
+                        .append(text)
                          .append("\n");
                 
                 // 현재 시간 업데이트
