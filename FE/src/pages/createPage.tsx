@@ -21,7 +21,7 @@ import { toast } from "react-hot-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 export default function CreateVideoPage() {
   const { characters, addCharacter, updateCharacter, removeCharacter } =
@@ -273,9 +273,11 @@ export default function CreateVideoPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>비디오 생성 요청 완료</DialogTitle>
+            <DialogDescription>
+              비디오 생성이 정상적으로 요청되었습니다.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <p>비디오 생성이 정상적으로 요청되었습니다.</p>
             <p>대시보드에서 생성 진행 상황을 확인할 수 있습니다.</p>
           </div>
           <DialogFooter>
