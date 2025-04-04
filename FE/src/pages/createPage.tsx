@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { apiService } from "@/api/api";
@@ -10,7 +10,6 @@ import { CharacterForm } from "@/components/create/CharacterForm";
 import { ModelSelector } from "@/components/create/ModelSelector";
 import { NarratorSettings, NarratorRef } from "@/components/create/NarratorSettings";
 import { CurrentlyPlaying } from "@/types/character";
-import shortLogo from "@/assets/short_logo.png";
 import { ModelType } from "@/types/voice";
 import { 
   defaultVoiceModels, 
