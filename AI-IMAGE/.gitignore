@@ -3,3 +3,6 @@ data/*
 
 # cursor 
 .cursorrules
+
+# vscode 
+.vscode
