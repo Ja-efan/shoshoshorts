@@ -40,13 +40,26 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
     }
   }
 
-  const handleShare = (e: React.MouseEvent) => {
+  const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation()
     if (video.is_uploaded) {
       toast.error("이미 유튜브에 업로드된 영상입니다")
       return
     }
-    setIsShareModalOpen(true)
+    
+    try {
+      // YouTube 인증 URL 가져오기
+      const authUrl = await apiService.getYoutubeAuthUrl();
+      
+      // 새 창으로 인증 URL 열기
+      window.open(authUrl, '_blank', 'width=600,height=600');
+      
+      // 업로드 모달 열기
+      setIsShareModalOpen(true);
+    } catch (error) {
+      toast.error("YouTube 인증 URL을 가져오는 중 오류가 발생했습니다");
+      console.error(error);
+    }
   }
 
   const handleDelete = (e: React.MouseEvent) => {
