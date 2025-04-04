@@ -12,6 +12,7 @@ import { CompletedVideoCard } from "@/components/dashboard/CompletedVideoCard"
 import { InProgressVideoCard } from "@/components/dashboard/InProgressVideoCard"
 import { FailedVideoCard } from "@/components/dashboard/FailedVideoCard"
 import shortLogo from "@/assets/short_logo.png";
+import { Navbar } from "@/components/common/Navbar";
 
 export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -63,25 +64,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 bg-white border-b">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <Link to="/" className="flex items-center gap-2">
-              <img src={shortLogo} alt="쇼쇼숓 로고" className="h-8 w-8" />
-              <span className="text-xl font-bold">쇼쇼숓</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link to="/create">
-              <Button className="bg-red-600 hover:bg-red-700">
-                <Plus className="mr-2 h-4 w-4" />
-                동영상 만들기
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
-
+      <Navbar showCreateButton={true} />
       <main className="flex-1 py-8">
         <div className="container mx-auto px-8 sm:px-0">
           <div className="flex flex-col gap-6">

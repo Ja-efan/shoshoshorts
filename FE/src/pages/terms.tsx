@@ -17,8 +17,8 @@ export default function TermsPage() {
             </svg>
           </button>
           <Link to="/" className="flex items-center gap-2">
-            <img src={shortLogo} alt="쇼쇼숓 로고" className="h-8 w-8" />
-            <span className="text-xl font-bold">쇼쇼숓</span>
+            <img src={shortLogo} alt="쇼쇼숏 로고" className="h-8 w-8" />
+            <span className="text-xl font-bold">쇼쇼숏</span>
           </Link>
         </div>
       </header>
