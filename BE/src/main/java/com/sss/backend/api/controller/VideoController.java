@@ -38,6 +38,8 @@ public class VideoController {
     @PostMapping("/generate")
     public ResponseEntity<VideoStatusResponseDto> generateVideoAsync(
             @Valid @RequestBody StoryRequestDTO request,
+            @RequestParam(value = "audioModelName", required = false, defaultValue = "ElevenLabs") String audioModelName,
+            @RequestParam(value = "imageModelName", required = false, defaultValue = "Cling") String imageModelName,
             HttpServletRequest httpRequest) {
         try {
             // 스토리 저장
@@ -60,7 +62,7 @@ public class VideoController {
                     // future.get(30, TimeUnit.MINUTES);
                     // 미디어 생성 처리 - 실패 시 즉시 예외 전파
                     try {
-                        CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
+                        CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString(),audioModelName, imageModelName);
                         future.get(30, TimeUnit.MINUTES);
                     } catch (Exception e) {
                         log.error("미디어 생성 중 오류 발생: {}", e.getMessage(), e);

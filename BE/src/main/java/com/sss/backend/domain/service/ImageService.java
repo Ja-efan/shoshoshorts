@@ -45,8 +45,13 @@ public class ImageService {
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
 
-    @Value("${image.api.url}")
-    private String apiUrl;
+    @Value("${image.cling.api.url}")
+    private String clingApiUrl;
+
+    @Value("${image.stable.api.url}")
+    private String stableApiUrl;
+
+
 
     public ImageService(WebClient webClient, AppProperties appProperties,
                         MongoTemplate mongoTemplate, ObjectMapper objectMapper,
@@ -62,7 +67,7 @@ public class ImageService {
 
     //씬 이미지 생성 요청
     @Async("imageTaskExecutor")
-    public CompletableFuture<SceneImageResponse> generateImageForScene(String storyId, Integer sceneId) {
+    public CompletableFuture<SceneImageResponse> generateImageForScene(String storyId, Integer sceneId, String imageModelName) {
         log.info("씬 이미지 생성 시작: storyId={}, sceneId={}", storyId, sceneId);
 
         try {
@@ -87,14 +92,11 @@ public class ImageService {
             // 해당 씬 찾기
             Map<String, Object> targetScene = findScene(sceneDocument, sceneId);
 
-            // 요청 객체 준비
-            SceneImageRequest imageRequest = prepareImageRequest(sceneDocument, targetScene, sceneId);
-
-//            //요청 추가된 버전
-//            SceneImageRequest imageRequest = prepareImageRequest(sceneDocument, targetScene, sceneId, storyId);
+            //요청 객체 준비
+            SceneImageRequest imageRequest = prepareImageRequest(sceneDocument, targetScene, sceneId, storyId);
 
             // 이미지 생성 API 호출
-            return generateImage(imageRequest, storyId);
+            return generateImage(imageRequest, storyId, imageModelName);
         } catch (Exception e) {
             log.error("씬 이미지 생성 준비 중 오류 발생: storyId={}, sceneId={}, error={}",
                     storyId, sceneId, e.getMessage(), e);
@@ -113,8 +115,10 @@ public class ImageService {
     }
 
 
+
+    //request에 storyId 추가된 버전
     //이미지 생성 요청 객체 준비
-    private SceneImageRequest prepareImageRequest(SceneDocument sceneDocument, Map<String, Object> targetScene, Integer sceneId) {
+    private SceneImageRequest prepareImageRequest(SceneDocument sceneDocument, Map<String, Object> targetScene, Integer sceneId, String storyId) {
 
         // 이미지 생성 요청 객체 생성
         SceneImageRequest imageRequest = new SceneImageRequest();
@@ -122,8 +126,13 @@ public class ImageService {
 
         // StoryMetadata 설정
         SceneImageRequest.StoryMetadata storyMetadata = new SceneImageRequest.StoryMetadata();
-        storyMetadata.setStory_id(Integer.parseInt(sceneDocument.getStoryId()));
+        storyMetadata.setStory_id(Integer.parseInt(storyId));
         storyMetadata.setTitle(sceneDocument.getStoryTitle());
+
+        //사용자가 입력한 이야기 요청에 추가
+        String story = storyRepository.findStoryById(Long.parseLong(storyId));
+        storyMetadata.setOriginal_story(story);
+
 
         // Characters 설정
         List<Map<String, Object>> characterMapList = sceneDocument.getCharacterArr();
@@ -135,12 +144,7 @@ public class ImageService {
 
             // gender가 String이면 Integer로 변환 (예: "남자" :0, "여자":1)
             String genderStr = (String) charMap.get("gender");
-
-            if(genderStr.equals("1") || genderStr.equals("남자") || genderStr.equals("남성")){
-                character.setGender(0);
-            }else if(genderStr.equals("2") || genderStr.equals("여자") || genderStr.equals("여성")){
-                character.setGender(1);
-            }
+            character.setGender(genderStr.equals("남자") ? 0 : 1);
 
             character.setDescription((String) charMap.get("properties"));
             characters.add(character);
@@ -167,70 +171,22 @@ public class ImageService {
         return imageRequest;
     }
 
-//    //request에 storyId 추가된 버전
-//    //이미지 생성 요청 객체 준비
-//    private SceneImageRequest prepareImageRequest(SceneDocument sceneDocument, Map<String, Object> targetScene, Integer sceneId, String storyId) {
-//
-//        // 이미지 생성 요청 객체 생성
-//        SceneImageRequest imageRequest = new SceneImageRequest();
-//        imageRequest.setSceneId(sceneId);
-//
-//        // StoryMetadata 설정
-//        SceneImageRequest.StoryMetadata storyMetadata = new SceneImageRequest.StoryMetadata();
-//        storyMetadata.setStory_id(Integer.parseInt(storyId));
-//        storyMetadata.setTitle(sceneDocument.getStoryTitle());
-//
-//        //사용자가 입력한 이야기 요청에 추가
-//        String story = storyRepository.findStoryById(Long.parseLong(storyId));
-//        storyMetadata.setOriginal_story(story);
-//
-//
-//        // Characters 설정
-//        List<Map<String, Object>> characterMapList = sceneDocument.getCharacterArr();
-//        List<SceneImageRequest.Character> characters = new ArrayList<>();
-//
-//        for (Map<String, Object> charMap : characterMapList) {
-//            SceneImageRequest.Character character = new SceneImageRequest.Character();
-//            character.setName((String) charMap.get("name"));
-//
-//            // gender가 String이면 Integer로 변환 (예: "남자" :0, "여자":1)
-//            String genderStr = (String) charMap.get("gender");
-//            character.setGender(genderStr.equals("남자") ? 0 : 1);
-//
-//            character.setDescription((String) charMap.get("properties"));
-//            characters.add(character);
-//        }
-//
-//        storyMetadata.setCharacters(characters);
-//        imageRequest.setStoryMetadata(storyMetadata);
-//
-//        // Audios 설정
-//        List<Map<String, Object>> audioMapList = (List<Map<String, Object>>) targetScene.get("audioArr");
-//        List<SceneImageRequest.Audio> audios = new ArrayList<>();
-//
-//        for (Map<String, Object> audioMap : audioMapList) {
-//            SceneImageRequest.Audio audio = new SceneImageRequest.Audio();
-//            audio.setType((String) audioMap.get("type"));
-//            audio.setCharacter((String) audioMap.get("character"));
-//            audio.setText((String) audioMap.get("text"));
-//            audio.setEmotion((String) audioMap.get("emotion"));
-//            audios.add(audio);
-//        }
-//
-//        imageRequest.setAudios(audios);
-//
-//        return imageRequest;
-//    }
-
 
 
 
     //이미지 생성 모델 API 호출
     @Async("imageTaskExecutor")
-    public CompletableFuture<SceneImageResponse> generateImage(SceneImageRequest sceneRequest, String storyId) {
+    public CompletableFuture<SceneImageResponse> generateImage(SceneImageRequest sceneRequest, String storyId, String imageModelName) {
         log.info("이미지 생성 API 호출 - 씬 ID: {}", sceneRequest.getSceneId());
 
         try {
+
+            String apiUrl = "";
+            if(imageModelName.equals("Cling")){
+                apiUrl = clingApiUrl;
+            }else{
+                apiUrl = stableApiUrl;
+            }
 
             // API 호출 (오류 응답 로깅 추가)
             return webClient
