@@ -11,7 +11,6 @@ import { VideoData } from "@/types/video"
 import { CompletedVideoCard } from "@/components/dashboard/CompletedVideoCard"
 import { InProgressVideoCard } from "@/components/dashboard/InProgressVideoCard"
 import { FailedVideoCard } from "@/components/dashboard/FailedVideoCard"
-import shortLogo from "@/assets/short_logo.png";
 import { Navbar } from "@/components/common/Navbar";
 
 export default function DashboardPage() {

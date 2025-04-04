@@ -1,5 +1,4 @@
 import { Link, useLocation } from "react-router-dom"
-import shortLogo from "@/assets/short_logo.png"
 import kakaoIcon from "@/assets/login/kakao_logo.png"
 import naverIcon from "@/assets/login/naver_logo.png"
 import googleIcon from "@/assets/login/google_logo.png"
