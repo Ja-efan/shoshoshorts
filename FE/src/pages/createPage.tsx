@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { apiService } from "@/api/api";
@@ -21,6 +21,7 @@ import { toast } from "react-hot-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export default function CreateVideoPage() {
   const { characters, addCharacter, updateCharacter, removeCharacter } =
@@ -43,6 +44,8 @@ export default function CreateVideoPage() {
   const [imageModels, setImageModels] = useState<ModelType[]>(defaultImageModels);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const narratorRef = useRef<NarratorRef>(null);
+  const navigate = useNavigate();
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const validateCharacters = () => {
     return characters.every(character => 
@@ -130,11 +133,18 @@ export default function CreateVideoPage() {
       console.log(requestData);
       const response = await apiService.createVideo(requestData);
       console.log("API Response:", response);
+      setShowSuccessModal(true);
     } catch (error) {
       console.error("API Error:", error);
+      toast.error("비디오 생성에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleGoToDashboard = () => {
+    setShowSuccessModal(false);
+    navigate("/dashboard");
   };
 
   return (
@@ -258,6 +268,21 @@ export default function CreateVideoPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>비디오 생성 요청 완료</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>비디오 생성이 정상적으로 요청되었습니다.</p>
+            <p>대시보드에서 생성 진행 상황을 확인할 수 있습니다.</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleGoToDashboard}>대시보드로 이동</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
