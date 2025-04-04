@@ -1,4 +1,5 @@
 import { Character } from "./character";
+import { NarratorRef } from "@/components/create/NarratorSettings";
 
 export type VoiceFileKey = "male1" | "male2" | "male3" | "male4" | "female1" | "female2" | "female3" | "female4";
 
@@ -18,4 +19,5 @@ export interface VoiceButtonsProps {
   currentlyPlaying: { voiceOption: string | null, characterId: string | null }
   setCurrentlyPlaying: (value: { voiceOption: string | null, characterId: string | null }) => void
   voiceModel: string 
+  narratorRef?: React.RefObject<NarratorRef> | null
 } 

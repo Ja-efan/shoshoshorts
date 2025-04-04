@@ -1,4 +1,4 @@
-import { useState, useRef, useImperativeHandle, forwardRef } from "react";
+import { useState, useRef, useImperativeHandle, forwardRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause } from "lucide-react";
 import { VoiceFileKey } from "@/types/voice";
@@ -10,6 +10,8 @@ interface NarratorSettingsProps {
   narratorVoice: string;
   setNarratorVoice: (voice: string) => void;
   selectedVoiceModel: string;
+  setCurrentlyPlaying?: (value: { voiceOption: string | null, characterId: string | null }) => void;
+  currentlyPlaying?: { voiceOption: string | null, characterId: string | null };
 }
 
 export interface NarratorRef {
@@ -21,12 +23,22 @@ export const NarratorSettings = forwardRef<NarratorRef, NarratorSettingsProps>((
   setNarratorGender,
   narratorVoice,
   setNarratorVoice,
-  selectedVoiceModel
+  selectedVoiceModel,
+  setCurrentlyPlaying,
+  currentlyPlaying
 }, ref) => {
   const [isNarratorPlaying, setIsNarratorPlaying] = useState(false);
   const narratorAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const handleNarratorGenderChange = (gender: "male" | "female") => {
+    // 기존 나레이터 음성 중지
+    stopNarratorAudio();
+    
+    // 캐릭터 목소리 정지를 위한 상태 업데이트
+    if (setCurrentlyPlaying) {
+      setCurrentlyPlaying({ voiceOption: null, characterId: null });
+    }
+    
     setNarratorGender(gender);
     setNarratorVoice(`${gender}1`);
   };
@@ -35,6 +47,7 @@ export const NarratorSettings = forwardRef<NarratorRef, NarratorSettingsProps>((
     if (narratorAudioRef.current) {
       narratorAudioRef.current.pause();
       narratorAudioRef.current.currentTime = 0;
+      narratorAudioRef.current = null;
       setIsNarratorPlaying(false);
     }
   };
@@ -44,16 +57,29 @@ export const NarratorSettings = forwardRef<NarratorRef, NarratorSettingsProps>((
     stopAudio: stopNarratorAudio
   }));
 
+  // 캐릭터 목소리가 재생될 때 나레이터 음성 중지
+  useEffect(() => {
+    if (currentlyPlaying && currentlyPlaying.characterId !== null) {
+      stopNarratorAudio();
+    }
+  }, [currentlyPlaying]);
+
   const handleNarratorVoicePlay = (voice: string) => {
-    if (narratorAudioRef.current) {
-      narratorAudioRef.current.pause();
-      narratorAudioRef.current.currentTime = 0;
-      if (isNarratorPlaying && narratorVoice === voice) {
-        setIsNarratorPlaying(false);
-        return;
-      }
+    // 기존 나레이터 음성 중지
+    stopNarratorAudio();
+    
+    // 같은 목소리를 다시 클릭했을 때 재생 상태만 토글하고 종료
+    if (isNarratorPlaying && narratorVoice === voice) {
+      setIsNarratorPlaying(false);
+      return;
+    }
+    
+    // 캐릭터 목소리 정지를 위한 상태 업데이트
+    if (setCurrentlyPlaying) {
+      setCurrentlyPlaying({ voiceOption: null, characterId: null });
     }
 
+    // 새 오디오 생성 및 재생
     try {
       const audio = new Audio(voiceFiles[selectedVoiceModel][narratorGender][voice as VoiceFileKey]);
       audio.addEventListener('ended', () => {
@@ -66,6 +92,13 @@ export const NarratorSettings = forwardRef<NarratorRef, NarratorSettingsProps>((
       console.error('Error creating audio:', error);
     }
   };
+
+  // 모델 변경 시 오디오 정지
+  useEffect(() => {
+    return () => {
+      stopNarratorAudio();
+    };
+  }, [selectedVoiceModel]);
 
   return (
     <div className="border-t pt-6">

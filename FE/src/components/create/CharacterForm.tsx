@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card"
 import { Plus, X } from "lucide-react"
 import { Character, CurrentlyPlaying } from "@/types/character"
 import { VoiceButtons } from "./VoiceButtons"
+import { NarratorRef } from "./NarratorSettings"
+import { RefObject } from "react"
 
 interface CharacterFormProps {
   characters: Character[]
@@ -18,6 +20,7 @@ interface CharacterFormProps {
   validationErrors?: {
     characters: boolean
   }
+  narratorRef?: RefObject<NarratorRef> | null
 }
 
 export function CharacterForm({
@@ -28,7 +31,8 @@ export function CharacterForm({
   currentlyPlaying,
   setCurrentlyPlaying,
   voiceModel,
-  validationErrors = { characters: false }
+  validationErrors = { characters: false },
+  narratorRef
 }: CharacterFormProps) {
   return (
     <div>
@@ -129,6 +133,7 @@ export function CharacterForm({
                       currentlyPlaying={currentlyPlaying}
                       setCurrentlyPlaying={setCurrentlyPlaying}
                       voiceModel={voiceModel}
+                      narratorRef={narratorRef}
                     />
                   </div>
                 </div>

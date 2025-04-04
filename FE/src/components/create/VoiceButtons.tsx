@@ -9,7 +9,8 @@ export function VoiceButtons({
   updateCharacter, 
   currentlyPlaying, 
   setCurrentlyPlaying,
-  voiceModel 
+  voiceModel,
+  narratorRef 
 }: VoiceButtonsProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -21,15 +22,31 @@ export function VoiceButtons({
     updateCharacter(character.id, "voice", voiceOption)
   }
 
-  const handlePlayVoice = (voiceOption: string) => {
+  const stopAudio = () => {
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
-      if (currentlyPlaying.voiceOption === voiceOption && currentlyPlaying.characterId === character.id) {
-        setCurrentlyPlaying({ voiceOption: null, characterId: null })
-        return
-      }
+      audioRef.current = null
     }
+  }
+
+  const handlePlayVoice = (voiceOption: string) => {
+    // 현재 재생 중인 소리 중지
+    stopAudio()
+
+    // 현재 재생 중인 것이 이 캐릭터의 같은 목소리라면, 정지 상태로 전환
+    if (currentlyPlaying.voiceOption === voiceOption && currentlyPlaying.characterId === character.id) {
+      setCurrentlyPlaying({ voiceOption: null, characterId: null })
+      return
+    }
+
+    // 나레이터 음성 중지
+    if (narratorRef && narratorRef.current) {
+      narratorRef.current.stopAudio()
+    }
+
+    // 다른 캐릭터 음성 중지를 위해 currentlyPlaying 상태 업데이트
+    setCurrentlyPlaying({ voiceOption, characterId: character.id })
 
     try {
       const audio = new Audio(voiceFiles[voiceModel][character.gender!][voiceOption as VoiceFileKey])
@@ -38,11 +55,20 @@ export function VoiceButtons({
       })
       audio.play().catch(error => console.error('Error playing audio:', error))
       audioRef.current = audio
-      setCurrentlyPlaying({ voiceOption, characterId: character.id })
     } catch (error) {
       console.error('Error creating audio:', error)
     }
   }
+
+  // currentlyPlaying 상태가 변경될 때마다 오디오 상태 체크
+  useEffect(() => {
+    // 현재 캐릭터의 오디오가 재생 중이고, currentlyPlaying이 다른 상태로 변경된 경우
+    if (audioRef.current && 
+        (currentlyPlaying.characterId !== character.id || 
+         currentlyPlaying.voiceOption === null)) {
+      stopAudio()
+    }
+  }, [currentlyPlaying, character.id])
 
   useEffect(() => {
     if (character.gender && !character.voice) {
@@ -53,10 +79,7 @@ export function VoiceButtons({
 
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current.currentTime = 0
-      }
+      stopAudio()
     }
   }, [voiceModel])
 

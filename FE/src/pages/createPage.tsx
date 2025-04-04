@@ -211,6 +211,8 @@ export default function CreateVideoPage() {
                 narratorVoice={narratorVoice}
                 setNarratorVoice={setNarratorVoice}
                 selectedVoiceModel={getSelectedVoiceModel()}
+                setCurrentlyPlaying={setCurrentlyPlaying}
+                currentlyPlaying={currentlyPlaying}
               />
 
               <CharacterForm
@@ -222,6 +224,7 @@ export default function CreateVideoPage() {
                 setCurrentlyPlaying={setCurrentlyPlaying}
                 voiceModel={getSelectedVoiceModel()}
                 validationErrors={validationErrors}
+                narratorRef={narratorRef as React.RefObject<NarratorRef>}
               />
 
               <Button
