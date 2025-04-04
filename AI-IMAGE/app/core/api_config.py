@@ -1,10 +1,42 @@
+"""
+API 서비스별 구성 설정 관리
+"""
+
+import os
+import time
+import jwt
+from dotenv import load_dotenv
+
+# 환경 변수 로드
+load_dotenv()
+
+
+def encode_jwt_token(ak, sk):
+    """JWT 토큰 생성 함수"""
+    headers = {"alg": "HS256", "typ": "JWT"}
+    payload = {"iss": ak, "exp": int(time.time()) + 1800, "nbf": int(time.time()) - 5}
+    return jwt.encode(payload, sk, headers=headers)
+
+
 class KlingAIConfig:
+    """Kling AI API 관련 설정"""
+
+    # API 엔드포인트 및 인증 설정
+    ACCESS_KEY: str = os.getenv("KLING_ACCESS_KEY", "")
+    SECRET_KEY: str = os.getenv("KLING_SECRET_KEY", "")
+    API_URL: str = "https://api.klingai.com/v1/images/generations"
+    JWT_TOKEN: str = ""
+
+    # 모델 및 이미지 생성 설정
     MODEL_V1 = "kling-v1"  # 참조 이미지 사용하기 위해서는 kling-v1 사용
     MODEL_V1_5 = "kling-v1-5"
     ASPECT_RATIO = "1:1"
     N = 1
     IMAGE_REFERENCE = "subject"  # "subject" or "face"
     IMAGE_FIDELITY = 0.1  # 참조 이미지 참조 정도 (0 ~ 1 소수)
+    DEFAULT_IMAGE_STYLE: str = "DISNEY"
+
+    # 응답 코드 매핑
     KLING_TO_HTTP = {
         # 200 OK
         0: 200,
@@ -41,11 +73,23 @@ class KlingAIConfig:
 
 
 class OpenAIConfig:
+    """OpenAI API 관련 설정"""
+
+    # API 인증 설정
+    API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+
+    # 모델 및 요청 설정
     MODEL = "gpt-4o"  # "gpt-4o-mini"
     MAX_TOKENS = 500
     TEMPERATURE = 0.5
     KLINGAI_SYSTEM_PROMPT = "disney_style_v01.txt"
 
 
+# 설정 인스턴스 생성
 klingai_config = KlingAIConfig()
 openai_config = OpenAIConfig()
+
+# JWT 토큰 생성
+klingai_config.JWT_TOKEN = encode_jwt_token(
+    klingai_config.ACCESS_KEY, klingai_config.SECRET_KEY
+)

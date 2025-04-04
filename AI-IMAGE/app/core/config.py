@@ -1,76 +1,39 @@
 """
-애플리케이션 설정 관리
+기본 애플리케이션 설정 관리
 """
+
 import os
-import time 
-import jwt
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
 # 환경 변수 로드
 load_dotenv()
 
-def encode_jwt_token(ak, sk):
-    headers = {
-        "alg": "HS256",
-        "typ": "JWT"
-    }
 
-    payload = {
-        "iss": ak,
-        "exp": int(time.time()) + 1800,
-        "nbf": int(time.time()) - 5
-    }
-    
-    return jwt.encode(payload, sk, headers=headers)
-    
-    
 class Settings(BaseSettings):
-    """애플리케이션 설정"""
+    """기본 애플리케이션 설정"""
+
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Kling AI 이미지 생성 API"
-    
+
     # Prompt 파일 경로
     PROMPT_DIR: str = "app/prompts"
-    SYSTEM_PROMPT_DIR: str = os.path.join(PROMPT_DIR, "system-prompt")
-    
-    # Kling AI API 설정
-    KLING_ACCESS_KEY: str = os.getenv("KLING_ACCESS_KEY", "")
-    KLING_SECRET_KEY: str = os.getenv("KLING_SECRET_KEY", "")
-    KLING_API_URL: str = "https://api.klingai.com/v1/images/generations"
-
-    # OpenAI API 설정
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-
-    # DEV S3 설정
-    S3_BUCKET_NAME: str = os.getenv("S3_BUCKET_NAME", "")
-    S3_REGION: str = os.getenv("S3_REGION", "ap-northeast-2")
-    S3_ACCESS_KEY: str = os.getenv("S3_ACCESS_KEY", "")
-    S3_SECRET_KEY: str = os.getenv("S3_SECRET_KEY", "")
-
-    # Release S3 설정정
-    RELEASE_S3_BUCKET_NAME: str = os.getenv("RELEASE_S3_BUCKET_NAME", S3_BUCKET_NAME)
-    RELEASE_S3_REGION: str = os.getenv("RELEASE_S3_REGION", "us-east-2")
-    RELEASE_S3_ACCESS_KEY: str = os.getenv("RELEASE_S3_ACCESS_KEY", S3_ACCESS_KEY)
-    RELEASE_S3_SECRET_KEY: str = os.getenv("RELEASE_S3_SECRET_KEY", S3_SECRET_KEY)
-
-    # S3 오류 설정
-    USE_LOCAL_URL_ON_S3_FAILURE: bool = os.getenv("USE_LOCAL_URL_ON_S3_FAILURE", "false").lower() == "true"
+    SYSTEM_PROMPT_DIR: str = os.path.join(PROMPT_DIR, "system-prompts")
 
     # API 비밀번호
     API_PWD: str = os.getenv("API_PWD")
 
-    #prod로 설정시 docs_url, redoc_url, openapi_url을 볼 수 없도록 설정
+    # prod로 설정시 docs_url, redoc_url, openapi_url을 볼 수 없도록 설정
     ENV: str = os.getenv("ENV", "development")  # 기본값은 development
 
-    # JWT 토큰 설정
-    JWT_TOKEN: str = ""
+    # S3 오류 설정
+    USE_LOCAL_URL_ON_S3_FAILURE: bool = (
+        os.getenv("USE_LOCAL_URL_ON_S3_FAILURE", "false").lower() == "true"
+    )
 
     class Config:
         case_sensitive = True
-        
+
+
 # 설정 인스턴스 생성
 settings = Settings()
-
-# JWT 토큰 생성
-settings.JWT_TOKEN = encode_jwt_token(settings.KLING_ACCESS_KEY, settings.KLING_SECRET_KEY)
