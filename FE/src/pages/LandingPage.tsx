@@ -4,7 +4,6 @@ import { WhatIsSection } from "@/components/landing/WhatIsSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { TechnologySection } from "@/components/landing/TechnologySection";
 import { UseCasesSection } from "@/components/landing/UseCasesSection";
-import { TestimonialsSection } from "@/components/landing/TestimonialsSection";
 import { FAQSection } from "@/components/landing/FAQSection";
 import { CTASection } from "@/components/landing/CTASection";
 
