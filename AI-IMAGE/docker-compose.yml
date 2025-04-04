@@ -7,6 +7,7 @@ services:
     volumes:
       # - .:/app  # 개발환경 hot-reloading
       - ./images:/app/images
+      - ./data:/app/data
     env_file:
       - .env
     restart: unless-stopped

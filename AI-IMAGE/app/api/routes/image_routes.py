@@ -38,7 +38,7 @@ async def generate_scene_image(scene: Scene, style: str = "DISNEY-PIXAR"):
     story_id = scene.story_metadata.story_id
     scene_id = scene.scene_id
     app_logger.info(f"Story {story_id}, Scene {scene_id}")
-    app_logger.debug(f"Scene: \n{scene.model_dump_json(indent=4)}")
+    app_logger.info(f"Scene: \n{scene.model_dump_json(indent=4)}")
 
     try:
         # 1. 장면 정보 검증 - 비즈니스 로직 유효성 검사
