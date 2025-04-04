@@ -15,7 +15,7 @@ class TTSRequest(BaseModel):
         default="ko", 
         description="언어 코드"
     )
-    speaker_audio_s3_url: Optional[str] = Field(
+    speaker_tensor: Optional[List[List[List[float]]]] = Field(
         default=None, 
         description="화자 오디오 파일 S3 URL (선택 사항)"
     )
@@ -103,23 +103,14 @@ class TTSResponse(BaseModel):
 
 # 화자 등록 요청 모델
 class RegisterSpeakerRequest(BaseModel):
-    speaker_id: str = Field(
-        description="등록할 화자 ID"
-    )
-    speaker_audio_path: Optional[str] = Field(
-        default=None,
-        description="화자 오디오 파일 경로"
-    )
-    speaker_audio_bytes: Optional[bytes] = Field(
+    speaker_audio_base64: Optional[str] = Field(
         default=None,
         description="바이트로 인코딩된 화자 오디오 데이터"
     )
 
 # 화자 등록 응답 모델
 class RegisterSpeakerResponse(BaseModel):
-    speaker_id: str = Field(
-        description="등록된 화자 ID"
-    )
-    message: str = Field(
-        description="등록 결과 메시지"
+    speaker_tensor: List[List[List[float]]] = Field(
+        default=[], 
+        description="화자 오디오 파일 S3 URL (선택 사항)"
     )

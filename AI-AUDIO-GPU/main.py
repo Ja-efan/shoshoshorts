@@ -13,6 +13,7 @@ import soundfile as sf
 from datetime import datetime
 import logging
 import pytz
+import base64
 
 from zonos.model import Zonos, DEFAULT_BACKBONE_CLS as ZonosBackbone
 from zonos.conditioning import make_cond_dict, supported_language_codes
@@ -284,27 +285,30 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         
         # 화자 임베딩 처리
         speaker_embedding = None
-        # if request.speaker_audio_s3_url:
-        #     wav, sr = load_audio_from_s3(request.speaker_audio_s3_url)
+        
+        # if request.speaker_audio_path:
+        #     # 파일 경로에서 화자 임베딩 생성
+        #     wav, sr = load_audio_from_path(request.speaker_audio_path)
         #     speaker_embedding = model.make_speaker_embedding(wav, sr)
         #     speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
-        if request.speaker_audio_path:
-            # 파일 경로에서 화자 임베딩 생성
-            wav, sr = load_audio_from_path(request.speaker_audio_path)
-            speaker_embedding = model.make_speaker_embedding(wav, sr)
+        # elif request.speaker_audio_bytes:
+
+        # if request.speaker_audio_bytes:
+        #     # 바이트로 인코딩된 오디오에서 화자 임베딩 생성
+        #     try:
+        #         wav, sr = decode_audio_bytes(request.speaker_audio_bytes)
+        #         speaker_embedding = model.make_speaker_embedding(wav, sr)
+        #         speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
+        #     except Exception as e:
+        #         print(f"바이너리 디코딩 중 오류 발생: {str(e)}")
+        #         # 오류가 발생해도 계속 진행 (speaker_embedding은 None으로 유지)
+        # elif request.speaker_id and request.speaker_id in SPEAKER_EMBEDDING_CACHE:
+        #     # 캐시된 화자 임베딩 사용
+        #     speaker_embedding = SPEAKER_EMBEDDING_CACHE[request.speaker_id]
+
+        if request.speaker_tensor:
+            speaker_embedding = torch.tensor(request.speaker_tensor, dtype=torch.float32)
             speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
-        elif request.speaker_audio_bytes:
-            # 바이트로 인코딩된 오디오에서 화자 임베딩 생성
-            try:
-                wav, sr = decode_audio_bytes(request.speaker_audio_bytes)
-                speaker_embedding = model.make_speaker_embedding(wav, sr)
-                speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
-            except Exception as e:
-                print(f"바이너리 디코딩 중 오류 발생: {str(e)}")
-                # 오류가 발생해도 계속 진행 (speaker_embedding은 None으로 유지)
-        elif request.speaker_id and request.speaker_id in SPEAKER_EMBEDDING_CACHE:
-            # 캐시된 화자 임베딩 사용
-            speaker_embedding = SPEAKER_EMBEDDING_CACHE[request.speaker_id]
         
         # 감정 텐서 생성
         emotion_tensor = torch.tensor(request.emotion, device=device)
@@ -365,6 +369,8 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         
         # 오디오를 바이트로 인코딩
         audio_bytes = get_audio_bytes(wav_out.squeeze().numpy(), sr_out)
+        print("\n\n\naudio_bytes:")
+        print(audio_bytes)
 
         # content_type = response.headers.get("Content-Type", f"audio/{request.output_format}")
         output_format = "mp3"
@@ -420,8 +426,8 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"TTS 처리 중 오류 발생: {str(e)}")
 
-@app.post("/register_speaker", response_model=RegisterSpeakerResponse)
-async def register_speaker(request: RegisterSpeakerRequest):
+@app.post("/zonos/base64_to_tensor", response_model=RegisterSpeakerResponse)
+async def base64_to_tensor(request: RegisterSpeakerRequest):
     """
     화자를 등록하는 API 엔드포인트
     """
@@ -433,26 +439,26 @@ async def register_speaker(request: RegisterSpeakerRequest):
         
         # 화자 임베딩 생성
         speaker_embedding = None
-        
-        if request.speaker_audio_path:
-            # 파일 경로에서 화자 임베딩 생성
-            wav, sr = load_audio_from_path(request.speaker_audio_path)
-            speaker_embedding = CURRENT_MODEL.make_speaker_embedding(wav, sr)
-        elif request.speaker_audio_bytes:
+
+        if request.speaker_audio_base64:
+            #base64로 byte 데이터를 만드는 로직
+
+            base64_str = request.speaker_audio_base64
+            if ',' in base64_str:
+                base64_str = base64_str.split(',')[1]  # "data:audio/mp3;base64,..." 제거
+
+            audio_bytes = base64.b64decode(base64_str)
             # 바이트로 인코딩된 오디오에서 화자 임베딩 생성
-            wav, sr = decode_audio_bytes(request.speaker_audio_bytes)
+            wav, sr = decode_audio_bytes(audio_bytes)
             speaker_embedding = CURRENT_MODEL.make_speaker_embedding(wav, sr)
         else:
-            raise ValueError("화자 오디오 파일 경로 또는 바이트 데이터가 필요합니다.")
+            raise ValueError("화자 오디오 파일 경로 또는 오디오 데이터가 필요합니다.")
         
-        speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
-        
-        # 화자 임베딩 캐시에 저장
-        SPEAKER_EMBEDDING_CACHE[request.speaker_id] = speaker_embedding
+        # float로 바꾸기
+        speaker_embedding_3d = speaker_embedding.cpu().float().tolist()
         
         return RegisterSpeakerResponse(
-            speaker_id=request.speaker_id,
-            message=f"화자 '{request.speaker_id}'가 성공적으로 등록되었습니다: {SPEAKER_EMBEDDING_CACHE[request.speaker_id]}"
+            speaker_tensor=speaker_embedding_3d
         )
     
     except Exception as e:
