@@ -1,55 +1,19 @@
 import { Button } from "@/components/ui/button"
 import { Play, Pause } from "lucide-react"
-import { Character, CurrentlyPlaying } from "@/types/character"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
+import { VoiceButtonsProps, VoiceFileKey } from "@/types/voice"
+import { voiceFiles } from "@/constants/voiceData"
 
-// 음성 파일 import
-import male1 from "@/assets/voices/male/male1.mp3"
-import male2 from "@/assets/voices/male/male2.mp3"
-import male3 from "@/assets/voices/male/male3.mp3"
-import male4 from "@/assets/voices/male/male4.mp3"
-import female1 from "@/assets/voices/female/female1.mp3"
-import female2 from "@/assets/voices/female/female2.mp3"
-import female3 from "@/assets/voices/female/female3.mp3"
-import female4 from "@/assets/voices/female/female4.mp3"
+export function VoiceButtons({ 
+  character, 
+  updateCharacter, 
+  currentlyPlaying, 
+  setCurrentlyPlaying,
+  voiceModel,
+  narratorRef 
+}: VoiceButtonsProps) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-interface VoiceButtonsProps {
-  character: Character
-  updateCharacter: (id: string, field: keyof Character, value: any) => void
-  currentlyPlaying: CurrentlyPlaying
-  setCurrentlyPlaying: (value: CurrentlyPlaying) => void
-}
-
-// 전역 오디오 참조
-const globalAudioRef = { current: null as HTMLAudioElement | null }
-
-type VoiceFileKey = "male1" | "male2" | "male3" | "male4" | "female1" | "female2" | "female3" | "female4"
-
-// 음성 파일 매핑
-const voiceFiles: Record<"male" | "female", Record<VoiceFileKey, string>> = {
-  male: {
-    male1,
-    male2,
-    male3,
-    male4,
-    female1: "",
-    female2: "",
-    female3: "",
-    female4: ""
-  },
-  female: {
-    female1,
-    female2,
-    female3,
-    female4,
-    male1: "",
-    male2: "",
-    male3: "",
-    male4: ""
-  }
-}
-
-export function VoiceButtons({ character, updateCharacter, currentlyPlaying, setCurrentlyPlaying }: VoiceButtonsProps) {
   const voiceOptions = character.gender === "male" 
     ? ["male1", "male2", "male3", "male4"]
     : ["female1", "female2", "female3", "female4"]
@@ -58,28 +22,53 @@ export function VoiceButtons({ character, updateCharacter, currentlyPlaying, set
     updateCharacter(character.id, "voice", voiceOption)
   }
 
+  const stopAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+      audioRef.current = null
+    }
+  }
+
   const handlePlayVoice = (voiceOption: string) => {
-    if (globalAudioRef.current) {
-      globalAudioRef.current.pause()
-      globalAudioRef.current.currentTime = 0
-      if (currentlyPlaying.voiceOption === voiceOption && currentlyPlaying.characterId === character.id) {
-        setCurrentlyPlaying({ voiceOption: null, characterId: null })
-        return
-      }
+    // 현재 재생 중인 소리 중지
+    stopAudio()
+
+    // 현재 재생 중인 것이 이 캐릭터의 같은 목소리라면, 정지 상태로 전환
+    if (currentlyPlaying.voiceOption === voiceOption && currentlyPlaying.characterId === character.id) {
+      setCurrentlyPlaying({ voiceOption: null, characterId: null })
+      return
     }
 
+    // 나레이터 음성 중지
+    if (narratorRef && narratorRef.current) {
+      narratorRef.current.stopAudio()
+    }
+
+    // 다른 캐릭터 음성 중지를 위해 currentlyPlaying 상태 업데이트
+    setCurrentlyPlaying({ voiceOption, characterId: character.id })
+
     try {
-      const audio = new Audio(voiceFiles[character.gender!][voiceOption as VoiceFileKey])
+      const audio = new Audio(voiceFiles[voiceModel][character.gender!][voiceOption as VoiceFileKey])
       audio.addEventListener('ended', () => {
         setCurrentlyPlaying({ voiceOption: null, characterId: null })
       })
       audio.play().catch(error => console.error('Error playing audio:', error))
-      globalAudioRef.current = audio
-      setCurrentlyPlaying({ voiceOption, characterId: character.id })
+      audioRef.current = audio
     } catch (error) {
       console.error('Error creating audio:', error)
     }
   }
+
+  // currentlyPlaying 상태가 변경될 때마다 오디오 상태 체크
+  useEffect(() => {
+    // 현재 캐릭터의 오디오가 재생 중이고, currentlyPlaying이 다른 상태로 변경된 경우
+    if (audioRef.current && 
+        (currentlyPlaying.characterId !== character.id || 
+         currentlyPlaying.voiceOption === null)) {
+      stopAudio()
+    }
+  }, [currentlyPlaying, character.id])
 
   useEffect(() => {
     if (character.gender && !character.voice) {
@@ -87,6 +76,12 @@ export function VoiceButtons({ character, updateCharacter, currentlyPlaying, set
       updateCharacter(character.id, "voice", defaultVoice)
     }
   }, [character.gender, character.voice, character.id, updateCharacter])
+
+  useEffect(() => {
+    return () => {
+      stopAudio()
+    }
+  }, [voiceModel])
 
   if (!character.gender) {
     return (
