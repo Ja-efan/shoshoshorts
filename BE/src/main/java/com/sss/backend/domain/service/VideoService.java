@@ -336,19 +336,38 @@ public class VideoService {
             for (int i = 0; i < videoPaths.size(); i++) {
                 String tempVideoPath = TEMP_DIR + File.separator + "videos" + File.separator + "scene_video_" + i + "_" + UUID.randomUUID() + ".mp4";
                 String cleanVideoPath = tempVideoPath.replace("\"", "");
+                
+                // 원본 파일 존재 확인
+                File originalFile = new File(videoPaths.get(i));
+                if (!originalFile.exists() || originalFile.length() == 0) {
+                    logger.error("비디오 파일이 존재하지 않거나 크기가 0입니다: {}", videoPaths.get(i));
+                    continue;  // 존재하지 않는 파일은 건너뜀
+                }
+                
                 Files.copy(Paths.get(videoPaths.get(i)), Paths.get(cleanVideoPath), StandardCopyOption.REPLACE_EXISTING);
                 tempVideoPaths.add(cleanVideoPath);
+                logger.info("비디오 파일 복사 완료 {}/{}: {}", i+1, videoPaths.size(), cleanVideoPath);
             }
+            
+            // 파일이 하나도 없으면 실패 처리
+            if (tempVideoPaths.isEmpty()) {
+                throw new RuntimeException("병합할 유효한 비디오 파일이 없습니다");
+            }
+
+            // 임시 파일 목록 (나중에 삭제를 위해 추적)
+            List<String> tempFilesToDelete = new ArrayList<>(tempVideoPaths);
 
             // 임시 파일 생성 (파일 목록)
             Path listFilePath = Paths.get(TEMP_DIR, "videos" + File.separator + "video_list_" + UUID.randomUUID() + ".txt");
             
             StringBuilder fileList = new StringBuilder();
             for (String videoPath : tempVideoPaths) {
-                fileList.append("file '").append(videoPath).append("'\n");
+                fileList.append("file '").append(videoPath.replace("\\", "\\\\").replace("'", "\\'")).append("'\n");
             }
             
             Files.write(listFilePath, fileList.toString().getBytes());
+            logger.info("비디오 리스트 파일 생성: {} (총 {}개 비디오)", listFilePath, tempVideoPaths.size());
+            tempFilesToDelete.add(listFilePath.toString());
             
             // 1단계: 먼저 비디오만 병합 (자막 없이)
             FFmpegBuilder mergeBuilder = new FFmpegBuilder()
@@ -369,27 +388,32 @@ public class VideoService {
             FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
             executor.createJob(mergeBuilder).run();
             
+            // 병합된 파일 확인
+            File mergedFile = new File(cleanTempOutputPath);
+            if (!mergedFile.exists() || mergedFile.length() == 0) {
+                throw new RuntimeException("비디오 병합에 실패했습니다: 결과 파일이 존재하지 않거나 크기가 0입니다");
+            }
+            
+            logger.info("기본 비디오 병합 완료: {}", cleanTempOutputPath);
+            
+            // 현재 작업 중인 파일 경로
+            String currentVideoPath = cleanTempOutputPath;
+            tempFilesToDelete.add(currentVideoPath);
+            
             // 2단계: 배경 음악 추가
             String backgroundMusic = getRandomBackgroundMusic();
-            if (backgroundMusic != null) {
+            if (backgroundMusic != null && new File(backgroundMusic).exists()) {
                 logger.info("배경 음악 추가: {}", backgroundMusic);
-                
-                // 비디오 길이 가져오기
-                FFmpegBuilder probeBuilder = new FFmpegBuilder()
-                    .setInput(cleanTempOutputPath)
-                    .addOutput("-")
-                    .addExtraArgs("-f", "null")
-                    .done();
                 
                 // 원본 비디오와 배경 음악 합성
                 FFmpegBuilder musicBuilder = new FFmpegBuilder()
-                    .setInput(cleanTempOutputPath)
+                    .setInput(currentVideoPath)
                     .addInput(backgroundMusic)
                     .addExtraArgs("-y")
                     .addOutput(cleanTempWithMusicPath)
                     .addExtraArgs("-filter_complex", 
-                        "[1:a]volume=0.5,aloop=loop=-1:size=2e+09[a1];" + // 배경 음악 볼륨 50%로 조정하고 반복
-                        "[0:a][a1]amix=inputs=2:duration=first[aout]") // 원본 오디오와 배경 음악 믹스
+                        "[1:a]volume=0.3,aloop=loop=-1:size=2e+09[a1];" + // 배경 음악 볼륨 30%로 조정하고 반복
+                        "[0:a][a1]amix=inputs=2:duration=first:dropout_transition=3[aout]") // 원본 오디오와 배경 음악 믹스
                     .addExtraArgs("-map", "0:v")
                     .addExtraArgs("-map", "[aout]")
                     .setVideoCodec("copy") // 비디오는 그대로 복사
@@ -400,42 +424,73 @@ public class VideoService {
                     
                 executor.createJob(musicBuilder).run();
                 
-                // 비디오 파일 경로 업데이트
-                cleanTempOutputPath = cleanTempWithMusicPath;
+                // 배경음악이 추가된 파일 확인
+                File musicAddedFile = new File(cleanTempWithMusicPath);
+                if (musicAddedFile.exists() && musicAddedFile.length() > 0) {
+                    // 새 파일이 잘 생성되었을 때만 경로 업데이트
+                    currentVideoPath = cleanTempWithMusicPath;
+                    tempFilesToDelete.add(currentVideoPath);
+                    logger.info("배경 음악이 추가된 비디오 생성 완료: {}", cleanTempWithMusicPath);
+                } else {
+                    // 배경 음악 추가 실패 시 원래 병합된 비디오 유지
+                    logger.warn("배경 음악 추가 실패, 원본 병합 비디오를 유지합니다");
+                }
             } else {
                 logger.warn("배경 음악을 찾을 수 없어 생략합니다.");
             }
             
             // 3단계: 병합된 비디오에 자막 추가
-            File subtitleFile = createSubtitleFile(storyId);
-            
-            FFmpegBuilder subtitleBuilder = new FFmpegBuilder()
-                .setInput(cleanTempOutputPath)
-                .addExtraArgs("-y")
-                .addOutput(cleanOutputPath)
-                .setVideoCodec("libx264")
-                .setConstantRateFactor(23) // 품질 설정
-                .setVideoPixelFormat("yuv420p") // 유튜브 호환 픽셀 포맷
-                .setAudioCodec("aac")
-                .setAudioBitRate(128000) // 128kbps
-                .addExtraArgs("-vf", "ass=" + subtitleFile.getAbsolutePath().replace("\\", "\\\\").replace(":", "\\:"))
-                .setFormat("mp4")
-                .done();
+            File subtitleFile = null;
+            try {
+                subtitleFile = createSubtitleFile(storyId);
+                tempFilesToDelete.add(subtitleFile.getAbsolutePath());
                 
-            executor.createJob(subtitleBuilder).run();
+                FFmpegBuilder subtitleBuilder = new FFmpegBuilder()
+                    .setInput(currentVideoPath)
+                    .addExtraArgs("-y")
+                    .addOutput(cleanOutputPath)
+                    .setVideoCodec("libx264")
+                    .setConstantRateFactor(23) // 품질 설정
+                    .setVideoPixelFormat("yuv420p") // 유튜브 호환 픽셀 포맷
+                    .setAudioCodec("aac")
+                    .setAudioBitRate(128000) // 128kbps
+                    .addExtraArgs("-vf", "ass=" + subtitleFile.getAbsolutePath().replace("\\", "\\\\").replace(":", "\\:"))
+                    .setFormat("mp4")
+                    .done();
+                    
+                executor.createJob(subtitleBuilder).run();
+                
+                // 최종 결과 확인
+                File resultFile = new File(cleanOutputPath);
+                if (!resultFile.exists() || resultFile.length() == 0) {
+                    // 자막 추가 실패 시 이전 단계 파일을 결과로 사용
+                    logger.warn("자막 추가 실패, 이전 단계 비디오를 복사합니다");
+                    Files.copy(Paths.get(currentVideoPath), Paths.get(cleanOutputPath), StandardCopyOption.REPLACE_EXISTING);
+                } else {
+                    logger.info("자막 추가 완료: {}", cleanOutputPath);
+                }
+            } catch (Exception e) {
+                logger.error("자막 처리 중 오류 발생: {}", e.getMessage());
+                // 자막 실패 시 현재 비디오를 최종 결과로 사용
+                Files.copy(Paths.get(currentVideoPath), Paths.get(cleanOutputPath), StandardCopyOption.REPLACE_EXISTING);
+            }
             
-            // 임시 파일 삭제
-            Files.delete(listFilePath);
-            for (String path : tempVideoPaths) {
-                new File(path).delete();
+            // 최종 결과 파일 확인
+            File finalOutput = new File(cleanOutputPath);
+            if (!finalOutput.exists() || finalOutput.length() == 0) {
+                throw new RuntimeException("최종 비디오 생성 실패: 파일이 존재하지 않거나 크기가 0입니다");
             }
-            new File(cleanTempOutputPath).delete();
-            if (cleanTempOutputPath != cleanTempWithMusicPath) {
-                new File(cleanTempWithMusicPath).delete();
+            
+            // 임시 파일 정리 (최종 결과 파일이 확인된 후에만)
+            for (String tempFile : tempFilesToDelete) {
+                try {
+                    Files.deleteIfExists(Paths.get(tempFile));
+                } catch (IOException e) {
+                    logger.warn("임시 파일 삭제 실패 (무시됨): {}", tempFile);
+                }
             }
-            subtitleFile.delete();
 
-            return new File(cleanOutputPath);
+            return finalOutput;
         } catch (IOException e) {
             logger.error("비디오 병합 중 오류 발생: {}", e.getMessage(), e);
             throw new RuntimeException("비디오 병합 중 오류 발생: " + e.getMessage(), e);
