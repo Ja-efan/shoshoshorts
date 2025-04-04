@@ -28,6 +28,7 @@ export const API_ENDPOINTS = {
   CREATE_VIDEO: `${API_BASE_URL}/api/videos/generate`,
   GET_VIDEOS: `${API_BASE_URL}/api/videos/status/allstory`,
   YOUTUBE_UPLOAD: `${API_BASE_URL}/api/youtube/upload`,
+  DOWNLOAD_VIDEO: `${API_BASE_URL}/api/videos/download`,
   AUTH: {
     OAUTH: `${API_BASE_URL}/api/auth/oauth`,
     REFRESH: `${API_BASE_URL}/api/auth/refresh`,
@@ -184,6 +185,11 @@ export const apiService = {
       console.error("유튜브 업로드 실패:", error);
       throw error;
     }
+  },
+
+  async downloadVideo(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    window.location.href = `${API_ENDPOINTS.DOWNLOAD_VIDEO}/${storyId}?token=${token}`;
   },
 };
 
