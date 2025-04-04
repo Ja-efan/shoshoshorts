@@ -20,16 +20,10 @@ const Router: React.FC = () => {
     },
     { path: "/login", element: <LoginPage /> },
     { path: "/terms", element: <TermsPage /> },
+
+
     {
-      path: "/create",
-      element: <CreateVideoPage />,
-    },
-    {
-      path: "/dashboard",
-      element: <DashboardPage />,
-    },
-    {
-      path: "/dashboard/debug",
+      path: "/dashboard/",
       element: (
         <ProtectedRoute>
           <DashboardPage />
@@ -37,7 +31,7 @@ const Router: React.FC = () => {
       ),
     },
     {
-      path: "/create/debug",
+      path: "/create/",
       element: (
         <ProtectedRoute>
           <CreateVideoPage />
