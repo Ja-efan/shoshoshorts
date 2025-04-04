@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Search, Plus, Clock, Loader2 } from "lucide-react"
-import { apiService } from "@/lib/api"
+import { apiService } from "@/api/api"
 import { VideoData } from "@/types/video"
 import { CompletedVideoCard } from "@/components/dashboard/CompletedVideoCard"
 import { InProgressVideoCard } from "@/components/dashboard/InProgressVideoCard"
 import { FailedVideoCard } from "@/components/dashboard/FailedVideoCard"
 import shortLogo from "@/assets/short_logo.png";
+import { Navbar } from "@/components/common/Navbar";
 
 export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -39,8 +40,18 @@ export default function DashboardPage() {
   )
 
   // Separate videos by status
-  const completedVideos = filteredVideos.filter(video => video.status === "COMPLETED")
-  const inProgressVideos = filteredVideos.filter(video => video.status === "PROCESSING")
+  const completedVideos = filteredVideos
+    .filter(video => video.status === "COMPLETED")
+    .sort((a, b) => {
+      // 완료 시간이 있는 경우 최신순(역순)으로 정렬
+      if (a.completed_at && b.completed_at) {
+        return new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime();
+      }
+      return 0;
+    });
+  const inProgressVideos = filteredVideos.filter(video => 
+    video.status === "PROCESSING" || video.status === "PENDING"
+  )
   const failedVideos = filteredVideos.filter(video => video.status === "FAILED")
 
   if (isLoading) {
@@ -53,27 +64,9 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 bg-white border-b">
-        <div className="container flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <Link to="/" className="flex items-center gap-2">
-              <img src={shortLogo} alt="쇼쇼숓 로고" className="h-8 w-8" />
-              <span className="text-xl font-bold">쇼쇼숓</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link to="/create">
-              <Button className="bg-red-600 hover:bg-red-700">
-                <Plus className="mr-2 h-4 w-4" />
-                동영상 만들기
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
-
+      <Navbar showCreateButton={true} />
       <main className="flex-1 py-8">
-        <div className="container px-4">
+        <div className="container mx-auto px-8 sm:px-0">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <h1 className="text-3xl font-bold">내 동영상</h1>
@@ -100,10 +93,14 @@ export default function DashboardPage() {
                 {/* In Progress Section */}
                 {inProgressVideos.length > 0 && (
                   <div>
-                    <h2 className="mb-4 text-xl font-semibold">처리 중</h2>
+                    <h2 className="mb-4 text-xl font-semibold">작업 중</h2>
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {inProgressVideos.map((video) => (
-                        <InProgressVideoCard key={video.story_id} video={video} />
+                        <InProgressVideoCard 
+                          key={video.story_id} 
+                          video={video} 
+                          statusText={video.status === "PENDING" ? "대기 중" : "처리 중"}
+                        />
                       ))}
                     </div>
                   </div>

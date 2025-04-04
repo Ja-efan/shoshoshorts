@@ -3,16 +3,17 @@ package com.sss.backend.domain.service;
 import com.sss.backend.domain.document.CharacterDocument;
 import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.repository.SceneDocumentRepository;
+import com.sss.backend.config.S3Config;
+import net.bramp.ffmpeg.FFmpeg;
+import net.bramp.ffmpeg.FFprobe;
+import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Value;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -20,6 +21,9 @@ public class AudioService {
 
     private final SceneDocumentRepository sceneDocumentRepository;
     private final WebClient webClient;
+    private final S3Config s3Config;
+    private final FFmpeg ffmpeg;
+    private final FFprobe ffprobe;
 
     @Value("${api.password}")
     private String apiPassword;
@@ -27,9 +31,21 @@ public class AudioService {
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
 
-    public AudioService(SceneDocumentRepository sceneDocumentRepository, WebClient webClient){
+    @Value("${audio.eleven.api.url}")
+    private String elevenApiUrl;
+
+    @Value("${audio.zonos.api.url}")
+    private String zonosApiUrl;
+
+
+
+    public AudioService(SceneDocumentRepository sceneDocumentRepository, WebClient webClient, 
+                       S3Config s3Config, FFmpeg ffmpeg, FFprobe ffprobe) {
         this.sceneDocumentRepository = sceneDocumentRepository;
         this.webClient = webClient;
+        this.s3Config = s3Config;
+        this.ffmpeg = ffmpeg;
+        this.ffprobe = ffprobe;
     }
 
 //    @Value("${audio.api.url}")
@@ -44,8 +60,7 @@ public class AudioService {
 //    @Value("${audio.default.output-format}")
 //    private String defaultOutputFormat;
 
-//    private final String audioApiUrl = ":8000/elevenlabs/tts";
-private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
+
 //    private final String defaultVoiceCode = "uyVNoMrnUku1dZyVEXwD";
     private final String defaultModelId = "eleven_multilingual_v2";
     private final String defaultOutputFormat = "mp3";
@@ -53,7 +68,7 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
 
 
     // 스토리 전체 오디오 생성
-    public SceneDocument generateAllAudios(String storyId) {
+    public SceneDocument generateAllAudios(String storyId, String audioModelName) {
         log.info("스토리 전체 오디오 생성 시작: storyId={}", storyId);
 
         // 스토리 문서 조회
@@ -78,17 +93,31 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
                 int audioId = ((Number) audio.get("audioId")).intValue();
 
                 // 오디오 생성
-                try {
+//                 try {
 
-//                    // 각 요청 사이에 500ms 지연
-//                    Thread.sleep(500);
+// //                    // 각 요청 사이에 500ms 지연
+// //                    Thread.sleep(500);
 
-                    generateAudio(storyId, sceneId, audioId);
-                } catch (Exception e) {
-                    log.error("오디오 생성 중 오류 발생: storyId={}, sceneId={}, audioId={}, error={}",
-                            storyId, sceneId, audioId, e.getMessage());
-                    // 오류가 있어도 다음 오디오 계속 처리
+//                     generateAudio(storyId, sceneId, audioId);
+//                 } catch (Exception e) {
+//                     log.error("오디오 생성 중 오류 발생: storyId={}, sceneId={}, audioId={}, error={}",
+//                             storyId, sceneId, audioId, e.getMessage());
+//                     // 오류가 있어도 다음 오디오 계속 처리
+//                 }
+                // 오류가 발생하면 즉시 전파하도록 수정
+
+                if(audioModelName.equals("Zonos")){
+                log.info("사용된 오디오 생성 모델: " + audioModelName + "--------zonos?");
+
+                //zonos
+                generateZonosAudio(storyId, sceneId, audioId);
+
+                }else{
+                    log.info("사용된 오디오 생성 모델: " + audioModelName+ "--------elevenlabs?");
+                    //elevenlabs
+                generateAudio(storyId, sceneId, audioId);
                 }
+
             }
         }
 
@@ -103,7 +132,7 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
     }
 
 
-    // (각각의) 오디오 생성 모델 호출
+    // (elevenlabs) 오디오 생성 모델 호출
     public SceneDocument generateAudio(String storyId, int sceneId, int audioId) {
         log.info("오디오 생성 시작: storyId={}, sceneId={}, audioId={}", storyId, sceneId, audioId);
 
@@ -144,7 +173,7 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
             // WebClient를 사용하여 API 호출
             Map<String, Object> responseBody =
                     webClient.post()
-                    .uri(audioApiUrl)
+                    .uri(elevenApiUrl)
                     .header("apiPwd", activeProfile + apiPassword)
                     .bodyValue(requestData)
                     .retrieve()
@@ -156,24 +185,163 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
             }
 
             // 해당 오디오 정보 업데이트 (기존에 있더라도 덮어쓰기)
-            targetAudio.put("audio_url", responseBody.get("s3_url"));
+            String audioUrl = (String) responseBody.get("s3_url");
+            targetAudio.put("audio_url", audioUrl);
             targetAudio.put("content_type", responseBody.get("content_type"));
             targetAudio.put("file_size", responseBody.get("file_size"));
             targetAudio.put("base_model", defaultModelId);
             targetAudio.put("audio_settings", defaultOutputFormat);
             targetAudio.put("voice_code", voiceCode);
 
+            // 오디오 길이 추출 및 저장
+            double durationInSeconds = extractAudioDuration(audioUrl);
+            targetAudio.put("duration", durationInSeconds);
+
             // SceneDocument 저장
             SceneDocument updatedDocument = sceneDocumentRepository.save(sceneDocument);
             log.info("오디오 생성 및 문서 업데이트 완료: storyId={}, sceneId={}, audioId={}", storyId, sceneId, audioId);
-            return updatedDocument;
 
+            return updatedDocument;
         } catch (Exception e) {
             log.error("오디오 생성 중 오류 발생", e);
             throw new RuntimeException("오디오 생성에 실패했습니다: " + e.getMessage(), e);
         }
     }
 
+    // (Zonos) 오디오 생성 모델 호출
+    public SceneDocument generateZonosAudio(String storyId, int sceneId, int audioId) {
+        log.info("zonos 오디오 생성 시작: storyId={}, sceneId={}, audioId={}", storyId, sceneId, audioId);
+
+        // 스토리 데이터 조회
+        Optional<SceneDocument> sceneDocumentOpt = sceneDocumentRepository.findByStoryId(storyId);
+        if (sceneDocumentOpt.isEmpty()) {
+            throw new RuntimeException("해당 스토리를 찾을 수 없습니다: " + storyId);
+        }
+
+        SceneDocument sceneDocument = sceneDocumentOpt.get();
+
+        // 해당 오디오 찾기
+        Map<String, Object> targetAudio = findSceneAndAudio(sceneDocument, sceneId, audioId);
+
+        //오디오의 text와 character 찾기 -> request에 넣어야함
+        String text = (String) targetAudio.get("text");
+        String character = (String) targetAudio.get("character");
+
+        if (text == null || text.trim().isEmpty()) {
+            throw new RuntimeException("오디오 텍스트가 비어있습니다: audioId=" + audioId);
+        }
+
+        // character에 따른 voicecode 찾기
+        String voiceCode = findVoiceCodeByCharacter(sceneDocument,character);
+
+        //emtion arr 찾기
+        Map<String, Object> emotionParams = (Map<String, Object>) targetAudio.get("emotionParams");
+        List<Float> emotions = new ArrayList<>();
+
+        // 요청 형식에 맞게 emotion 값 변환
+        // [0_행복, 1_슬픔, 2_혐오, 3_두려움, 4_놀람, 5_분노, 6_기타, 7_중립]
+        if (emotionParams != null) {
+            // 0_행복
+            emotions.add(((Number) emotionParams.getOrDefault("happiness", 0)).floatValue());
+            // 1_슬픔
+            emotions.add(((Number) emotionParams.getOrDefault("sadness", 0)).floatValue());
+            // 2_혐오
+            emotions.add(((Number) emotionParams.getOrDefault("disgust", 0)).floatValue());
+            // 3_두려움
+            emotions.add(((Number) emotionParams.getOrDefault("fear", 0)).floatValue());
+            // 4_놀람
+            emotions.add(((Number) emotionParams.getOrDefault("surprise", 0)).floatValue());
+            // 5_분노
+            emotions.add(((Number) emotionParams.getOrDefault("anger", 0)).floatValue());
+            // 6_기타
+            emotions.add(0.0f); // 기타 감정은 기본값 0으로 설정
+            // 7_중립 - 항상 1로 설정
+            emotions.add(1.0f);
+        } else {
+            // emotionParams가 null인 경우 기본값으로 설정
+            emotions = Arrays.asList(0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+        }
+
+        log.info("---------------------------emotions:   "+emotions);
+
+
+        // API 요청 데이터 준비
+        Map<String, Object> requestData = new HashMap<>();
+        requestData.put("text", text);
+        requestData.put("voice_code", voiceCode);
+//        requestData.put("speaker_id", defaultModelId);
+        requestData.put("output_format", defaultOutputFormat);
+        requestData.put("script_id", Integer.parseInt(storyId));
+        requestData.put("scene_id", sceneId);
+        requestData.put("audio_id", audioId);
+        requestData.put("emotion", emotions);
+
+        try {
+            // WebClient를 사용하여 API 호출
+            Map<String, Object> responseBody =
+                    webClient.post()
+                            .uri(zonosApiUrl)
+                            .header("apiPwd", activeProfile + apiPassword)
+                            .bodyValue(requestData)
+                            .retrieve()
+                            .bodyToMono(Map.class)
+                            .block(); // 동기 처리를 위해 block() 사용
+
+            if (responseBody == null) {
+                throw new RuntimeException("오디오 생성 API 응답이 없습니다");
+            }
+
+            // 해당 오디오 정보 업데이트 (기존에 있더라도 덮어쓰기)
+            String audioUrl = (String) responseBody.get("s3_url");
+            targetAudio.put("audio_url", audioUrl);
+//            targetAudio.put("content_type", responseBody.get("content_type"));
+//            targetAudio.put("file_size", responseBody.get("file_size"));
+            targetAudio.put("base_model", "Zyphra/Zonos-v0.1-transformer");
+            targetAudio.put("audio_settings", defaultOutputFormat);
+            targetAudio.put("voice_code", voiceCode);
+
+            //저장 할 지 말지 결정
+            targetAudio.put("sample_rate", responseBody.get("sample_rate"));
+            targetAudio.put("seed", responseBody.get("seed"));
+
+            // 오디오 길이 추출 및 저장
+            double durationInSeconds = extractAudioDuration(audioUrl);
+            targetAudio.put("duration", durationInSeconds);
+
+            // SceneDocument 저장
+            SceneDocument updatedDocument = sceneDocumentRepository.save(sceneDocument);
+            log.info("오디오 생성 및 문서 업데이트 완료: storyId={}, sceneId={}, audioId={}", storyId, sceneId, audioId);
+
+            return updatedDocument;
+        } catch (Exception e) {
+            log.error("오디오 생성 중 오류 발생", e);
+            throw new RuntimeException("오디오 생성에 실패했습니다: " + e.getMessage(), e);
+        }
+    }
+
+
+
+
+
+
+
+    // 오디오 파일 길이 추출 메서드
+    private double extractAudioDuration(String audioUrl) {
+        try {
+            String s3Key = s3Config.extractS3KeyFromUrl(audioUrl);
+            String presignedUrl = s3Config.generatePresignedUrl(s3Key);
+            
+            // net.bramp.ffmpeg 라이브러리 API 사용
+            FFmpegProbeResult probeResult = ffprobe.probe(presignedUrl);
+            double durationInSeconds = probeResult.format.duration;
+            
+            log.info("오디오 길이 추출 성공: {} 초", durationInSeconds);
+            return durationInSeconds;
+        } catch (Exception e) {
+            log.error("오디오 길이 추출 중 오류 발생: {}", e.getMessage(), e);
+            return 0.0; // 추출 실패 시 기본값 0으로 설정
+        }
+    }
 
     //특정 씬과 오디오 찾는 메서드
     private Map<String, Object> findSceneAndAudio(SceneDocument sceneDocument, int sceneId, Integer audioId) {
@@ -215,7 +383,7 @@ private final String audioApiUrl = "http://35.216.58.38:8000/elevenlabs/tts";
     private String findVoiceCodeByCharacter(SceneDocument sceneDocument, String characterName){
 
         // narration이면 narvoicecode 사용
-        if ("narration".equals(characterName)) {
+        if (characterName.equals("narration")) {
             return sceneDocument.getNarVoiceCode();
         }
 

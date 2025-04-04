@@ -1,5 +1,30 @@
 services:
-  # 백엔드 서비스
+  frontend:
+    build:
+      context: ./FE
+      dockerfile: Dockerfile
+    container_name: sss-frontend
+    profiles:
+      - builder 
+    networks:
+      - sss-network
+
+  nginx:
+    image: nginx:latest
+    container_name: sss-nginx
+    ports:
+      - "80:80"  # HTTP 포트
+      - "443:443"  # HTTPS 포트
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./FE/dist:/usr/share/nginx/html
+      - /etc/letsencrypt:/etc/letsencrypt:ro   # ← 🔐 인증서 읽기 전용 마운트
+    depends_on:
+      - backend
+    networks:
+      - sss-network
+    restart: unless-stopped
+
   backend:
     image: sss-backend:latest
     container_name: sss-backend
@@ -21,19 +46,6 @@ services:
       - sss-network
     restart: unless-stopped
 
-  # 프론트엔드 서비스
-  frontend:
-    image: sss-frontend:latest
-    container_name: sss-frontend
-    ports:
-      - "${FRONTEND_PORT}:80"
-    depends_on:
-      - backend
-    networks:
-      - sss-network
-    restart: unless-stopped
-
-  # PostgreSQL 데이터베이스 서비스
   db:
     image: postgres:16-alpine
     container_name: sss-postgres
@@ -49,7 +61,6 @@ services:
       - sss-network
     restart: unless-stopped
 
-  # MongoDB 데이터베이스 서비스
   mongo:
     image: mongo:7.0
     container_name: sss-mongo
@@ -71,4 +82,4 @@ networks:
 
 volumes:
   postgres-data:
-  mongo-data: 
+  mongo-data:

@@ -1,0 +1,247 @@
+import axios from "axios"
+import { VideoData } from "@/types/video"
+import { SocialProvider } from "@/types/auth"
+import { store } from "@/store/store"
+import { setToken, clearToken } from "@/store/authSlice"
+
+const API_BASE_URL = import.meta.env.REACT_APP_API_URL || "http://localhost:8080";
+
+// axios 기본 설정 추가
+axios.defaults.withCredentials = true;  // 쿠키 자동 전송을 위한 설정
+
+// refreshToken 요청 횟수를 추적하는 변수
+let refreshTokenAttempts = 0;
+const MAX_REFRESH_ATTEMPTS = 3;
+
+// refreshToken 시도 횟수 초기화 함수
+export const resetRefreshTokenAttempts = () => {
+  refreshTokenAttempts = 0;
+};
+
+// 토큰 정리 및 로그아웃 상태로 변경
+const clearTokenAndState = () => {
+  localStorage.removeItem("accessToken");
+  store.dispatch(clearToken());
+};
+
+export const API_ENDPOINTS = {
+  CREATE_VIDEO: `${API_BASE_URL}/api/videos/generate`,
+  GET_VIDEOS: `${API_BASE_URL}/api/videos/status/allstory`,
+  YOUTUBE_UPLOAD: `${API_BASE_URL}/api/youtube/upload`,
+  YOUTUBE_AUTH: `${API_BASE_URL}/api/youtube/auth`,
+  DOWNLOAD_VIDEO: `${API_BASE_URL}/api/videos/download`,
+  AUTH: {
+    OAUTH: `${API_BASE_URL}/api/auth/oauth`,
+    REFRESH: `${API_BASE_URL}/api/auth/refresh`,
+    LOGOUT: `${API_BASE_URL}/api/auth/logout`,
+    VALIDATE: `${API_BASE_URL}/api/auth/check`,
+  },
+};
+
+export const apiConfig = {
+  headers: {
+    'Content-Type': 'application/json',
+  },
+};
+
+// 인증 헤더를 포함한 설정 가져오기
+const getAuthConfig = (token?: string | null) => {
+  const authToken = token || localStorage.getItem("accessToken");
+  return {
+    ...apiConfig,
+    headers: {
+      ...apiConfig.headers,
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    },
+  };
+};
+
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken?: string; // 서버에서 리프레시 토큰을 제공하는 경우 사용
+}
+
+export interface LoginResponse extends TokenResponse {}
+
+export interface ApiResponse<T> {
+  data: T;
+  message: string;
+  status: number;
+}
+
+// API 요청 함수들
+export const apiService = {
+  // 인증 관련 API
+  async handleSocialLoginCallback(provider: SocialProvider, code: string) {
+    try {
+      const response = await axios.post<LoginResponse>(
+        API_ENDPOINTS.AUTH.OAUTH,
+        { provider, code }
+      );
+      // 액세스 토큰 저장 및 Redux store 업데이트
+      const token = response.data.accessToken;
+      localStorage.setItem("accessToken", token);
+      store.dispatch(setToken(token));
+      return response.data;
+    } catch (error) {
+      console.error("소셜 로그인 콜백 처리 실패:", error);
+      throw error;
+    }
+  },
+
+  async refreshToken() {
+    try {
+      const response = await axios.post<TokenResponse>(
+        API_ENDPOINTS.AUTH.REFRESH
+      );
+      
+      const newAccessToken = response.data.accessToken;
+      localStorage.setItem("accessToken", newAccessToken);
+      store.dispatch(setToken(newAccessToken));
+      refreshTokenAttempts = 0; // 성공하면 카운터 초기화
+      return newAccessToken;
+    } catch (error) {
+      console.error("토큰 갱신 실패:", error);
+      refreshTokenAttempts++;
+      
+      if (refreshTokenAttempts >= MAX_REFRESH_ATTEMPTS) {
+        // 3번 이상 실패하면 로그아웃 처리
+        clearTokenAndState();
+        throw new Error("토큰 갱신 시도 횟수 초과");
+      }
+      throw error;
+    }
+  },
+
+  async logout() {
+    try {
+      const token = localStorage.getItem("accessToken");
+      await axios.post(API_ENDPOINTS.AUTH.LOGOUT, {}, getAuthConfig(token));
+      clearTokenAndState();
+      resetRefreshTokenAttempts();
+    } catch (error) {
+      console.error("로그아웃 실패:", error);
+      clearTokenAndState();
+      resetRefreshTokenAttempts();
+      throw error;
+    }
+  },
+
+  // 토큰 유효성 검사
+  async validateToken() {
+    const token = localStorage.getItem("accessToken");
+    try {
+      await axios.get(API_ENDPOINTS.AUTH.VALIDATE, getAuthConfig(token));
+      return true;
+    } catch (error) {
+      try {
+        // 토큰 검증 실패 시 refreshToken 시도
+        await this.refreshToken();
+        return true;
+      } catch (refreshError) {
+        console.error("토큰 갱신 실패:", refreshError);
+        return false;
+      } 
+    }
+  },
+
+  // 비디오 관련 API
+  async createVideo({ data, audioModelName = "Eleven Labs", imageModelName = "Kling" }: { 
+    data: any, 
+    audioModelName: string, 
+    imageModelName: string 
+  }) {
+    const token = localStorage.getItem("accessToken");
+    
+    const response = await axios.post<ApiResponse<VideoData>>(
+      `${API_ENDPOINTS.CREATE_VIDEO}?audioModelName=${encodeURIComponent(audioModelName)}&imageModelName=${encodeURIComponent(imageModelName)}`,
+      data,  // audioModelName과 imageModelName이 포함되지 않은 순수 데이터
+      getAuthConfig(token)
+    );
+    return response.data;
+  },
+
+  async getVideos() {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.get<ApiResponse<VideoData[]>>(
+      API_ENDPOINTS.GET_VIDEOS,
+      getAuthConfig(token)
+    );
+    return response.data;
+  },
+
+  // 유튜브 업로드 API
+  async uploadVideoToYoutube(videoURL: string, title: string, description: string) {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const response = await axios.post(
+        API_ENDPOINTS.YOUTUBE_UPLOAD,
+        {
+          videoURL,
+          title,
+          description,
+          privacyStatus: "public",
+          categoryId: "22",
+          tags: "테스트,youtube,api"
+        },
+        getAuthConfig(token)
+      );
+      return response.data;
+    } catch (error) {
+      console.error("유튜브 업로드 실패:", error);
+      throw error;
+    }
+  },
+
+  async downloadVideo(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    window.location.href = `${API_ENDPOINTS.DOWNLOAD_VIDEO}/${storyId}?token=${token}`;
+  },
+
+  // YouTube 인증 URL 가져오기
+  async getYoutubeAuthUrl() {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const response = await axios.get<{ authUrl: string }>(
+        API_ENDPOINTS.YOUTUBE_AUTH,
+        getAuthConfig(token)
+      );
+      return response.data.authUrl;
+    } catch (error) {
+      console.error("YouTube 인증 URL 가져오기 실패:", error);
+      throw error;
+    }
+  },
+};
+
+// 인터셉터 설정
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("accessToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+axios.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      try {
+        const newToken = await apiService.refreshToken();
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return axios(originalRequest);
+      } catch (refreshError) {
+        clearTokenAndState();
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      }
+    }
+    return Promise.reject(error);
+  }
+); 

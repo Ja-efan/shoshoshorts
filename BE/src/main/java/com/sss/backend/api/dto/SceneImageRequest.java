@@ -25,6 +25,7 @@ public class SceneImageRequest {
         private Integer story_id;
         private String title;
         private List<Character> characters;
+        private String original_story;
     }
 
     @Data

@@ -10,15 +10,24 @@ export const useCharacter = () => {
     const newCharacter: Character = {
       id: Date.now().toString(),
       name: "",
-      gender: null,
-      voice: null,
+      gender: "male",
+      voice: "male1",
       description: null,
     }
     setCharacters([...characters, newCharacter])
   }
 
   const updateCharacter = (id: string, field: keyof Character, value: any) => {
-    setCharacters(characters.map((char) => (char.id === id ? { ...char, [field]: value } : char)))
+    setCharacters(characters.map((char) => {
+      if (char.id === id) {
+        // 성별이 변경될 때 해당 성별의 1번 목소리로 자동 설정
+        if (field === "gender" && value) {
+          return { ...char, [field]: value, voice: `${value}1` }
+        }
+        return { ...char, [field]: value }
+      }
+      return char
+    }))
   }
 
   const removeCharacter = (id: string) => {

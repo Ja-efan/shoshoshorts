@@ -3,12 +3,17 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AlertCircle } from "lucide-react"
 import { VideoData } from "@/types/video"
+import toast from "react-hot-toast"
 
 interface FailedVideoCardProps {
   video: VideoData
 }
 
 export function FailedVideoCard({ video }: FailedVideoCardProps) {
+  const handleRetry = () => {
+    toast.success("추후 개발 예정입니다")
+  }
+
   return (
     <Card className="overflow-hidden">
       <div className="relative aspect-video w-full">
@@ -26,7 +31,7 @@ export function FailedVideoCard({ video }: FailedVideoCardProps) {
             실패
           </Badge>
         </div>
-        <Button variant="outline" size="sm" className="mt-3 w-full">
+        <Button variant="outline" size="sm" className="mt-3 w-full" onClick={handleRetry}>
           다시 시도
         </Button>
       </div>

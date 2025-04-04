@@ -41,7 +41,7 @@ export const HowItWorksSection: React.FC = () => {
     <section id="how-it-works" className="py-20 bg-gray-50">
       <div className="container px-4">
         <SectionHeader
-          title="쇼쇼숓 사용 방법"
+          title="쇼쇼숏 사용 방법"
           description="우리의 AI 기반 플랫폼은 세 가지 간단한 단계로 영상 제작을 쉽게 만듭니다"
         />
 

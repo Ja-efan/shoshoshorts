@@ -2,7 +2,7 @@ import { Toaster } from "react-hot-toast";
 import Router from "./router";
 function App() {
   return (
-    <div className="p-4">
+    <div className="">
       <Router />
       <Toaster position="top-center" />
     </div>

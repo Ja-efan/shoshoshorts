@@ -5,19 +5,48 @@ import NotFound from "../pages/notFound";
 import LandingPage from "@/pages/LandingPage";
 import CreateVideoPage from "@/pages/createPage";
 import DashboardPage from "@/pages/dashboardPage";
+import LoginPage from "@/pages/loginPage";
+import TermsPage from "@/pages/terms";
+import { ProtectedRoute } from "@/components/common/ProtectedRoute";
+import AuthCallbackPage from "@/pages/auth/callback";
+import Mypage from "../pages/Mypage/Mypage";
 
 const Router: React.FC = () => {
   return useRoutes([
     {
       path: "/",
       element: <Layout />,
-      children: [
-        {path: '/', element: <LandingPage /> },
-      ],
+      children: [{ path: "/", element: <LandingPage /> }],
     },
-    {path: '/create', element: <CreateVideoPage/>},
-    {path: '/dashboard', element: <DashboardPage/>},
-    { path: "*", element: <NotFound /> }, 
+    { path: "/login", element: <LoginPage /> },
+    { path: "/terms", element: <TermsPage /> },
+
+
+    {
+      path: "/dashboard/",
+      element: (
+        <ProtectedRoute>
+          <DashboardPage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/create/",
+      element: (
+        <ProtectedRoute>
+          <CreateVideoPage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/auth/:provider/callback",
+      element: <AuthCallbackPage />,
+    },
+    {
+      path: "/mypage",
+      element: <Mypage />,
+    },
+    { path: "*", element: <NotFound /> },
   ]);
 };
 

@@ -32,7 +32,7 @@ public class MediaService {
 
     //모든 씬에 대한 미디어(오디오, 이미지) 생성 처리
     @Async("mediaTaskExecutor")
-    public CompletableFuture<Void> processAllScenes(String storyId) {
+    public CompletableFuture<Void> processAllScenes(String storyId, String audioModelName,String imageModelName) {
         log.info("스토리 전체 씬 미디어 처리 시작: storyId={}", storyId);
 
         try {
@@ -55,7 +55,7 @@ public class MediaService {
                 //별도 스레드에서 실행될 오디오 처리 작업 정의
                 try {
                     log.info("전체 오디오 생성 시작: storyId={}", storyId);
-                    audioService.generateAllAudios(storyId);
+                    audioService.generateAllAudios(storyId,audioModelName);
                     log.info("전체 오디오 생성 완료: storyId={}", storyId);
                 } catch (Exception e) {
                     log.error("전체 오디오 생성 중 오류: storyId={}, error={}", storyId, e.getMessage(), e);
@@ -71,19 +71,19 @@ public class MediaService {
             for (Map<String, Object> scene : sceneArr) {
                 int sceneId = ((Number) scene.get("sceneId")).intValue();
                 //각 씬에 대해 이미지 생성 메서드 호출
-                CompletableFuture<Void> imageFuture = imageService.generateImageForScene(storyId, sceneId)
+                CompletableFuture<Void> imageFuture = imageService.generateImageForScene(storyId, sceneId, imageModelName)
                         //이미지 생성 완료 시 실행됨
                         .thenAccept(response -> {
                             log.info("씬 이미지 생성 완료: storyId={}, sceneId={}, url={}",
                                     storyId, sceneId, response.getImage_url());
-                        })
-                        .exceptionally(ex -> {
-                            log.error("씬 이미지 처리 중 오류 발생: storyId={}, sceneId={}, error={}",
-                                    storyId, sceneId, ex.getMessage(), ex);
-                            return null; //null반환 -> 실패해도 다른 이미지 처리는 계속 진행되도록 함
-                        });
-
-                imageFutures.add(imageFuture); //이미지 처리 future 리스트 추가
+                        // })
+                        // .exceptionally(ex -> {
+                        //     log.error("씬 이미지 처리 중 오류 발생: storyId={}, sceneId={}, error={}",
+                        //             storyId, sceneId, ex.getMessage(), ex);
+                        //     return null; //null반환 -> 실패해도 다른 이미지 처리는 계속 진행되도록 함
+                });
+                // 에러 핸들링은 allOf에서 일괄적으로 처리하도록 변경
+                imageFutures.add(imageFuture);
             }
 
             // 모든 오디오와 이미지 처리가 완료될 때까지 대기할 CompletableFuture 배열
@@ -94,18 +94,24 @@ public class MediaService {
             }
 
             // 모든 퓨처를 하나로 결합
-            //allof: 모든 future가 완료될 때까지 대기하는 CompletableFuture
-            CompletableFuture<Void> allMediaFuture = CompletableFuture.allOf(allFutures);
+            // //allof: 모든 future가 완료될 때까지 대기하는 CompletableFuture
+            // CompletableFuture<Void> allMediaFuture = CompletableFuture.allOf(allFutures);
 
-            // 이 CompletableFuture를 반환 - 이렇게 하면 future.get()을 호출할 때
-            // 모든 미디어 처리가 완료될 때까지 대기함
-            return allMediaFuture.thenRun(() -> {
-                log.info("스토리 전체 씬 미디어 처리 완료: storyId={}", storyId);
-            }).exceptionally(ex -> {
-                log.error("스토리 전체 씬 미디어 처리 중 오류 발생: storyId={}, error={}",
-                        storyId, ex.getMessage(), ex);
-                return null;
-            });
+            // // 이 CompletableFuture를 반환 - 이렇게 하면 future.get()을 호출할 때
+            // // 모든 미디어 처리가 완료될 때까지 대기함
+            // return allMediaFuture.thenRun(() -> {
+            //     log.info("스토리 전체 씬 미디어 처리 완료: storyId={}", storyId);
+            // }).exceptionally(ex -> {
+            //     log.error("스토리 전체 씬 미디어 처리 중 오류 발생: storyId={}, error={}",
+            //             storyId, ex.getMessage(), ex);
+            //     return null;
+            // });
+            // 하나라도 실패하면 전체가 실패하도록 설정
+            return CompletableFuture.allOf(allFutures)
+                .thenRun(() -> {
+                    log.info("스토리 전체 씬 미디어 처리 완료: storyId={}", storyId);
+                });
+            // exceptionally 제거 - 오류를 상위로 전파하도록 함
 
         } catch (Exception e) {
             log.error("스토리 전체 씬 미디어 처리 요청 중 오류 발생: storyId={}, error={}",
@@ -117,12 +123,12 @@ public class MediaService {
 
     //이미지 생성 요청 메서드
     @Async("mediaTaskExecutor")
-    public CompletableFuture<Void> processSceneImage(String storyId, Integer sceneId) {
+    public CompletableFuture<Void> processSceneImage(String storyId, Integer sceneId, String imageModelName) {
         log.info("씬 이미지 처리 시작: storyId={}, sceneId={}", storyId, sceneId);
 
         try {
             // 이미지 생성 요청
-            return imageService.generateImageForScene(storyId, sceneId)
+            return imageService.generateImageForScene(storyId, sceneId, imageModelName)
                     .thenAccept(response -> {
                         log.info("씬 이미지 생성 완료: storyId={}, sceneId={}, url={}",
                                 storyId, sceneId, response.getImage_url());
