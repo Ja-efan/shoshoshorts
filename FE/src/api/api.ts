@@ -146,11 +146,16 @@ export const apiService = {
   },
 
   // 비디오 관련 API
-  async createVideo(data: any) {
+  async createVideo({ data, audioModelName = "Eleven Labs", imageModelName = "Kling" }: { 
+    data: any, 
+    audioModelName: string, 
+    imageModelName: string 
+  }) {
     const token = localStorage.getItem("accessToken");
+    
     const response = await axios.post<ApiResponse<VideoData>>(
-      API_ENDPOINTS.CREATE_VIDEO,
-      data,
+      `${API_ENDPOINTS.CREATE_VIDEO}?audioModelName=${encodeURIComponent(audioModelName)}&imageModelName=${encodeURIComponent(imageModelName)}`,
+      data,  // audioModelName과 imageModelName이 포함되지 않은 순수 데이터
       getAuthConfig(token)
     );
     return response.data;

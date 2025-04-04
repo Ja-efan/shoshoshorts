@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { apiService } from "@/api/api";
@@ -27,6 +27,9 @@ import { Navbar } from "@/components/common/Navbar";
 export default function CreateVideoPage() {
   const { characters, addCharacter, updateCharacter, removeCharacter } =
     useCharacter();
+  const [searchParams] = useSearchParams();
+  const audioModelName = searchParams.get("audioModelName");
+  const imageModelName = searchParams.get("imageModelName");
   const [story, setStory] = useState("");
   const [title, setTitle] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -104,12 +107,18 @@ export default function CreateVideoPage() {
 
     setIsGenerating(true);
 
-    const selectedVoiceModel = getSelectedVoiceModel();
+    // 선택된 모델 가져오기
+    const selectedVoiceModel = voiceModels.find(model => model.isSelected)?.name || "Eleven Labs";
+    const selectedImageModel = imageModels.find(model => model.isSelected)?.name || "Kling";
+
+    // URL 파라미터 값이 있으면 그것을 우선 사용, 없으면 선택된 모델 사용
+    const finalAudioModel = audioModelName || selectedVoiceModel;
+    const finalImageModel = imageModelName || selectedImageModel;
 
     const requestData: any = {
       title,
       story,
-      narVoiceCode: voiceCodes[selectedVoiceModel][narratorGender][parseInt(narratorVoice.slice(-1)) - 1],
+      narVoiceCode: voiceCodes[finalAudioModel][narratorGender][parseInt(narratorVoice.slice(-1)) - 1],
     };
 
     if (characters.length > 0) {
@@ -123,7 +132,7 @@ export default function CreateVideoPage() {
         properties: character.description || "이미지 생성을 위한 설명...",
         voiceCode:
           character.voice && character.gender
-            ? voiceCodes[selectedVoiceModel][character.gender][
+            ? voiceCodes[finalAudioModel][character.gender][
                 parseInt(character.voice.slice(-1)) - 1
               ]
             : null,
@@ -131,8 +140,12 @@ export default function CreateVideoPage() {
     }
 
     try {
-      console.log(requestData);
-      const response = await apiService.createVideo(requestData);
+      console.log("Request Data:", requestData); // 요청 데이터 로깅
+      const response = await apiService.createVideo({
+        data: requestData,
+        audioModelName: finalAudioModel.replace(/\s+/g, ""),
+        imageModelName: finalImageModel.replace(/\s+/g, "")
+      });
       console.log("API Response:", response);
       setShowSuccessModal(true);
     } catch (error) {
