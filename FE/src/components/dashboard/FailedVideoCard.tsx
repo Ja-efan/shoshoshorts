@@ -11,7 +11,7 @@ interface FailedVideoCardProps {
 
 export function FailedVideoCard({ video }: FailedVideoCardProps) {
   const handleRetry = () => {
-    toast.info("추후 개발 예정입니다")
+    toast.success("추후 개발 예정입니다")
   }
 
   return (
