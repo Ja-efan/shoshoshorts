@@ -13,4 +13,6 @@ public interface UserRepository extends JpaRepository<Users, Long> {
     // 이걸 Service나 Controller에서 사용할 때 NullPointerException이 날 수 있음.
 
     Optional<Users> findByEmail(String email);
+    
+    Optional<Users> findByEmailAndProvider(String email, String provider);
 }
