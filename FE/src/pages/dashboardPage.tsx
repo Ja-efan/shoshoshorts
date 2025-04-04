@@ -40,7 +40,9 @@ export default function DashboardPage() {
 
   // Separate videos by status
   const completedVideos = filteredVideos.filter(video => video.status === "COMPLETED")
-  const inProgressVideos = filteredVideos.filter(video => video.status === "PROCESSING")
+  const inProgressVideos = filteredVideos.filter(video => 
+    video.status === "PROCESSING" || video.status === "PENDING"
+  )
   const failedVideos = filteredVideos.filter(video => video.status === "FAILED")
 
   if (isLoading) {
@@ -100,10 +102,14 @@ export default function DashboardPage() {
                 {/* In Progress Section */}
                 {inProgressVideos.length > 0 && (
                   <div>
-                    <h2 className="mb-4 text-xl font-semibold">처리 중</h2>
+                    <h2 className="mb-4 text-xl font-semibold">작업 중</h2>
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {inProgressVideos.map((video) => (
-                        <InProgressVideoCard key={video.story_id} video={video} />
+                        <InProgressVideoCard 
+                          key={video.story_id} 
+                          video={video} 
+                          statusText={video.status === "PENDING" ? "대기 중" : "처리 중"}
+                        />
                       ))}
                     </div>
                   </div>
