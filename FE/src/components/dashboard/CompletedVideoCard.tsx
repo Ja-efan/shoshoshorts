@@ -12,6 +12,12 @@ import { VideoData } from "@/types/video"
 import { formatDate } from "@/lib/utils"
 import { apiService } from "@/api/api"
 
+const getGMTString = () => {
+  const offset = new Date().getTimezoneOffset()
+  const gmtOffset = -offset / 60
+  return `(GMT ${gmtOffset >= 0 ? '+' : ''}${gmtOffset})`
+}
+
 interface CompletedVideoCardProps {
   video: VideoData
   onUploadComplete?: (videoId: string) => void
@@ -70,30 +76,30 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
   return (
     <>
       <Card 
-        className="group relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+        className="group relative overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300"
         onClick={() => setIsModalOpen(true)}
       >
         <CardHeader className="p-0">
-          <div className="relative aspect-video">
+          <div className="relative aspect-square">
             <img
               src={video.thumbnail_url || ""}
               alt={video.title}
-              className="object-cover w-full h-full"
+              className="object-cover w-full h-full transition-transform duration-300 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <Play className="w-12 h-12 text-white" />
             </div>
             {video.is_uploaded && (
-              <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1" title="유튜브에 업로드됨">
+              <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md" title="유튜브에 업로드됨">
                 <Check className="w-4 h-4 text-white" />
               </div>
             )}
           </div>
         </CardHeader>
-        <CardContent className="p-4">
-          <h3 className="font-semibold line-clamp-2">{video.title}</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            완료됨 • {formatDate(video.completed_at)}
+        <CardContent className="p-4 space-y-2">
+          <h3 className="font-semibold line-clamp-2 text-lg">{video.title}</h3>
+          <p className="text-sm text-gray-500">
+            완료됨 • {formatDate(video.completed_at)} {getGMTString()}
           </p>
         </CardContent>
         <CardFooter className="p-4 pt-0">

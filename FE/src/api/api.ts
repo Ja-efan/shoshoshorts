@@ -9,6 +9,21 @@ const API_BASE_URL = import.meta.env.REACT_APP_API_URL || "http://localhost:8080
 // axios 기본 설정 추가
 axios.defaults.withCredentials = true;  // 쿠키 자동 전송을 위한 설정
 
+// refreshToken 요청 횟수를 추적하는 변수
+let refreshTokenAttempts = 0;
+const MAX_REFRESH_ATTEMPTS = 3;
+
+// refreshToken 시도 횟수 초기화 함수
+export const resetRefreshTokenAttempts = () => {
+  refreshTokenAttempts = 0;
+};
+
+// 토큰 정리 및 로그아웃 상태로 변경
+const clearTokenAndState = () => {
+  localStorage.removeItem("accessToken");
+  store.dispatch(clearToken());
+};
+
 export const API_ENDPOINTS = {
   CREATE_VIDEO: `${API_BASE_URL}/api/videos/generate`,
   GET_VIDEOS: `${API_BASE_URL}/api/videos/status/allstory`,
@@ -61,7 +76,6 @@ export const apiService = {
         API_ENDPOINTS.AUTH.OAUTH,
         { provider, code }
       );
-      console.log(response)
       // 액세스 토큰 저장 및 Redux store 업데이트
       const token = response.data.accessToken;
       localStorage.setItem("accessToken", token);
@@ -82,12 +96,17 @@ export const apiService = {
       const newAccessToken = response.data.accessToken;
       localStorage.setItem("accessToken", newAccessToken);
       store.dispatch(setToken(newAccessToken));
+      refreshTokenAttempts = 0; // 성공하면 카운터 초기화
       return newAccessToken;
     } catch (error) {
       console.error("토큰 갱신 실패:", error);
-      localStorage.removeItem("accessToken");
-      store.dispatch(clearToken());
-      window.location.href = "/login";
+      refreshTokenAttempts++;
+      
+      if (refreshTokenAttempts >= MAX_REFRESH_ATTEMPTS) {
+        // 3번 이상 실패하면 로그아웃 처리
+        clearTokenAndState();
+        throw new Error("토큰 갱신 시도 횟수 초과");
+      }
       throw error;
     }
   },
@@ -96,10 +115,12 @@ export const apiService = {
     try {
       const token = localStorage.getItem("accessToken");
       await axios.post(API_ENDPOINTS.AUTH.LOGOUT, {}, getAuthConfig(token));
-      localStorage.removeItem("accessToken");
-      store.dispatch(clearToken());
+      clearTokenAndState();
+      resetRefreshTokenAttempts();
     } catch (error) {
       console.error("로그아웃 실패:", error);
+      clearTokenAndState();
+      resetRefreshTokenAttempts();
       throw error;
     }
   },
@@ -118,7 +139,7 @@ export const apiService = {
       } catch (refreshError) {
         console.error("토큰 갱신 실패:", refreshError);
         return false;
-      }
+      } 
     }
   },
 
@@ -189,8 +210,7 @@ axios.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return axios(originalRequest);
       } catch (refreshError) {
-        localStorage.removeItem("accessToken");
-        store.dispatch(clearToken());
+        clearTokenAndState();
         window.location.href = "/login";
         return Promise.reject(refreshError);
       }

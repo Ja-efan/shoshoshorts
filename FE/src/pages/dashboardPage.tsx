@@ -39,7 +39,15 @@ export default function DashboardPage() {
   )
 
   // Separate videos by status
-  const completedVideos = filteredVideos.filter(video => video.status === "COMPLETED")
+  const completedVideos = filteredVideos
+    .filter(video => video.status === "COMPLETED")
+    .sort((a, b) => {
+      // 완료 시간이 있는 경우 최신순(역순)으로 정렬
+      if (a.completed_at && b.completed_at) {
+        return new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime();
+      }
+      return 0;
+    });
   const inProgressVideos = filteredVideos.filter(video => 
     video.status === "PROCESSING" || video.status === "PENDING"
   )
@@ -75,7 +83,7 @@ export default function DashboardPage() {
       </header>
 
       <main className="flex-1 py-8">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-8 sm:px-0">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <h1 className="text-3xl font-bold">내 동영상</h1>
