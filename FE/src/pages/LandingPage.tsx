@@ -11,14 +11,16 @@ import { CTASection } from "@/components/landing/CTASection";
 export default function LandingPage() {
   return (
     <Layout>
-      <HeroSection />
-      <WhatIsSection />
-      <HowItWorksSection />
-      <TechnologySection />
-      <UseCasesSection />
-      <TestimonialsSection />
-      <FAQSection />
-      <CTASection />
+      <div className="flex flex-col items-center justify-center w-full">
+        <HeroSection />
+        <WhatIsSection />
+        <HowItWorksSection />
+        <TechnologySection />
+        <UseCasesSection />
+        {/* <TestimonialsSection /> */}
+        <FAQSection />
+        <CTASection />
+      </div>
     </Layout>
   );
 }
