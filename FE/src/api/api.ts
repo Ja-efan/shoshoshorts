@@ -28,6 +28,7 @@ export const API_ENDPOINTS = {
   CREATE_VIDEO: `${API_BASE_URL}/api/videos/generate`,
   GET_VIDEOS: `${API_BASE_URL}/api/videos/status/allstory`,
   YOUTUBE_UPLOAD: `${API_BASE_URL}/api/youtube/upload`,
+  YOUTUBE_AUTH: `${API_BASE_URL}/api/youtube/auth`,
   DOWNLOAD_VIDEO: `${API_BASE_URL}/api/videos/download`,
   AUTH: {
     OAUTH: `${API_BASE_URL}/api/auth/oauth`,
@@ -190,6 +191,21 @@ export const apiService = {
   async downloadVideo(storyId: string) {
     const token = localStorage.getItem("accessToken");
     window.location.href = `${API_ENDPOINTS.DOWNLOAD_VIDEO}/${storyId}?token=${token}`;
+  },
+
+  // YouTube 인증 URL 가져오기
+  async getYoutubeAuthUrl() {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const response = await axios.get<{ authUrl: string }>(
+        API_ENDPOINTS.YOUTUBE_AUTH,
+        getAuthConfig(token)
+      );
+      return response.data.authUrl;
+    } catch (error) {
+      console.error("YouTube 인증 URL 가져오기 실패:", error);
+      throw error;
+    }
   },
 };
 

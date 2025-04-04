@@ -24,8 +24,8 @@ export const Logo: React.FC<LogoProps> = ({ size = "md" }) => {
 
   return (
     <div className="flex items-center gap-2">
-      <img src={shortLogo} alt="쇼쇼숓 로고" className={`${sizes[size].icon}`} />
-      <span className={`${sizes[size].text} font-bold`}>쇼쇼숓</span>
+      <img src={shortLogo} alt="쇼쇼숏 로고" className={`${sizes[size].icon}`} />
+      <span className={`${sizes[size].text} font-bold`}>쇼쇼숏</span>
     </div>
   );
 };

@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Search, Menu } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { UserCircle2, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { Link, useNavigate } from 'react-router-dom';
 import { Link as ScrollLink } from 'react-scroll';
+import shortLogo from "@/assets/short_logo.png"
+import { apiService } from "@/api/api";
 
 const navigationItems = [
   { to: "hero", label: "홈" },
@@ -14,18 +15,41 @@ const navigationItems = [
 ];
 
 const Navbar = () => {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navigate = useNavigate();
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      toast.success(`"${searchQuery}" 검색 결과는 준비 중입니다!`);
-      setSearchQuery('');
-      setIsSearchOpen(false);
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      console.log("현재 토큰:", token);
+      
+      if (!token) {
+        console.log("토큰이 없음 - 비인증 상태로 설정");
+        setIsAuthenticated(false);
+        return;
+      }
+
+      const isValid = await apiService.validateToken();
+      console.log("토큰 검증 결과:", isValid);
+      setIsAuthenticated(isValid);
+    } catch (error) {
+      console.error('인증 상태 확인 실패:', error);
+      setIsAuthenticated(false);
+    }
+  };
+
+  const handleAuthClick = () => {
+    console.log("인증 상태:", isAuthenticated);
+    if (isAuthenticated) {
+      navigate('/mypage');
     } else {
-      toast.error('검색어를 입력해주세요.');
+      console.log("로그인 페이지로 이동");
+      navigate('/login');
     }
   };
 
@@ -35,13 +59,13 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* 로고 */}
           <div className="flex-shrink-0">
-            <Link to="/" className="text-xl font-bold hover:text-red-600 transition-colors">
-              쇼쇼숓
+            <Link to="/" className="flex items-center gap-2">
+              <img src={shortLogo} alt="쇼쇼숓 로고" className="h-8 w-auto" />
             </Link>
           </div>
 
           {/* 데스크톱 메뉴 */}
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden md:flex items-center justify-center flex-1 space-x-8">
             {navigationItems.map((item) => (
               <ScrollLink
                 key={item.to}
@@ -58,33 +82,15 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* 검색창 */}
+          {/* 로그인/마이페이지 아이콘 */}
           <div className="hidden md:flex items-center">
             <button
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
-              className="p-2 hover:bg-gray-100 rounded-full"
+              onClick={handleAuthClick}
+              className="p-2 hover:bg-gray-100 rounded-full text-gray-700 hover:text-red-600 transition-colors"
+              title={isAuthenticated ? "마이페이지" : "로그인"}
             >
-              <Search className="w-5 h-5" />
+              <UserCircle2 className="w-6 h-6" />
             </button>
-            <AnimatePresence>
-              {isSearchOpen ? (
-                <motion.form
-                  onSubmit={handleSearch}
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 200, opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  className="relative ml-2"
-                >
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="검색어를 입력하세요..."
-                    className="w-full px-4 py-1 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </motion.form>
-              ) : null}
-            </AnimatePresence>
           </div>
 
           {/* 모바일 메뉴 버튼 */}
@@ -124,22 +130,17 @@ const Navbar = () => {
                 </ScrollLink>
               ))}
               
-              {/* 모바일 검색창 */}
-              <form onSubmit={handleSearch} className="px-3 py-2 space-y-2">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="검색어를 입력하세요..."
-                  className="w-full px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-red-500"
-                />
-                <button
-                  type="submit"
-                  className="w-full bg-red-600 text-white py-2 px-4 rounded-full hover:bg-red-700 transition-colors"
-                >
-                  검색하기
-                </button>
-              </form>
+              {/* 모바일 로그인/마이페이지 버튼 */}
+              <button
+                onClick={() => {
+                  handleAuthClick();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full mt-2 bg-red-600 text-white py-2 px-4 rounded-full hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <UserCircle2 className="w-5 h-5" />
+                {isAuthenticated ? "마이페이지" : "로그인"}
+              </button>
             </div>
           </motion.div>
         )}

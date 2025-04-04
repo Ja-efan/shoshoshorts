@@ -21,7 +21,8 @@ import { toast } from "react-hot-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Navbar } from "@/components/common/Navbar";
 
 export default function CreateVideoPage() {
   const { characters, addCharacter, updateCharacter, removeCharacter } =
@@ -149,17 +150,7 @@ export default function CreateVideoPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 bg-white border-b">
-        <div className="container flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <Link to="/" className="flex items-center gap-2">
-              <img src={shortLogo} alt="쇼쇼숓 로고" className="h-8 w-8" />
-              <span className="text-xl font-bold">쇼쇼숓</span>
-            </Link>
-          </div>
-        </div>
-      </header>
-
+      <Navbar />
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-3xl">
@@ -273,9 +264,11 @@ export default function CreateVideoPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>비디오 생성 요청 완료</DialogTitle>
+            <DialogDescription>
+              비디오 생성이 정상적으로 요청되었습니다.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <p>비디오 생성이 정상적으로 요청되었습니다.</p>
             <p>대시보드에서 생성 진행 상황을 확인할 수 있습니다.</p>
           </div>
           <DialogFooter>

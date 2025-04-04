@@ -25,8 +25,8 @@ export const WhatIsSection: React.FC = () => {
   return (
     <Section>
       <SectionHeader
-        title="쇼쇼숓?"
-        description="쇼쇼숓은 몇 번의 클릭만으로 작성된 이야기를 매력적인 영상으로 변환하는 AI 기반 플랫폼입니다."
+        title="쇼쇼숏?"
+        description="쇼쇼숏은 몇 번의 클릭만으로 작성된 이야기를 매력적인 영상으로 변환하는 AI 기반 플랫폼입니다."
       />
 
       <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-3">

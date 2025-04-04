@@ -5,6 +5,7 @@ import naverIcon from "@/assets/login/naver_logo.png"
 import googleIcon from "@/assets/login/google_logo.png"
 import { socialAuth } from "@/lib/socialAuth"
 import { SocialLoginButton } from "@/components/common/SocialLoginButton"
+import { Navbar } from "@/components/common/Navbar"
 
 export default function LoginPage() {
   const location = useLocation();
@@ -22,15 +23,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 bg-white border-b">
-        <div className="container flex h-16 items-center px-4">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={shortLogo} alt="쇼쇼숓 로고" className="h-8 w-8" />
-            <span className="text-xl font-bold">쇼쇼숓</span>
-          </Link>
-        </div>
-      </header>
-
+      <Navbar />
       <main className="flex flex-1 items-center justify-center py-12">
         <div className="mx-auto w-full max-w-md space-y-6 px-4">
           <div className="space-y-2 text-center">
