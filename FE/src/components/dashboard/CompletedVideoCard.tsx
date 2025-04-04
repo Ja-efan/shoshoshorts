@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { MoreVertical, Play, Download, Share2, Trash2, Check } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -30,10 +30,13 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
   const [description, setDescription] = useState("")
   const [isUploading, setIsUploading] = useState(false)
 
-  const handleDownload = (e: React.MouseEvent) => {
+  const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (video.video_url) {
-      window.open(video.video_url, '_blank')
+    try {
+      await apiService.downloadVideo(video.story_id)
+    } catch (error) {
+      toast.error("다운로드 중 오류가 발생했습니다")
+      console.error(error)
     }
   }
 
@@ -135,6 +138,9 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
         <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>{video.title}</DialogTitle>
+            <DialogDescription>
+              동영상을 시청하고 관리할 수 있습니다.
+            </DialogDescription>
           </DialogHeader>
           <div className="aspect-video w-full">
             <video
@@ -151,6 +157,9 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>유튜브에 공유하기</DialogTitle>
+            <DialogDescription>
+              유튜브에 업로드할 동영상의 제목과 설명을 입력해주세요.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
