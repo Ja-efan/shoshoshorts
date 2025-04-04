@@ -20,6 +20,8 @@ import com.sss.backend.domain.repository.StoryRepository;
 import com.sss.backend.domain.repository.VideoRepository;
 import com.sss.backend.domain.entity.Video.VideoStatus;
 import com.sss.backend.api.dto.VideoStatusResponseDto;
+import com.sss.backend.domain.entity.Users;
+import com.sss.backend.domain.repository.UserRepository;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,6 +55,7 @@ public class VideoService {
     private final FFmpeg ffmpeg;
     private final StoryRepository storyRepository;
     private final VideoRepository videoRepository;
+    private final UserRepository userRepository;
     
     @PostConstruct
     public void init() {
@@ -673,6 +676,33 @@ public class VideoService {
         SceneDocument sceneDocument = sceneDocumentOpt.get();
         List<Map<String, Object>> scenes = sceneDocument.getSceneArr();
         
+        // 기본 닉네임 설정
+        String nickname = "사용자";
+        
+        try {
+            // 스토리 ID로 Story 엔티티를 가져옴
+            Story story = storyRepository.findById(Long.parseLong(storyId))
+                    .orElseThrow(() -> new RuntimeException("스토리를 찾을 수 없음: " + storyId));
+            
+            // User 정보 직접 조회
+            if (story.getUser() != null && story.getUser().getId() != null) {
+                Long userId = story.getUser().getId();
+                // UserRepository를 통해 직접 조회
+                Optional<Users> userOpt = userRepository.findById(userId);
+                if (userOpt.isPresent() && userOpt.get().getNickname() != null) {
+                    nickname = userOpt.get().getNickname();
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("사용자 정보를 가져오는 중 오류 발생: {}", e.getMessage());
+            // 기본값 "사용자"를 사용
+        }
+        
+        // 현재 날짜 포맷팅 - 한국 시간대(KST) 사용
+        // 사용자 시간대 설정을 추가하여 다양한 국가의 사용자들을 지원할 수 있도록 개선 필요...
+        String currentDate = DateTimeFormatter.ofPattern("yy-MM-dd")
+                .format(LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul")));
+        
         // ASS 형식의 자막 파일 생성
         File subtitleFile = new File(TEMP_DIR + File.separator + "subtitles" + File.separator + storyId + "_subtitles.ass");
         StringBuilder assContent = new StringBuilder();
@@ -702,12 +732,15 @@ public class VideoService {
         // 제목 추가 (영상 전체 시간동안 좌상단에 표시)
         String storyTitle = sceneDocument.getStoryTitle();
         assContent.append("Dialogue: 0,0:00:00.00,10:00:00.00,Title,,0,0,0,,{\\pos(70,365)}")
-                //  .append(storyTitle.replace(",", "\\,"))
                 .append(storyTitle)
-                 .append("\n");
+                .append("\n");
         
         // 사용자 정보 추가 (닉네임과 생성 시간)
-        assContent.append("Dialogue: 0,0:00:00.00,10:00:00.00,UserInfo,,0,0,0,,{\\pos(70,435)}카리나 • 25-04-02\n");
+        assContent.append("Dialogue: 0,0:00:00.00,10:00:00.00,UserInfo,,0,0,0,,{\\pos(70,435)}")
+                .append(nickname)
+                .append(" • ")
+                .append(currentDate)
+                .append("\n");
 
         // 자막 시간 추적을 위한 변수 초기화
         double currentTime = 0.0;
@@ -730,7 +763,6 @@ public class VideoService {
                          .append(startTime).append(",")
                          .append(endTime).append(",")
                          .append("Default,,0,0,0,,{\\pos(540,640)}")
-                        //  .append(text.replace(",", "\\,"))
                         .append(text)
                          .append("\n");
                 
