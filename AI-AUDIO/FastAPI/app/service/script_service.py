@@ -249,11 +249,9 @@ class ScriptService:
                 
 
             # 예시 스토리 제공
-            example_story = """
-            외국 여행 갔을 때 기차역에서 있었던 일이야. 내 앞에 어떤 여자가 역무원이랑 얘기하다가 진짜 멘붕 온 표정으로 서 있는 거야. 듣다 보니까 기차표를 잘못 사서 지금 기차를 못 탄다는 거였는데, 문제는 역무원이 영어를 아예 못 한다는 거지. 내가 그 상황 보다가 좀 답답해서 그냥 끼어들었어. 현지 언어로 상황 설명 했더니, 역무원이 알았다는 듯이 바로 기차표를  바꿔 주더라. 여자가 고맙다고 했어. "땡큐 쏘 머치!". 그래서 나도 대답했지. "유어 웰컴!". 이제 가려는데, 그 여자가 혼잣말로 그러는 거야. "와... 진짜 다행이다...". 나 순간 너무 놀라서 물어봤어. "어? 한국분이세요?". 했더니, 그 여자도 놀라서 대답했어. "헐! 한국 분이셨구나! 진짜 감사해요!". 이러는데, 뭔가 급 친해진 느낌? 그러다 어쩌다 보니 같이 기차 타고 얘기하면서 진짜 재밌는 시간을 보냈어. 내릴 때 여자가 연락처를 주면서 그러더라고. "한국 돌아가면 꼭 한번 만나요". 솔직히 그냥 별 생각 없었는데, 한국 들어오는 날 카톡이 딱 온 거야. "혹시 오늘 한국 들어오시는 날 맞죠? 그때 진짜 감사했어요! 시간 괜찮으시면 밥 같이 먹을래요?". 이러는데, 뭔가 싶어서 일단 나갔지. 근데 그게 밥 한끼가 두끼 되고, 영화 한 편이 두 편 되고, 결론은??? 지금 같이 살고 있고, 애도 있어. 아내가 가끔 그때 얘기하면 이렇게 말해. "그때 당신, 나한테 백마탄 왕자님이였어!". 이러는데, 내가 먼저 꼬셨다고 주장하더라. 여행에서 이렇게 인생 파트 너 만날 줄 누가 알았겠냐? 인생 모르니까 누구에게나 잘해줘!
-            """
+            example_story1 = """외국 여행 갔을 때 기차역에서 있었던 일이야. 내 앞에 어떤 여자가 역무원이랑 얘기하다가 진짜 멘붕 온 표정으로 서 있는 거야. 듣다 보니까 기차표를 잘못 사서 지금 기차를 못 탄다는 거였는데, 문제는 역무원이 영어를 아예 못 한다는 거지. 내가 그 상황 보다가 좀 답답해서 그냥 끼어들었어. 현지 언어로 상황 설명 했더니, 역무원이 알았다는 듯이 바로 기차표를  바꿔 주더라. 여자가 고맙다고 했어. "땡큐 쏘 머치!". 그래서 나도 대답했지. "유어 웰컴!". 이제 가려는데, 그 여자가 혼잣말로 그러는 거야. "와... 진짜 다행이다...". 나 순간 너무 놀라서 물어봤어. "어? 한국분이세요?". 했더니, 그 여자도 놀라서 대답했어. "헐! 한국 분이셨구나! 진짜 감사해요!"."""
             # 예시 JSON 제공
-            example_json = {
+            example_json1 = {
         "storyId": 1,
         "storyTitle": "운명을 믿으시나요?",
         "characterArr": [
@@ -446,11 +444,40 @@ class ScriptService:
                         }
                     }
                 ]
+            }
+        ]
+    }
+            example_story2 = """버스를 타고 집에 가는 길이었거든? 한 할아버지가 타시더니 딱 한 정거장 가고 벨을 누르시는 거야. 그래서 버스가 섰는데도 안 내리시길래 이렇게 생각했어. '잘못 누르셨나보다'. 근데 버스가 다시 출발하자마자 또 벨을 누르시는 거야. 이번에도 버스가 멈췄는데 할아버지는 여전히 안 내리시더라? 기사님도 좀 이상하셨는지 물어보셨어. "할아버지~ 안 내리세요?". 할아버지가 되게 아무렇지도 않게 대답하시는 거 있지. "어? 나? 나 안내리는데?"."""
+            
+            example_json2 = {
+        "storyId": 1,
+        "storyTitle": "이상한 할아버지",
+        "narVoiceCode": "uyVNoMrnUku1dZyVEXwD",
+        "characterArr": [
+            {
+                "name": "나",
+                "gender": "남자",
+                "properties": "흑발에 검은 눈. 한국인.",
+                "voiceCode": "asdfasedfasdf"
             },
+            {
+                "name": "버스 기사님",
+                "gender": "남자",
+                "properties": "한국인. 버스 기사 아저씨. 흑발에 갈색 눈.",
+                "voiceCode": "asdfasedfasdf"
+            },
+            {
+                "name": "이상한 할아버지",
+                "gender": "남자",
+                "properties": "할아버지. 한국인. 백발에 지팡이가 있다.",
+                "voiceCode": "asdfasedfasdf"
+            }
+        ],
+        "sceneArr": [
             {
                 "audioArr": [
                     {
-                        "text": "이러는데, 뭔가 급 친해진 느낌?",
+                        "text": "버스를 타고 집에 가는 길이었거든?",
                         "type": "narration",
                         "character": "narration",
                         "emotion": "neutral",
@@ -463,12 +490,12 @@ class ScriptService:
             {
                 "audioArr": [
                     {
-                        "text": "그러다 어쩌다 보니 같이 기차 타고 얘기하면서 진짜 재밌는 시간을 보냈어.",
+                        "text": "한 할아버지가 타시더니 딱 한 정거장 가고 벨을 누르시는 거야.",
                         "type": "narration",
                         "character": "narration",
-                        "emotion": "happiness",
+                        "emotion": "neutral",
                         "emotionParams": {
-                            "happiness": 1.0
+                            "neutral": 1.0
                         }
                     }
                 ]
@@ -476,7 +503,7 @@ class ScriptService:
             {
                 "audioArr": [
                     {
-                        "text": "내릴 때 여자가 연락처를 주면서 그러더라고.",
+                        "text": "그래서 버스가 섰는데도 안 내리시길래 이렇게 생각했어.",
                         "type": "narration",
                         "character": "narration",
                         "emotion": "neutral",
@@ -485,13 +512,12 @@ class ScriptService:
                         }
                     },
                     {
-                        "text": "한국 돌아가면 꼭 한번 만나요.",
+                        "text": "'잘못 누르셨나보다'.",
                         "type": "dialogue",
-                        "character": "아내",
-                        "emotion": "hope",
+                        "character": "나",
+                        "emotion": "curiosity",
                         "emotionParams": {
-                            "happiness": 0.5,
-                            "neutral": 0.5
+                            "neutral": 1.0
                         }
                     }
                 ]
@@ -499,7 +525,7 @@ class ScriptService:
             {
                 "audioArr": [
                     {
-                        "text": "솔직히 그냥 별 생각 없었는데, 한국 들어오는 날 카톡이 딱 온 거야.",
+                        "text": "근데 버스가 다시 출발하자마자 또 벨을 누르시는 거야.",
                         "type": "narration",
                         "character": "narration",
                         "emotion": "surprise",
@@ -512,90 +538,10 @@ class ScriptService:
             {
                 "audioArr": [
                     {
-                        "text": "혹시 오늘 한국 들어오시는 날 맞죠? 그때 진짜 감사했어요! 시간 괜찮으시면 밥 같이 먹을래요?",
-                        "type": "dialogue",
-                        "character": "아내",
-                        "emotion": "hope",
-                        "emotionParams": {
-                            "happiness": 0.5,
-                            "neutral": 0.5
-                        }
-                    }
-                ]
-            },
-            {
-                "audioArr": [
-                    {
-                        "text": "이러는데, 뭔가 싶어서 일단 나갔지.",
+                        "text": "이번에도 버스가 멈췄는데 할아버지는 여전히 안 내리셔.",
                         "type": "narration",
                         "character": "narration",
-                        "emotion": "curiosity",
-                        "emotionParams": {
-                            "surprise": 0.5,
-                            "neutral": 0.5
-                        }
-                    }
-                ]
-            },
-            {
-                "audioArr": [
-                    {
-                        "text": "근데 그게 밥 한끼가 두끼 되고, 영화 한 편이 두 편 되고, 결론은??? 지금 같이 살고 있고, 애도 있어.",
-                        "type": "narration",
-                        "character": "narration",
-                        "emotion": "happiness",
-                        "emotionParams": {
-                            "happiness": 1.0
-                        }
-                    }
-                ]
-            },
-            {
-                "audioArr": [
-                    {
-                        "text": "아내가 가끔 그때 얘기하면 이렇게 말해.",
-                        "type": "narration",
-                        "character": "narration",
-                        "emotion": "neutral",
-                        "emotionParams": {
-                            "neutral": 1.0
-                        }
-                    }
-                ]
-            },
-            {
-                "audioArr": [
-                    {
-                        "text": "그때 당신, 나한테 백마탄 왕자님이였어!",
-                        "type": "dialogue",
-                        "character": "아내",
-                        "emotion": "happiness",
-                        "emotionParams": {
-                            "happiness": 1.0
-                        }
-                    }
-                ]
-            },
-            {
-                "audioArr": [
-                    {
-                        "text": "이러는데, 내가 먼저 꼬셨다고 주장하더라.",
-                        "type": "narration",
-                        "character": "narration",
-                        "emotion": "neutral",
-                        "emotionParams": {
-                            "neutral": 1.0
-                        }
-                    }
-                ]
-            },
-            {
-                "audioArr": [
-                    {
-                        "text": "여행에서 이렇게 인생 파트너 만날 줄 누가 알았겠냐?",
-                        "type": "narration",
-                        "character": "narration",
-                        "emotion": "reflection",
+                        "emotion": "confusion",
                         "emotionParams": {
                             "neutral": 0.5,
                             "surprise": 0.5
@@ -606,10 +552,42 @@ class ScriptService:
             {
                 "audioArr": [
                     {
-                        "text": "인생 모르니까 누구에게나 잘해줘!",
+                        "text": "기사님도 좀 이상하셨는지 물어보셨어.",
                         "type": "narration",
                         "character": "narration",
-                        "emotion": "advice",
+                        "emotion": "neutral",
+                        "emotionParams": {
+                            "neutral": 1.0
+                        }
+                    },
+                    {
+                        "text": "할아버지~ 안 내리세요?",
+                        "type": "dialogue",
+                        "character": "버스 기사님",
+                        "emotion": "concern",
+                        "emotionParams": {
+                            "neutral": 0.7,
+                            "fear": 0.3
+                        }
+                    }
+                ]
+            },
+            {
+                "audioArr": [
+                    {
+                        "text": "할아버지가 되게 아무렇지도 않게 대답하시는 거 있지.",
+                        "type": "narration",
+                        "character": "narration",
+                        "emotion": "surprise",
+                        "emotionParams": {
+                            "surprise": 1.0
+                        }
+                    },
+                    {
+                        "text": "어? 나? 나 안내리는데?",
+                        "type": "dialogue",
+                        "character": "이상한 할아버지",
+                        "emotion": "casual",
                         "emotionParams": {
                             "neutral": 1.0
                         }
@@ -647,11 +625,17 @@ class ScriptService:
                     
                     다음은 변환 예시입니다.
 
-                    예시 스토리:
-                    {example_story}
+                    첫번째 예시 스토리:
+                    {example_story1}
                     
-                    예시 변환 JSON:
-                    {json.dumps(example_json, indent=2, ensure_ascii=False)}
+                    첫번째 예시 변환 JSON:
+                    {json.dumps(example_json1, indent=2, ensure_ascii=False)}
+
+                    두번째 예시 스토리:
+                    {example_story2}
+                    
+                    두번째 예시 변환 JSON:
+                    {json.dumps(example_json2, indent=2, ensure_ascii=False)}
                     
                     응답은 반드시 유효한 JSON 형식이어야 합니다. 
                     대사(dialogue)와 나레이션(narration)을 구분하고, 
