@@ -5,8 +5,10 @@ import com.sss.backend.api.dto.SceneImageRequest;
 import com.sss.backend.api.dto.SceneImageResponse;
 import com.sss.backend.config.AppProperties;
 import com.sss.backend.domain.document.SceneDocument;
+import com.sss.backend.domain.entity.Story;
 import com.sss.backend.domain.repository.SceneDocumentRepository;
 
+import com.sss.backend.domain.repository.StoryRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -35,6 +37,7 @@ public class ImageService {
     private final MongoTemplate mongoTemplate;
     private final ObjectMapper objectMapper; //JSON 데이터 변환에 사용
     private final SceneDocumentRepository sceneDocumentRepository;
+    private final StoryRepository storyRepository;
 
     @Value("${api.password}")
     private String apiPassword;
@@ -47,12 +50,13 @@ public class ImageService {
 
     public ImageService(WebClient webClient, AppProperties appProperties,
                         MongoTemplate mongoTemplate, ObjectMapper objectMapper,
-                        SceneDocumentRepository sceneDocumentRepository) {
+                        SceneDocumentRepository sceneDocumentRepository, StoryRepository storyRepository) {
         this.webClient = webClient;
         this.appProperties = appProperties;
         this.mongoTemplate = mongoTemplate;
         this.objectMapper = objectMapper;
         this.sceneDocumentRepository = sceneDocumentRepository;
+        this.storyRepository = storyRepository;
     }
 
 
@@ -85,6 +89,9 @@ public class ImageService {
 
             // 요청 객체 준비
             SceneImageRequest imageRequest = prepareImageRequest(sceneDocument, targetScene, sceneId);
+
+//            //요청 추가된 버전
+//            SceneImageRequest imageRequest = prepareImageRequest(sceneDocument, targetScene, sceneId, storyId);
 
             // 이미지 생성 API 호출
             return generateImage(imageRequest, storyId);
@@ -154,6 +161,61 @@ public class ImageService {
 
         return imageRequest;
     }
+
+//    //request에 storyId 추가된 버전
+//    //이미지 생성 요청 객체 준비
+//    private SceneImageRequest prepareImageRequest(SceneDocument sceneDocument, Map<String, Object> targetScene, Integer sceneId, String storyId) {
+//
+//        // 이미지 생성 요청 객체 생성
+//        SceneImageRequest imageRequest = new SceneImageRequest();
+//        imageRequest.setSceneId(sceneId);
+//
+//        // StoryMetadata 설정
+//        SceneImageRequest.StoryMetadata storyMetadata = new SceneImageRequest.StoryMetadata();
+//        storyMetadata.setStory_id(Integer.parseInt(storyId));
+//        storyMetadata.setTitle(sceneDocument.getStoryTitle());
+//
+//        //사용자가 입력한 이야기 요청에 추가
+//        String story = storyRepository.findStoryById(Long.parseLong(storyId));
+//        storyMetadata.setOriginal_story(story);
+//
+//
+//        // Characters 설정
+//        List<Map<String, Object>> characterMapList = sceneDocument.getCharacterArr();
+//        List<SceneImageRequest.Character> characters = new ArrayList<>();
+//
+//        for (Map<String, Object> charMap : characterMapList) {
+//            SceneImageRequest.Character character = new SceneImageRequest.Character();
+//            character.setName((String) charMap.get("name"));
+//
+//            // gender가 String이면 Integer로 변환 (예: "남자" :0, "여자":1)
+//            String genderStr = (String) charMap.get("gender");
+//            character.setGender(genderStr.equals("남자") ? 0 : 1);
+//
+//            character.setDescription((String) charMap.get("properties"));
+//            characters.add(character);
+//        }
+//
+//        storyMetadata.setCharacters(characters);
+//        imageRequest.setStoryMetadata(storyMetadata);
+//
+//        // Audios 설정
+//        List<Map<String, Object>> audioMapList = (List<Map<String, Object>>) targetScene.get("audioArr");
+//        List<SceneImageRequest.Audio> audios = new ArrayList<>();
+//
+//        for (Map<String, Object> audioMap : audioMapList) {
+//            SceneImageRequest.Audio audio = new SceneImageRequest.Audio();
+//            audio.setType((String) audioMap.get("type"));
+//            audio.setCharacter((String) audioMap.get("character"));
+//            audio.setText((String) audioMap.get("text"));
+//            audio.setEmotion((String) audioMap.get("emotion"));
+//            audios.add(audio);
+//        }
+//
+//        imageRequest.setAudios(audios);
+//
+//        return imageRequest;
+//    }
 
 
 
