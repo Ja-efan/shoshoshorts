@@ -44,7 +44,9 @@ public class VideoService {
     private static final Logger logger = LoggerFactory.getLogger(VideoService.class);
     private static final String TEMP_DIR = System.getProperty("java.io.tmpdir") + File.separator + "sss_app_temp";
     private static final String BACKGROUND_IMAGE_PATH = "images/background.png";
+    private static final String BACKGROUND_MUSIC_PATH = "audios"; // 배경음악 폴더 경로
     private String backgroundImageFilePath;
+    private List<String> backgroundMusicFilePaths = new ArrayList<>();
     
     private final SceneDocumentRepository sceneDocumentRepository;
     private final S3Config s3Config;
@@ -56,6 +58,7 @@ public class VideoService {
     public void init() {
         createTempDir();
         copyBackgroundImage();
+        copyBackgroundMusic();
     }
 
     private void createTempDir() {
@@ -106,6 +109,56 @@ public class VideoService {
         } catch (IOException e) {
             logger.error("배경 이미지 파일 복사 중 오류 발생: {}", e.getMessage(), e);
         }
+    }
+
+    /**
+     * 클래스패스에서 배경 음악 파일들을 복사하여 임시 디렉토리에 저장하는 메소드
+     */
+    private void copyBackgroundMusic() {
+        try {
+            // 리소스 경로에서 오디오 파일들 로드
+            ClassPathResource resource = new ClassPathResource(BACKGROUND_MUSIC_PATH);
+            if (!resource.exists()) {
+                logger.error("배경 음악 폴더를 찾을 수 없음: {}", BACKGROUND_MUSIC_PATH);
+                return;
+            }
+
+            // 리소스 폴더 내의 모든 .mp3 파일 찾기
+            File resourceFile = resource.getFile();
+            File[] musicFiles = resourceFile.listFiles((dir, name) -> name.toLowerCase().endsWith(".mp3"));
+            
+            if (musicFiles == null || musicFiles.length == 0) {
+                logger.warn("배경 음악 파일이 없음: {}", BACKGROUND_MUSIC_PATH);
+                return;
+            }
+
+            // 임시 디렉토리에 복사
+            for (File musicFile : musicFiles) {
+                String destPath = TEMP_DIR + File.separator + "audios" + File.separator + "bg_" + musicFile.getName();
+                File destFile = new File(destPath);
+                
+                // 파일 복사
+                Files.copy(musicFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                backgroundMusicFilePaths.add(destFile.getAbsolutePath());
+                logger.info("배경 음악 파일 복사 완료: {}", destFile.getAbsolutePath());
+            }
+        } catch (IOException e) {
+            logger.error("배경 음악 파일 복사 중 오류 발생: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 가용한 배경 음악 파일 중 하나를 랜덤하게 선택
+     * @return 선택된 배경 음악 파일 경로, 없으면 null
+     */
+    private String getRandomBackgroundMusic() {
+        if (backgroundMusicFilePaths.isEmpty()) {
+            logger.warn("사용 가능한 배경 음악 파일이 없습니다.");
+            return null;
+        }
+        
+        int randomIndex = (int) (Math.random() * backgroundMusicFilePaths.size());
+        return backgroundMusicFilePaths.get(randomIndex);
     }
 
     public File mergeAudioFiles(List<String> audioUrls, String outputPath) {
@@ -275,6 +328,8 @@ public class VideoService {
             String cleanOutputPath = outputPath.replace("\"", "");
             String tempOutputPath = TEMP_DIR + File.separator + "videos" + File.separator + "merged_without_subs_" + UUID.randomUUID() + ".mp4";
             String cleanTempOutputPath = tempOutputPath.replace("\"", "");
+            String tempWithMusicPath = TEMP_DIR + File.separator + "videos" + File.separator + "merged_with_music_" + UUID.randomUUID() + ".mp4";
+            String cleanTempWithMusicPath = tempWithMusicPath.replace("\"", "");
 
             // 비디오 파일을 임시 경로로 복사 (여러 파일 병합 위해 필요한 과정)
             List<String> tempVideoPaths = new ArrayList<>();
@@ -314,7 +369,44 @@ public class VideoService {
             FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
             executor.createJob(mergeBuilder).run();
             
-            // 2단계: 병합된 비디오에 자막 추가
+            // 2단계: 배경 음악 추가
+            String backgroundMusic = getRandomBackgroundMusic();
+            if (backgroundMusic != null) {
+                logger.info("배경 음악 추가: {}", backgroundMusic);
+                
+                // 비디오 길이 가져오기
+                FFmpegBuilder probeBuilder = new FFmpegBuilder()
+                    .setInput(cleanTempOutputPath)
+                    .addOutput("-")
+                    .addExtraArgs("-f", "null")
+                    .done();
+                
+                // 원본 비디오와 배경 음악 합성
+                FFmpegBuilder musicBuilder = new FFmpegBuilder()
+                    .setInput(cleanTempOutputPath)
+                    .addInput(backgroundMusic)
+                    .addExtraArgs("-y")
+                    .addOutput(cleanTempWithMusicPath)
+                    .addExtraArgs("-filter_complex", 
+                        "[1:a]volume=0.5,aloop=loop=-1:size=2e+09[a1];" + // 배경 음악 볼륨 50%로 조정하고 반복
+                        "[0:a][a1]amix=inputs=2:duration=first[aout]") // 원본 오디오와 배경 음악 믹스
+                    .addExtraArgs("-map", "0:v")
+                    .addExtraArgs("-map", "[aout]")
+                    .setVideoCodec("copy") // 비디오는 그대로 복사
+                    .setAudioCodec("aac")
+                    .setAudioBitRate(192000) // 음질 향상
+                    .setFormat("mp4")
+                    .done();
+                    
+                executor.createJob(musicBuilder).run();
+                
+                // 비디오 파일 경로 업데이트
+                cleanTempOutputPath = cleanTempWithMusicPath;
+            } else {
+                logger.warn("배경 음악을 찾을 수 없어 생략합니다.");
+            }
+            
+            // 3단계: 병합된 비디오에 자막 추가
             File subtitleFile = createSubtitleFile(storyId);
             
             FFmpegBuilder subtitleBuilder = new FFmpegBuilder()
@@ -338,6 +430,9 @@ public class VideoService {
                 new File(path).delete();
             }
             new File(cleanTempOutputPath).delete();
+            if (cleanTempOutputPath != cleanTempWithMusicPath) {
+                new File(cleanTempWithMusicPath).delete();
+            }
             subtitleFile.delete();
 
             return new File(cleanOutputPath);
