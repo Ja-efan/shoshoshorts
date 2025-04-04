@@ -32,7 +32,7 @@ public class MediaService {
 
     //모든 씬에 대한 미디어(오디오, 이미지) 생성 처리
     @Async("mediaTaskExecutor")
-    public CompletableFuture<Void> processAllScenes(String storyId) {
+    public CompletableFuture<Void> processAllScenes(String storyId, String audioModelName,String imageModelName) {
         log.info("스토리 전체 씬 미디어 처리 시작: storyId={}", storyId);
 
         try {
@@ -55,7 +55,7 @@ public class MediaService {
                 //별도 스레드에서 실행될 오디오 처리 작업 정의
                 try {
                     log.info("전체 오디오 생성 시작: storyId={}", storyId);
-                    audioService.generateAllAudios(storyId);
+                    audioService.generateAllAudios(storyId,audioModelName);
                     log.info("전체 오디오 생성 완료: storyId={}", storyId);
                 } catch (Exception e) {
                     log.error("전체 오디오 생성 중 오류: storyId={}, error={}", storyId, e.getMessage(), e);
@@ -71,7 +71,7 @@ public class MediaService {
             for (Map<String, Object> scene : sceneArr) {
                 int sceneId = ((Number) scene.get("sceneId")).intValue();
                 //각 씬에 대해 이미지 생성 메서드 호출
-                CompletableFuture<Void> imageFuture = imageService.generateImageForScene(storyId, sceneId)
+                CompletableFuture<Void> imageFuture = imageService.generateImageForScene(storyId, sceneId, imageModelName)
                         //이미지 생성 완료 시 실행됨
                         .thenAccept(response -> {
                             log.info("씬 이미지 생성 완료: storyId={}, sceneId={}, url={}",
@@ -123,12 +123,12 @@ public class MediaService {
 
     //이미지 생성 요청 메서드
     @Async("mediaTaskExecutor")
-    public CompletableFuture<Void> processSceneImage(String storyId, Integer sceneId) {
+    public CompletableFuture<Void> processSceneImage(String storyId, Integer sceneId, String imageModelName) {
         log.info("씬 이미지 처리 시작: storyId={}, sceneId={}", storyId, sceneId);
 
         try {
             // 이미지 생성 요청
-            return imageService.generateImageForScene(storyId, sceneId)
+            return imageService.generateImageForScene(storyId, sceneId, imageModelName)
                     .thenAccept(response -> {
                         log.info("씬 이미지 생성 완료: storyId={}, sceneId={}, url={}",
                                 storyId, sceneId, response.getImage_url());

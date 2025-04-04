@@ -31,8 +31,13 @@ public class AudioService {
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
 
-    @Value("${audio.api.url}")
-    private String audioApiUrl;
+    @Value("${audio.eleven.api.url}")
+    private String elevenApiUrl;
+
+    @Value("${audio.zonos.api.url}")
+    private String zonosApiUrl;
+
+
 
     public AudioService(SceneDocumentRepository sceneDocumentRepository, WebClient webClient, 
                        S3Config s3Config, FFmpeg ffmpeg, FFprobe ffprobe) {
@@ -63,7 +68,7 @@ public class AudioService {
 
 
     // 스토리 전체 오디오 생성
-    public SceneDocument generateAllAudios(String storyId) {
+    public SceneDocument generateAllAudios(String storyId, String audioModelName) {
         log.info("스토리 전체 오디오 생성 시작: storyId={}", storyId);
 
         // 스토리 문서 조회
@@ -100,10 +105,18 @@ public class AudioService {
 //                     // 오류가 있어도 다음 오디오 계속 처리
 //                 }
                 // 오류가 발생하면 즉시 전파하도록 수정
+
+                if(audioModelName.equals("Zonos")){
+                log.info("사용된 오디오 생성 모델: " + audioModelName + "--------zonos?");
+
                 //zonos
-//                generateZonosAudio(storyId, sceneId, audioId);
-//                //elevenlabs
+                generateZonosAudio(storyId, sceneId, audioId);
+
+                }else{
+                    log.info("사용된 오디오 생성 모델: " + audioModelName+ "--------elevenlabs?");
+                    //elevenlabs
                 generateAudio(storyId, sceneId, audioId);
+                }
 
             }
         }
@@ -160,7 +173,7 @@ public class AudioService {
             // WebClient를 사용하여 API 호출
             Map<String, Object> responseBody =
                     webClient.post()
-                    .uri(audioApiUrl)
+                    .uri(elevenApiUrl)
                     .header("apiPwd", activeProfile + apiPassword)
                     .bodyValue(requestData)
                     .retrieve()
@@ -267,7 +280,7 @@ public class AudioService {
             // WebClient를 사용하여 API 호출
             Map<String, Object> responseBody =
                     webClient.post()
-                            .uri(audioApiUrl)
+                            .uri(zonosApiUrl)
                             .header("apiPwd", activeProfile + apiPassword)
                             .bodyValue(requestData)
                             .retrieve()

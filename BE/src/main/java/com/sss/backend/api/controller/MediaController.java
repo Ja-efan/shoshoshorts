@@ -21,24 +21,20 @@ import java.util.concurrent.CompletableFuture;
 public class MediaController {
 
     private final MediaService mediaService;
-    private final AudioService audioService;
-    private final ImageService imageService;
 
-    public MediaController(MediaService mediaService, AudioService audioService, ImageService imageService) {
+    public MediaController(MediaService mediaService) {
         this.mediaService = mediaService;
-        this.audioService = audioService;
-        this.imageService = imageService;
     }
 
     //스토리의 모든 씬 요청
     @PostMapping("/story/{storyId}/process-all")
-    public ResponseEntity<MediaProcessResponse> processAllScenes(@PathVariable String storyId) {
+    public ResponseEntity<MediaProcessResponse> processAllScenes(@PathVariable String storyId, @RequestParam("audioModelName")String audioModelName, @RequestParam("imageModelName")String imageModelName) {
         log.info("스토리 전체 씬 미디어 처리 요청: storyId={}", storyId);
 
         log.info("fjfjfjfjfjfj");
         try {
             // MediaService의 processAllScenes 메서드 호출
-            CompletableFuture<Void> future = mediaService.processAllScenes(storyId);
+            CompletableFuture<Void> future = mediaService.processAllScenes(storyId, audioModelName, imageModelName);
 
             return ResponseEntity.ok(new MediaProcessResponse(
                     true,
