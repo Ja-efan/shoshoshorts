@@ -2,10 +2,13 @@ package com.sss.backend.api.controller;
 
 import com.sss.backend.api.dto.*;
 import com.sss.backend.config.S3Config;
+import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.entity.Video.VideoStatus;
+import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.domain.service.MediaService;
 import com.sss.backend.domain.service.StoryService;
 import com.sss.backend.domain.service.VideoService;
+import com.sss.backend.jwt.JWTUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,8 @@ public class VideoController {
     private final VideoService videoService;
     private final StoryService storyService;
     private final S3Config s3Config;
+    private final UserRepository userRepository;
+    private final JWTUtil jwtUtil;
 
     @Value("${temp.directory}")
     private String tempDirectory;
@@ -119,9 +124,24 @@ public class VideoController {
 
     // 전체 비디오 상태 조회 API
     @GetMapping("/status/allstory")
-    public ResponseEntity<VideoListResponseDTO> getAllVideoStatus() {
+    public ResponseEntity<VideoListResponseDTO> getAllVideoStatus(HttpServletRequest request) {
         try {
-            VideoListResponseDTO response = videoService.getAllVideoStatus();
+            // 토큰에서 정보 추출
+            String token = jwtUtil.extractTokenFromRequest(request);
+            
+            if (token == null) {
+                return ResponseEntity.status(401).build();
+            }
+            
+            String email = jwtUtil.getEmail(token);
+            String provider = jwtUtil.getProvider(token);
+            
+            // 이메일과 provider로 유저 정보 조회 (동일 이메일, 다른 소셜 계정 구분)
+            Users user = userRepository.findByEmailAndProvider(email, provider)
+                    .orElseThrow(() -> new RuntimeException("유저 정보를 찾을 수 없음"));
+            
+            // 해당 유저의 비디오만 조회
+            VideoListResponseDTO response = videoService.getAllVideoStatusById(user.getId());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("비디오 상태 조회 중 오류 {} ", e.getMessage(), e);
