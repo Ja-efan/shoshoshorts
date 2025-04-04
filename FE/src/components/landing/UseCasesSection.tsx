@@ -47,7 +47,7 @@ export const UseCasesSection: React.FC = () => {
     <section id="use-cases" className="py-20 bg-gray-50">
       <div className="container px-4">
         <SectionHeader
-          title="누가 쇼쇼숓을 사용하나요?"
+          title="누가 쇼쇼숏을 사용하나요?"
           description="우리 플랫폼은 다양한 스토리텔링 요구사항을 가진 폭넓은 사용자를 지원합니다"
         />
 

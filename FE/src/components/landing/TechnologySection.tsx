@@ -51,7 +51,7 @@ export const TechnologySection: React.FC = () => {
     <section id="technology" className="py-20">
       <div className="container px-4">
         <SectionHeader
-          title="쇼쇼숓의 기술"
+          title="쇼쇼숏의 기술"
           description="최첨단 AI와 머신 러닝 기술로 구동됩니다"
         />
 
