@@ -1,6 +1,14 @@
 import { store } from "@/store/store";
-import { apiService } from "@/api/api";
+import { apiService, resetRefreshTokenAttempts } from "@/api/api";
 import { SocialProvider } from "@/types/auth";
+import { clearToken } from "@/store/authSlice";
+
+// 로그인 페이지로 리디렉션하는 함수
+const redirectToLogin = () => {
+  if (typeof window !== 'undefined') {
+    window.location.href = "/login";
+  }
+};
 
 export const authService = {
   // 소셜 로그인 콜백 처리
@@ -13,23 +21,18 @@ export const authService = {
     }
   },
 
-  // 토큰 갱신 함수
-  async refreshToken(): Promise<string> {
-    try {
-      return await apiService.refreshToken();
-    } catch (error) {
-      console.error("토큰 갱신 에러:", error);
-      throw error;
-    }
-  },
-
   // 로그아웃 함수
   async logout() {
     try {
-      await apiService.logout();
+      await apiService.logout(); // API 서비스의 로그아웃 호출 (토큰 제거, 서버 로그아웃 처리)
+      redirectToLogin();
     } catch (error) {
       console.error("로그아웃 에러:", error);
-      throw error;
+      // 로그아웃 실패시에도 클라이언트에서 강제 로그아웃 처리
+      localStorage.removeItem("accessToken");
+      store.dispatch(clearToken());
+      resetRefreshTokenAttempts();
+      redirectToLogin();
     }
   },
 
