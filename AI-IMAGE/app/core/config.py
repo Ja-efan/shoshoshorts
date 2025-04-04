@@ -14,11 +14,7 @@ class Settings(BaseSettings):
     """기본 애플리케이션 설정"""
 
     API_V1_STR: str = "/api/v1"
-    PROJECT_NAME: str = "Kling AI 이미지 생성 API"
-
-    # Prompt 파일 경로
-    PROMPT_DIR: str = "app/prompts"
-    SYSTEM_PROMPT_DIR: str = os.path.join(PROMPT_DIR, "system-prompts")
+    PROJECT_NAME: str = "Scene 기반 이미지 생성 API"
 
     # API 비밀번호
     API_PWD: str = os.getenv("API_PWD")
