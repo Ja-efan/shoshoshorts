@@ -5,9 +5,10 @@ import { VideoData } from "@/types/video"
 
 interface InProgressVideoCardProps {
   video: VideoData
+  statusText?: string
 }
 
-export function InProgressVideoCard({ video }: InProgressVideoCardProps) {
+export function InProgressVideoCard({ video, statusText = "처리 중" }: InProgressVideoCardProps) {
   return (
     <Card className="overflow-hidden">
       <div className="relative aspect-video w-full">
@@ -19,13 +20,11 @@ export function InProgressVideoCard({ video }: InProgressVideoCardProps) {
         </div>
       </div>
       <div className="p-4">
-        <div className="flex items-start justify-between">
-          <h3 className="font-semibold line-clamp-1" title={video.title}>
-            {video.title}
-          </h3>
-          <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 text-blue-700">
+        <h3 className="font-medium">{video.title}</h3>
+        <div className="mt-2 flex items-center gap-2">
+          <Badge variant="secondary" className="flex items-center gap-1">
             <Loader2 className="h-3 w-3 animate-spin" />
-            처리 중
+            {statusText}
           </Badge>
         </div>
       </div>
