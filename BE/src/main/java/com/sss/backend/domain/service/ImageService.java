@@ -182,10 +182,12 @@ public class ImageService {
         try {
 
             String apiUrl = "";
-            if(imageModelName.equals("Cling")){
+            if(imageModelName.equals("Kling")){
                 apiUrl = clingApiUrl;
+                log.info(imageModelName + "---------------------clingAI 모델 사용?");
             }else{
                 apiUrl = stableApiUrl;
+                log.info(imageModelName + "------------------------stableDiffusion 모델 사용?");
             }
 
             // API 호출 (오류 응답 로깅 추가)
