@@ -925,4 +925,26 @@ public class VideoService {
         return dto;
 
     }
+
+    public boolean deleteVideo(Long userId, Long videoId) {
+        // 1. 비디오 ID로 비디오 조회
+        Optional<Video> videoOpt = videoRepository.findById(videoId);
+
+        if (videoOpt.isEmpty()) {
+            return false; // 비디오가 존재하지 않음
+        }
+
+        Video video = videoOpt.get();
+
+        // 2. 비디오의 소유자 확인 (Story의 User ID와 로그인한 사용자 ID 비교)
+        if (!video.getStory().getUser().getId().equals(userId)) {
+            return false; // 비디오 소유자가 아님
+        }
+
+        // 3. 비디오 삭제
+        videoRepository.delete(video);
+
+        // 4. S3 삭제(?)
+        return true;
+    }
 }
