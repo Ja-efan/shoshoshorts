@@ -775,8 +775,8 @@ public class VideoService {
         // 스타일 정의 수정
         assContent.append("[V4+ Styles]\n");
         assContent.append("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n");
-        assContent.append("Style: Default,NanumGothic,60,&H00000000,&H000000FF,&H00FFFFFF,&H88000000,1,0,0,0,100,100,0,0,1,3,2,5,0,0,0,1\n");
-        assContent.append("Style: Title,NanumGothic,80,&H00000000,&H000000FF,&H00FFFFFF,&HCC000000,1,0,0,0,100,100,0,0,1,3,2,1,0,0,0,1\n");
+        assContent.append("Style: Default,NanumGothic,60,&H00000000,&H000000FF,&H00FFFFFF,&H88000000,1,0,0,0,100,100,0,0,1,3,2,5,100,100,0,1\n");
+        assContent.append("Style: Title,NanumGothic,70,&H00000000,&H000000FF,&H00FFFFFF,&HCC000000,1,0,0,0,100,100,0,0,1,3,2,1,0,0,0,1\n");
         assContent.append("Style: UserInfo,NanumGothic,40,&H80808000,&H000000FF,&H00FFFFFF,&HCC000000,0,0,0,0,100,100,0,0,0,0,0,1,0,0,0,1\n");
         assContent.append("\n");
         
@@ -806,6 +806,17 @@ public class VideoService {
             for (Map<String, Object> audio : audioArr) {
                 // 텍스트와 길이 가져오기
                 String text = (String) audio.get("text");
+                
+                // 텍스트 길이에 따라 수동으로 줄바꿈 추가 (예: 20자 이상이면 중간에 줄바꿈)
+                if (text.length() > 20) {
+                    int midPoint = text.length() / 2;
+                    // 공백 위치를 찾아 가장 가까운 위치에서 줄바꿈
+                    int breakPoint = text.indexOf(" ", midPoint);
+                    if (breakPoint == -1) breakPoint = midPoint; // 공백이 없으면 중간에서 자름
+                    
+                    text = text.substring(0, breakPoint) + "\\N" + text.substring(breakPoint).trim();
+                }
+                
                 double duration = audio.containsKey("duration") ? 
                     ((Number) audio.get("duration")).doubleValue() : 3.0; // 기본값 3초
                 
@@ -813,12 +824,12 @@ public class VideoService {
                 String startTime = formatAssTime(currentTime);
                 String endTime = formatAssTime(currentTime + duration);
                 
-                // 자막 라인 추가 - 중앙이 (540,640)에 오도록
+                // 자막 라인 추가 - 중앙이 (540,640)에 오도록 + 좌우 여백 추가
                 assContent.append("Dialogue: 0,")
                          .append(startTime).append(",")
                          .append(endTime).append(",")
-                         .append("Default,,0,0,0,,{\\pos(540,640)}")
-                        .append(text)
+                         .append("Default,,100,100,0,,{\\pos(540,640)\\an5\\fs60}")
+                         .append(text)
                          .append("\n");
                 
                 // 현재 시간 업데이트
