@@ -19,7 +19,7 @@ public class VoiceResponseDTO {
     private String voiceSampleUrl;
 
     @JsonProperty("createdAt")
-    private LocalDateTime createdAt;
+    private String createdAt;
     @JsonProperty("updatedAt")
-    private LocalDateTime  updatedAt;
+    private String updatedAt;
 }

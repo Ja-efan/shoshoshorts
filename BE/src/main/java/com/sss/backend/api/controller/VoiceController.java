@@ -13,14 +13,14 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequiredArgsConstructor
 @Slf4j
-@RequestMapping("/api/voice")
+@RequestMapping("/api/speaker")
 public class VoiceController {
 
     private final JWTUtil jwtUtil;
     private final VoiceService voiceService;
 
 
-    @PostMapping("/create")
+    @PostMapping("/upload")
     public ResponseEntity<?> VoiceCreate(HttpServletRequest request,
                            @Valid @RequestBody VoiceCreateDTO dto){
 
@@ -31,10 +31,10 @@ public class VoiceController {
         String token = jwtUtil.extractTokenFromRequest(request);
         String email = jwtUtil.getEmail(token);
 
-        return voiceService.VoiceCreate(email,dto);
+        return voiceService.VoiceCreate(email, dto);
     }
 
-    @GetMapping("/mine")
+    @GetMapping("/library")
     public ResponseEntity<?> GetMyVoices(HttpServletRequest request) {
 
         return voiceService.findMyVoices(request);

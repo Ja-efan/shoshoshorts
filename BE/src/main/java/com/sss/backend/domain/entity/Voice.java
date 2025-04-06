@@ -16,7 +16,7 @@ public class Voice {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String voiceName;
+    private String title;
 
     @Lob
 //    @Column(columnDefinition = "CLOB")

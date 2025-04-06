@@ -68,7 +68,7 @@ public class VoiceService {
 
 
         Map<String, String> jsonData = Map.of(
-                "speaker_audio_base64",dto.getAudio_file()
+                "speaker_audio_base64",dto.getAudioBase64()
         );
 //        log.info("FastAPI 요청 : {}",jsonData);
         // FastAPI 에 요청
@@ -104,8 +104,9 @@ public class VoiceService {
 
             // RDBMS 저장.
             Voice voice = new Voice();
-            voice.setVoiceName(dto.getVoice_name());
+            voice.setTitle(dto.getTitle());
             voice.setVoiceSampleUrl(s3Key);
+            voice.setDescription(dto.getDescription());
             voice.setEmbeddingTensor(tensorBytes);
             voice.setUser(user);
 
@@ -138,19 +139,19 @@ public class VoiceService {
 
         List<VoiceResponseDTO> response = new ArrayList<>();
         for (Voice voice : voices) {
-            // Presigned URL 생성
+            // Todo: Presigned URL 생성 주석처리 풀기.
 //            String s3Key = s3Config.extractS3KeyFromUrl(voice.getVoiceSampleUrl());
 //            String presignedUrl = s3Config.generatePresignedUrl(s3Key);
             String presignedUrl = "http://임시 uRL";
             log.info("presignedURL : {}", presignedUrl);
             VoiceResponseDTO dto = new VoiceResponseDTO(
                     voice.getId(),
-                    voice.getVoiceName(),
+                    voice.getTitle(),
                     // Todo : presigned URL로 바꿔서 넣어야해 받아오기
                     voice.getDescription(),
                     presignedUrl,
-                    voice.getUpdatedAt(),
-                    voice.getCreatedAt()
+                    voice.getUpdatedAt() != null ? voice.getUpdatedAt().toString() : null,
+                    voice.getCreatedAt() != null ? voice.getCreatedAt().toString() : null
             );
             response.add(dto);
         }
