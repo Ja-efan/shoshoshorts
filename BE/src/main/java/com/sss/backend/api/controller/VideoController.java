@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,7 +45,7 @@ public class VideoController {
     public ResponseEntity<VideoStatusResponseDto> generateVideoAsync(
             @Valid @RequestBody StoryRequestDTO request,
             @RequestParam(value = "audioModelName", required = false, defaultValue = "ElevenLabs") String audioModelName,
-            @RequestParam(value = "imageModelName", required = false, defaultValue = "Cling") String imageModelName,
+            @RequestParam(value = "imageModelName", required = false, defaultValue = "Kling") String imageModelName,
             HttpServletRequest httpRequest) {
         try {
             // 스토리 저장
@@ -148,6 +149,40 @@ public class VideoController {
         } catch (Exception e) {
             log.error("비디오 상태 조회 중 오류 {} ", e.getMessage(), e);
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    //비디오 삭제
+    @DeleteMapping("/{videoId}")
+    public ResponseEntity<?> deleteVideo(@PathVariable Long videoId, HttpServletRequest request){
+        try{
+
+            //토큰에서 정보 추출
+            String token = jwtUtil.extractTokenFromRequest(request);
+
+            if(token == null){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("인증 토큰이 필요합니다.");
+            }
+
+            String email = jwtUtil.getEmail(token);
+            String provider = jwtUtil.getProvider(token);
+
+            //유저 정보 조회
+            Users user = userRepository.findByEmailAndProvider(email,provider)
+                    .orElseThrow(() -> new RuntimeException("해당하는 유저 정보가 없습니다."));
+
+            // 비디오 삭제 서비스 호출 (유저 ID와 비디오 ID를 전달)
+            boolean isDeleted = videoService.deleteVideo(user.getId(), videoId);
+
+            if (isDeleted) {
+                return ResponseEntity.ok().body("비디오가 성공적으로 삭제되었습니다.");
+            } else {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("해당 비디오를 삭제하지 못했습니다.");
+            }
+
+        }catch (Exception e) {
+            log.error("비디오 삭제 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("비디오 삭제 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 
