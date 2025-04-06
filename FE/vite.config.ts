@@ -12,4 +12,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+    server: {
+      proxy: {  // npm run dev 시에만 아래 프록시 설정이 적용됨
+        '/api': {
+          target: 'http://sss-backend-dev:8080',
+          changeOrigin: true,
+          secure: false,
+        },
+      },
+    },
 });
