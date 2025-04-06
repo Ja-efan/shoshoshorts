@@ -147,14 +147,18 @@ public class VoiceService {
                     voice.getId(),
                     voice.getVoiceName(),
                     // Todo : presigned URL로 바꿔서 넣어야해 받아오기
-                    presignedUrl
+                    voice.getDescription(),
+                    presignedUrl,
+                    voice.getUpdatedAt(),
+                    voice.getCreatedAt()
             );
             response.add(dto);
         }
 
         return ResponseEntity.ok(Map.of(
                 "message","success",
-                "voices",response));
+                "status",200,
+                "data",response));
     }
 }
 

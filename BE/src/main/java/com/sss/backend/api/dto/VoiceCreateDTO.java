@@ -14,5 +14,7 @@ public class VoiceCreateDTO {
     @NotBlank(message = "오디오 파일은 필수입니다.")
     private String audio_file; // base64 문자열
 
+    private String description;
+
 
 }
