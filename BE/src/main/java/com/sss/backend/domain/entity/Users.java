@@ -5,6 +5,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Getter
 @Setter
@@ -21,13 +24,16 @@ public class Users {
     private String password;
 
     @Column(name = "user_name")
-    private String userName;
-    private String nickname;
+    private String userName;    // 유저명
+    private String nickname;    // 닉네임
 
     @Column(name = "phone_number")
     private String phoneNumber;
 
-    private String provider;
+    private String provider; // Kakao, naver,google
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Voice> voice = new ArrayList<>(); // 초기화 : NPE(nullpointException) 방지.
 
     @Column(name = "youtube_token")
     private String youtubeToken;
