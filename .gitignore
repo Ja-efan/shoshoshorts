@@ -37,6 +37,7 @@ __pycache__/
 
 # 가상환경
 .env
+.env.production
 .venv/
 venv/
 env/
