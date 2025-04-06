@@ -1,25 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { apiService } from "@/api/api";
 import { useCharacter } from "@/hooks/useCharacter";
 import { CharacterForm } from "@/components/create/CharacterForm";
-import { StoryForm } from "@/components/create/StoryForm";
+import { ModelSelector } from "@/components/create/ModelSelector";
+import { NarratorSettings, NarratorRef } from "@/components/create/NarratorSettings";
 import { CurrentlyPlaying } from "@/types/character";
 import shortLogo from "@/assets/short_logo.png";
-import zonosLogo from "@/assets/models/zonos_logo.svg";
-import elevenLabsLogo from "@/assets/models/elevenlabs_logo.png";
-import klingLogo from "@/assets/models/kling_logo.png";
-import dalleLogo from "@/assets/models/dalle_logo.jpg";
-
-type ModelType = {
-  name: string;
-  logo: string;
-  isSelected: boolean;
-};
+import { ModelType } from "@/types/voice";
+import { 
+  defaultVoiceModels, 
+  defaultImageModels, 
+  voiceCodes
+} from "@/constants/voiceData";
+import { toast } from "react-hot-toast";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export default function CreateVideoPage() {
   const { characters, addCharacter, updateCharacter, removeCharacter } =
@@ -27,64 +29,86 @@ export default function CreateVideoPage() {
   const [story, setStory] = useState("");
   const [title, setTitle] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({
+    title: false,
+    story: false,
+    characters: false
+  });
   const [currentlyPlaying, setCurrentlyPlaying] = useState<CurrentlyPlaying>({
     voiceOption: null,
     characterId: null,
   });
-  const [voiceModels, setVoiceModels] = useState<ModelType[]>([
-    { name: "Zonos", logo: zonosLogo, isSelected: true },
-    { name: "ElevenLabs", logo: elevenLabsLogo, isSelected: false },
-  ]);
-  const [imageModels, setImageModels] = useState<ModelType[]>([
-    { name: "Kling", logo: klingLogo, isSelected: true },
-    { name: "DALL-E", logo: dalleLogo, isSelected: false },
-  ]);
+  const [narratorGender, setNarratorGender] = useState<"male" | "female">("male");
+  const [narratorVoice, setNarratorVoice] = useState<string>("male1");
+  const [voiceModels, setVoiceModels] = useState<ModelType[]>(defaultVoiceModels);
+  const [imageModels, setImageModels] = useState<ModelType[]>(defaultImageModels);
   const [showModelSelector, setShowModelSelector] = useState(false);
+  const narratorRef = useRef<NarratorRef>(null);
+  const navigate = useNavigate();
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const toggleModelSelector = () => {
-    setShowModelSelector(!showModelSelector);
-  };
-
-  const selectVoiceModel = (index: number) => {
-    setVoiceModels(
-      voiceModels.map((model, i) => ({
-        ...model,
-        isSelected: i === index,
-      }))
+  const validateCharacters = () => {
+    return characters.every(character => 
+      character.name.trim() !== "" && 
+      (character.description?.trim() || "").length > 0
     );
   };
 
-  const selectImageModel = (index: number) => {
-    setImageModels(
-      imageModels.map((model, i) => ({
-        ...model,
-        isSelected: i === index,
-      }))
-    );
+  // 모델 변경 시 재생 중인 모든 오디오 정지
+  const handleVoiceModelChange = () => {
+    // 캐릭터 음성 정지
+    if (currentlyPlaying.voiceOption && currentlyPlaying.characterId) {
+      setCurrentlyPlaying({ voiceOption: null, characterId: null });
+    }
+    
+    // 나레이터 음성 정지
+    if (narratorRef.current) {
+      narratorRef.current.stopAudio();
+    }
+  };
+
+  const getSelectedVoiceModel = () => {
+    return voiceModels.find(model => model.isSelected)?.name || "ElevenLabs";
+  };
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value.length <= 20) {
+      setTitle(value);
+    }
+  };
+
+  const handleStoryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    if (value.length <= 500) {
+      setStory(value);
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {
+      title: title.trim() === "" || title.length > 20,
+      story: story.trim() === "" || story.length > 500,
+      characters: characters.length > 0 && !validateCharacters()
+    };
+    setValidationErrors(errors);
+    return !Object.values(errors).some(error => error);
   };
 
   const handleGenerateVideo = async () => {
+    if (!validateForm()) {
+      toast.error("모든 캐릭터의 이름과 설명을 입력해주세요.🫰");
+      return;
+    }
+
     setIsGenerating(true);
 
-    const voiceCodes = {
-      male: [
-        "4JJwo477JUAx3HV0T7n7",
-        "PLfpgtLkFW07fDYbUiRJ",
-        "v1jVu1Ky28piIPEJqRrm",
-        "WqVy7827vjE2r3jWvbnP",
-      ],
-      female: [
-        "uyVNoMrnUku1dZyVEXwD",
-        "xi3rF0t7dg7uN2M0WUhr",
-        "z6Kj0hecH20CdetSElRT",
-        "DMkRitQrfpiddSQT5adl",
-      ],
-    };
+    const selectedVoiceModel = getSelectedVoiceModel();
 
     const requestData: any = {
       title,
       story,
-      narVoiceCode: "uyVNoMrnUku1dZyVEXwD",
+      narVoiceCode: voiceCodes[selectedVoiceModel][narratorGender][parseInt(narratorVoice.slice(-1)) - 1],
     };
 
     if (characters.length > 0) {
@@ -98,7 +122,7 @@ export default function CreateVideoPage() {
         properties: character.description || "이미지 생성을 위한 설명...",
         voiceCode:
           character.voice && character.gender
-            ? voiceCodes[character.gender][
+            ? voiceCodes[selectedVoiceModel][character.gender][
                 parseInt(character.voice.slice(-1)) - 1
               ]
             : null,
@@ -109,11 +133,18 @@ export default function CreateVideoPage() {
       console.log(requestData);
       const response = await apiService.createVideo(requestData);
       console.log("API Response:", response);
+      setShowSuccessModal(true);
     } catch (error) {
       console.error("API Error:", error);
+      toast.error("비디오 생성에 실패했습니다. 다시 시도해주세요.");
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleGoToDashboard = () => {
+    setShowSuccessModal(false);
+    navigate("/dashboard");
   };
 
   return (
@@ -132,6 +163,16 @@ export default function CreateVideoPage() {
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-3xl">
+            <ModelSelector 
+              showModelSelector={showModelSelector}
+              setShowModelSelector={setShowModelSelector}
+              voiceModels={voiceModels}
+              setVoiceModels={setVoiceModels}
+              imageModels={imageModels}
+              setImageModels={setImageModels}
+              onVoiceModelChange={handleVoiceModelChange}
+            />
+
             <h1 className="text-3xl font-bold">동영상 만들기</h1>
             <p className="mt-2 text-gray-600">
               스토리를 입력하고 캐릭터를 추가하여 1분 길이의 동영상을
@@ -139,11 +180,49 @@ export default function CreateVideoPage() {
             </p>
 
             <div className="mt-8 space-y-6">
-              <StoryForm
-                title={title}
-                story={story}
-                onTitleChange={setTitle}
-                onStoryChange={setStory}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="title">제목</Label>
+                  <div className="relative">
+                    <Input
+                      id="title"
+                      value={title}
+                      onChange={handleTitleChange}
+                      placeholder="비디오 제목을 입력하세요"
+                      className={validationErrors.title ? "border-red-500" : ""}
+                    />
+                    <span className={`absolute right-2 top-2 text-sm ${title.length > 20 ? "text-red-500" : "text-gray-500"}`}>
+                      {title.length}/20
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="story">스토리</Label>
+                  <div className="relative">
+                    <Textarea
+                      id="story"
+                      value={story}
+                      onChange={handleStoryChange}
+                      placeholder="스토리를 입력하세요"
+                      className={`min-h-[200px] ${validationErrors.story ? "border-red-500" : ""}`}
+                    />
+                    <span className={`absolute right-2 bottom-2 text-sm ${story.length > 500 ? "text-red-500" : "text-gray-500"}`}>
+                      {story.length}/500
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <NarratorSettings 
+                ref={narratorRef}
+                narratorGender={narratorGender}
+                setNarratorGender={setNarratorGender}
+                narratorVoice={narratorVoice}
+                setNarratorVoice={setNarratorVoice}
+                selectedVoiceModel={getSelectedVoiceModel()}
+                setCurrentlyPlaying={setCurrentlyPlaying}
+                currentlyPlaying={currentlyPlaying}
               />
 
               <CharacterForm
@@ -153,66 +232,10 @@ export default function CreateVideoPage() {
                 removeCharacter={removeCharacter}
                 currentlyPlaying={currentlyPlaying}
                 setCurrentlyPlaying={setCurrentlyPlaying}
+                voiceModel={getSelectedVoiceModel()}
+                validationErrors={validationErrors}
+                narratorRef={narratorRef as React.RefObject<NarratorRef>}
               />
-
-              <div className="relative">
-                <Button
-                  onClick={toggleModelSelector}
-                  variant="outline"
-                  className="w-full opacity-50 hover:opacity-100 transition-opacity"
-                >
-                  AI 모델 설정
-                </Button>
-
-                {showModelSelector && (
-                  <div className="absolute z-10 w-full mt-2 p-4 bg-white border rounded-lg shadow-lg">
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="text-sm font-medium mb-2">음성 모델</h4>
-                        <div className="flex gap-2">
-                          {voiceModels.map((model, index) => (
-                            <Button
-                              key={model.name}
-                              variant={model.isSelected ? "default" : "outline"}
-                              className="flex-1"
-                              onClick={() => selectVoiceModel(index)}
-                            >
-                              <img
-                                src={model.logo}
-                                alt={model.name}
-                                className="h-4 w-4 mr-2"
-                              />
-                              {model.name}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-medium mb-2">
-                          이미지 모델
-                        </h4>
-                        <div className="flex gap-2">
-                          {imageModels.map((model, index) => (
-                            <Button
-                              key={model.name}
-                              variant={model.isSelected ? "default" : "outline"}
-                              className="flex-1"
-                              onClick={() => selectImageModel(index)}
-                            >
-                              <img
-                                src={model.logo}
-                                alt={model.name}
-                                className="h-4 w-4 mr-2"
-                              />
-                              {model.name}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
 
               <Button
                 onClick={handleGenerateVideo}
@@ -245,6 +268,21 @@ export default function CreateVideoPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>비디오 생성 요청 완료</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>비디오 생성이 정상적으로 요청되었습니다.</p>
+            <p>대시보드에서 생성 진행 상황을 확인할 수 있습니다.</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleGoToDashboard}>대시보드로 이동</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

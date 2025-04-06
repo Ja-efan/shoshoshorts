@@ -29,7 +29,8 @@ public class JWTFilter extends OncePerRequestFilter {
 
     // 요청마다 실행되는 필터 로직
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
 
         // 토큰 가져오기.
         String token = jwtUtil.extractTokenFromRequest(request);
@@ -41,10 +42,11 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         try {
-            String username = jwtUtil.getUsername(token);
+//            String username = jwtUtil.getUsername(token);
             String role = jwtUtil.getRole(token);
+            String email = jwtUtil.getEmail(token);
 
-            UserDTO userDTO = new UserDTO(username, role);
+            UserDTO userDTO = new UserDTO(email, role);
             CustomOAuth2User principal = new CustomOAuth2User(userDTO);
 
             Authentication authToken = new UsernamePasswordAuthenticationToken(
@@ -52,7 +54,7 @@ public class JWTFilter extends OncePerRequestFilter {
             );
 
             SecurityContextHolder.getContext().setAuthentication(authToken);
-            log.info("인증완료 {}", username);
+            log.info("인증완료 email : {}", email);
 
         } catch (Exception e) {
             log.error("JWT 인증 실패 {}",e.getMessage());

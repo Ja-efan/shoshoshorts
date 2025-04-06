@@ -1,7 +1,7 @@
 package com.sss.backend.domain.service;
 
-import com.nimbusds.openid.connect.sdk.claims.UserInfo;
 import com.sss.backend.api.dto.OAuth.UserInfoDTO;
+import com.sss.backend.api.dto.OAuth.UpdateProfileDTO;
 import com.sss.backend.api.dto.TokenResponse;
 import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.repository.UserRepository;
@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -29,6 +30,7 @@ public class OAuthService {
     private final UserRepository userRepository ;
     private final TokenService tokenService;
 
+
     @Value("${oauth2.redirect.google}")
     private String googleRedirectUri;
 
@@ -37,6 +39,23 @@ public class OAuthService {
 
     @Value("${oauth2.redirect.kakao}")
     private String kakaoRedirectUri;
+
+    public void updateProfile(String email, UpdateProfileDTO dto) {
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("유저정보를 찾을 수 없습니다."));
+
+        // 정보 수정
+        if (dto.getNickname() != null) user.setNickname(dto.getNickname());
+        if (dto.getPhoneNumber() != null) user.setPhoneNumber(dto.getPhoneNumber());
+//        if (dto.getYoutubeToken() != null) user.setNickname(dto.getYoutubeToken());
+//        if (dto.getInstagramToken() != null) user.setNickname(dto.getInstagramToken());
+//        if (dto.getTiktokToken() != null) user.setNickname(dto.getTiktokToken());
+
+        userRepository.save(user);
+        log.info("업데이트 된 정보 : {}",user);
+
+    }
+
 
     public ResponseEntity<?> processOAuthLogin(String provider, String code){
         log.info(" ### OAuth Login - Provider : {} ",provider);
@@ -123,6 +142,7 @@ public class OAuthService {
         // 3. 사용자 정보 추출 (provider 별 분기)
         final String email; // Lambda 함수 내에서 변수값 변경하려면 final 로 선언
         final String name;  // 1회만 초기화.
+        final String picture_url;
         switch (provider.toLowerCase()) {
             case "google" -> {
                 email = (String) userInfo.get("email");
@@ -130,14 +150,17 @@ public class OAuthService {
             }
             //Todo : 구현 예정
             case "naver" -> {
-                log.info("NAVER response : {}",userInfo);
-                email = "";
-                name = "";
+                Map<String, Object> responseData = (Map<String, Object>) userInfo.get("response");
+                log.info("NAVER response : {}",responseData);
+                email = (String) responseData.get("email");
+                name = (String) responseData.get("name");
             }
             case "kakao" -> {
                 log.info("KAKAO response : {}",userInfo);
-                email = "";
-                name = "";
+                Map<String, Object> kakaoAccount = (Map<String, Object>) userInfo.get("kakao_account");
+                Map<String, Object> kakaoProfile = (Map<String, Object>) kakaoAccount.get("profile");
+                email = (String) kakaoAccount.get("email");
+                name = (String) kakaoProfile.get("nickname");
             }
             default -> {
                 throw new RuntimeException("지원 X");
@@ -145,16 +168,24 @@ public class OAuthService {
         }
         log.info("사용자 이메일: {}, 이름: {}", email, name);
 
-        // 4. 유저 DB에서 조회, 없으면 회원 가입
-        Users user = userRepository.findByEmail(email).orElseGet(() -> {
-            log.info("등록된 유저가 없습니다. 새로운 User 생성");
-            Users newUser = new Users(email, name, "ROLE_USER",provider);
+        Users user;
 
-            // 닉네임 생성 및 추가
-            String nickname = generateRandomNickanme();
-            newUser.setNickname(nickname);
-            return userRepository.save(newUser);
-        });
+        // 4. 유저 DB에서 조회, 없으면 회원 가입
+        try {
+            user = userRepository.findByEmail(email).orElseGet(() -> {
+                log.info("등록된 유저가 없습니다. 새로운 User 생성");
+                Users newUser = new Users(email, name, "ROLE_USER", provider);
+
+                // 닉네임 생성 및 추가
+                String nickname = generateRandomNickanme();
+                newUser.setNickname(nickname);
+                return userRepository.save(newUser);
+            });
+        } catch (DataIntegrityViolationException e ) { // 무결성을 위반했을 때 발생하는 예외.
+            // 이미 누군가 저장했다면
+            log.info("DB에 이미 존재함 : {}",e.getMessage());
+            user = userRepository.findByEmail(email).orElseThrow();
+        }
 
         // 5. 토큰 생성
         String accessToken = tokenService.createAccessToken(user);
@@ -164,30 +195,7 @@ public class OAuthService {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(new TokenResponse(accessToken));
-
-//        // 5. JWT 발급
-//        String accessToken = jwtUtil.createAccessToken(user.getEmail(),user.getRole(),user.getProvider(),10 * 60 *1000L);
-//        String refreshToken = jwtUtil.createRefreshToken(user.getEmail(), 7 * 24 * 60 * 60 * 1000L); // 7일
-//
-//        // 5.5 Redis에 Refresh 토큰 저장
-//        redisService.saveToken(email,refreshToken);
-//
-//        // 6. Refresh Token -> HttpOnly 쿠키에 담기
-//        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", refreshToken)
-//                .httpOnly(true)
-//                .path("/")
-//                .maxAge(7 * 24 * 60 * 60) // 7일
-//                .sameSite("Lax")
-//                .secure(true) // https 환경에서만 전송되도록 (로컬은 false)
-//                .build();
-//
-//        // 7. AccessToken은 Body에 응답
-//        return ResponseEntity.ok()
-//                .header(HttpHeaders.SET_COOKIE,refreshCookie.toString())
-//                .body(new TokenResponse(accessToken));
     }
-
-
 
     /**
      * 닉네임 자동 메소드
