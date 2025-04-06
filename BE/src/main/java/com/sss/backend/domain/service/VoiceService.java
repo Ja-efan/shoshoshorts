@@ -121,6 +121,40 @@ public class VoiceService {
         return ResponseEntity.ok(Map.of("message","보이스 생성 및 저장이 완료되었습니다."));
     }
 
+    @Transactional //
+    public ResponseEntity<?> findMyVoices(HttpServletRequest request) {
 
+        String token = jwtUtil.extractTokenFromRequest(request);
+        String email = jwtUtil.getEmail(token);
+
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("유저 정보를 찾을 수 없습니다"));
+
+        log.info("유저 : {}",user);
+
+        List<Voice> voices = voiceRepository.findAllByUser(user);
+
+        log.info("voices : {}",voices);
+
+        List<VoiceResponseDTO> response = new ArrayList<>();
+        for (Voice voice : voices) {
+            // Presigned URL 생성
+//            String s3Key = s3Config.extractS3KeyFromUrl(voice.getVoiceSampleUrl());
+//            String presignedUrl = s3Config.generatePresignedUrl(s3Key);
+            String presignedUrl = "http://임시 uRL";
+            log.info("presignedURL : {}", presignedUrl);
+            VoiceResponseDTO dto = new VoiceResponseDTO(
+                    voice.getId(),
+                    voice.getVoiceName(),
+                    // Todo : presigned URL로 바꿔서 넣어야해 받아오기
+                    presignedUrl
+            );
+            response.add(dto);
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "message","success",
+                "voices",response));
+    }
 }
 
