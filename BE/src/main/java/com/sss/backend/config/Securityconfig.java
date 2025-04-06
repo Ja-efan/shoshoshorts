@@ -80,7 +80,7 @@ public class Securityconfig {
             "http://localhost:5173",
             "http://shoshoshorts.duckdns.org",
             //Todo 개발 후 삭제
-            "http://localhost:63342" // ← IntelliJ에서 HTML 열릴 때 이 주소로 열림
+            "http://localhost:63342", // ← IntelliJ에서 HTML 열릴 때 이 주소로 열림
             "https://shoshoshorts.duckdns.org"  // HTTPS 주소 추가
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
