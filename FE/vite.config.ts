@@ -13,9 +13,9 @@ export default defineConfig({
     },
   },
     server: {
-      proxy: {
+      proxy: {  // npm run dev 시에만 아래 프록시 설정이 적용됨
         '/api': {
-          target: 'http://localhost:8080',
+          target: 'http://sss-backend-dev:8080',
           changeOrigin: true,
           secure: false,
         },
