@@ -26,7 +26,7 @@ echo "────────────────────────�
 
 # Docker Compose를 사용하여 프론트엔드 서비스 실행
 echo "Docker Compose를 사용하여 프론트엔드 개발 환경을 실행합니다..."
-docker compose -f docker-compose.dev.yml up -d frontend redis
+docker compose -f docker-compose.dev.yml up -d frontend redis --build
 
 echo "프론트엔드 개발 환경이 실행되었습니다."
 echo "프론트엔드는 http://localhost:3000 에서 접근 가능합니다."
