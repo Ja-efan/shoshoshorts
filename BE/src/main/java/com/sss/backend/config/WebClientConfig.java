@@ -54,4 +54,13 @@ public class WebClientConfig {
 
     }
 
+    @Bean(name = "webClientVoice")
+    public WebClient webClientVoice(WebClient.Builder builder) {
+        return builder
+                .baseUrl("http://64.46.12.35:40696")  // 컨테이너 네트워크에서 접속
+                .defaultHeader("Content-Type", "application/json")
+                .build();
+
+    }
+
 }

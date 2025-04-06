@@ -1,6 +1,7 @@
 package com.sss.backend.config;
 
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,7 @@ import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 
 @Configuration
+@Slf4j
 @Getter
 public class S3Config {
 
@@ -121,6 +123,11 @@ public class S3Config {
      */
     public String extractS3KeyFromUrl(String url) {
         // URL 형식: https://shoshoshorts.s3.ap-northeast-2.amazonaws.com/project1/audios/file.mp3
+        if (url == null || url.isBlank()) {
+            log.warn("S3 URL is null or blank");
+            return "";
+        }
+
         String[] parts = url.split(".amazonaws.com/");
         if (parts.length != 2) {
             throw new IllegalArgumentException("잘못된 S3 URL 형식: " + url);
