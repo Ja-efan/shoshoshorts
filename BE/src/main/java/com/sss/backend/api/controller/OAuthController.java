@@ -2,6 +2,7 @@ package com.sss.backend.api.controller;
 
 import com.sss.backend.api.dto.OAuth.OAuthLoginRequestDTO;
 import com.sss.backend.api.dto.OAuth.UpdateProfileDTO;
+import com.sss.backend.api.dto.OAuth.UserInfoDTO;
 import com.sss.backend.domain.service.OAuthService;
 import com.sss.backend.domain.service.TokenService;
 import com.sss.backend.jwt.JWTUtil;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -76,6 +78,14 @@ public class OAuthController {
 
         oAuthService.updateProfile(email, dto);
         return ResponseEntity.ok(Map.of("message","유저 정보가 업데이트되었습니다."));
+    }
+
+    @Transactional
+    @GetMapping("/userdata")
+    public ResponseEntity<?> getUserInfo(HttpServletRequest request) {
+        log.info("유저 정보 조회 API 호출");
+
+        return oAuthService.getUserInfo(request);
     }
 
 }

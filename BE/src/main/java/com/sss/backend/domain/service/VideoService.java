@@ -24,9 +24,13 @@ import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.domain.entity.VideoProcessingStep;
 import com.sss.backend.domain.service.VideoProcessingStatusService;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.support.ResourcePatternResolver;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -59,7 +63,9 @@ public class VideoService {
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
     private final VideoProcessingStatusService videoProcessingStatusService;
-    
+
+    private final ResourcePatternResolver resourcePatternResolver = new PathMatchingResourcePatternResolver();
+
     @PostConstruct
     public void init() {
         createTempDir();
@@ -122,31 +128,28 @@ public class VideoService {
      */
     private void copyBackgroundMusic() {
         try {
-            // 리소스 경로에서 오디오 파일들 로드
-            ClassPathResource resource = new ClassPathResource(BACKGROUND_MUSIC_PATH);
-            if (!resource.exists()) {
-                logger.error("배경 음악 폴더를 찾을 수 없음: {}", BACKGROUND_MUSIC_PATH);
-                return;
-            }
-
-            // 리소스 폴더 내의 모든 .mp3 파일 찾기
-            File resourceFile = resource.getFile();
-            File[] musicFiles = resourceFile.listFiles((dir, name) -> name.toLowerCase().endsWith(".mp3"));
+            // ResourcePatternResolver를 사용하여 모든 mp3 파일을 찾음
+            Resource[] resources = resourcePatternResolver.getResources("classpath:" + BACKGROUND_MUSIC_PATH + "/*.mp3");
             
-            if (musicFiles == null || musicFiles.length == 0) {
+            if (resources.length == 0) {
                 logger.warn("배경 음악 파일이 없음: {}", BACKGROUND_MUSIC_PATH);
                 return;
             }
 
             // 임시 디렉토리에 복사
-            for (File musicFile : musicFiles) {
-                String destPath = TEMP_DIR + File.separator + "audios" + File.separator + "bg_" + musicFile.getName();
+            for (Resource resource : resources) {
+                String filename = resource.getFilename();
+                if (filename == null) continue;
+
+                String destPath = TEMP_DIR + File.separator + "audios" + File.separator + "bg_" + filename;
                 File destFile = new File(destPath);
                 
-                // 파일 복사
-                Files.copy(musicFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                backgroundMusicFilePaths.add(destFile.getAbsolutePath());
-                logger.info("배경 음악 파일 복사 완료: {}", destFile.getAbsolutePath());
+                // 파일 복사 (InputStream 사용)
+                try (InputStream inputStream = resource.getInputStream()) {
+                    Files.copy(inputStream, destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    backgroundMusicFilePaths.add(destFile.getAbsolutePath());
+                    logger.info("배경 음악 파일 복사 완료: {}", destFile.getAbsolutePath());
+                }
             }
         } catch (IOException e) {
             logger.error("배경 음악 파일 복사 중 오류 발생: {}", e.getMessage(), e);
@@ -661,7 +664,7 @@ public class VideoService {
     public void updateVideoCompleted(String storyId, String videoUrl) {
         // 상태 업데이트: 완료
         updateVideoStatus(storyId, VideoStatus.COMPLETED, videoUrl);
-        
+
         // 처리 단계 정보 삭제 (완료되었으므로)
         videoProcessingStatusService.deleteProcessingStep(storyId);
     }
@@ -672,7 +675,7 @@ public class VideoService {
     public void updateVideoFailed(String storyId, String errorMessage) {
         // 상태 업데이트: 실패
         updateVideoStatus(storyId, VideoStatus.FAILED, errorMessage);
-        
+
         // 처리 단계 정보 삭제
         videoProcessingStatusService.deleteProcessingStep(storyId);
     }
@@ -695,10 +698,10 @@ public class VideoService {
             
             // 비디오 렌더링 완료 상태 업데이트
             videoProcessingStatusService.updateProcessingStep(storyId, VideoProcessingStep.VIDEO_RENDER_COMPLETED);
-            
+
             // 비디오 업로드 중 상태 업데이트
             videoProcessingStatusService.updateProcessingStep(storyId, VideoProcessingStep.VIDEO_UPLOADING);
-            
+
             // S3에 업로드할 키 생성
             String timestamp = java.time.format.DateTimeFormatter
                 .ofPattern("yyyyMMdd_HHmmss")
@@ -1009,12 +1012,13 @@ public class VideoService {
         // 각 비디오에 대해 반복
         for (Video video : videos) {
             VideoStatusAllDTO dto = mapToVideoStatusDTO(video);
-            // 중복 코드 제거 - mapToVideoStatusDTO에서 이미 처리 단계 정보 추가
+            //결과 list에 추가
             result.add(dto);
         }
         return new VideoListResponseDTO(result);
+
     }
-    
+
     private VideoStatusAllDTO mapToVideoStatusDTO(Video video) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -1027,7 +1031,7 @@ public class VideoService {
                 ? video.getCompletedAt().format(formatter)
                 : null;
 
-        // 썸네일용 Presigned Url 생성
+        //썸네일용 Presigned Url 생성
         String thumbnailUrl = getFirstImageURL(storyId);
 
         // video_url이 있는 경우에만 presigned URL 생성
