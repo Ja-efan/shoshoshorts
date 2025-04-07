@@ -791,7 +791,7 @@ public class VideoService {
 
 
     //이미지 presigned URL 생성 메소드
-    private String getFirstImageURL(String storyId) {
+    public String getFirstImageURL(String storyId) {
         // 스토리 id로 MongoDB에서 ScenceDocument 조회
         Optional<SceneDocument> sceneOpt = sceneDocumentRepository.findByStoryId(storyId);
         log.info("sceneDocument : {}",sceneOpt);
