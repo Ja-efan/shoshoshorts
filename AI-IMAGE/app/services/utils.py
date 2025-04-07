@@ -69,23 +69,23 @@ def check_scene(scene: Scene) -> dict:
             validation_errors["original_story"] = "원본 스토리가 누락되었습니다."
             result = False
 
-        # StoryMetadata.characters 검증
-        if not scene.story_metadata.characters:
-            validation_errors["characters"] = "등장 인물 정보가 누락되었습니다."
-            result = False
-        else:
-            # 각 캐릭터 정보 검증
-            for idx, character in enumerate(scene.story_metadata.characters):
-                if not character.name:
-                    validation_errors[f"character_{idx}_name"] = (
-                        f"{idx+1}번째 등장인물의 이름이 누락되었습니다."
-                    )
-                    result = False
-                if character.gender not in [0, 1]:
-                    validation_errors[f"character_{idx}_gender"] = (
-                        f"{idx+1}번째 등장인물의 성별이 유효하지 않습니다. (0: 남자, 1: 여자)"
-                    )
-                    result = False
+        # # StoryMetadata.characters 검증
+        # if not scene.story_metadata.characters:
+        #     validation_errors["characters"] = "등장 인물 정보가 누락되었습니다."
+        #     result = False
+        # else:
+        #     # 각 캐릭터 정보 검증
+        #     for idx, character in enumerate(scene.story_metadata.characters):
+        #         if not character.name:
+        #             validation_errors[f"character_{idx}_name"] = (
+        #                 f"{idx+1}번째 등장인물의 이름이 누락되었습니다."
+        #             )
+        #             result = False
+        #         if character.gender not in [0, 1]:
+        #             validation_errors[f"character_{idx}_gender"] = (
+        #                 f"{idx+1}번째 등장인물의 성별이 유효하지 않습니다. (0: 남자, 1: 여자)"
+        #             )
+        #             result = False
 
     # Scene.audios 검증
     if not scene.audios or len(scene.audios) == 0:

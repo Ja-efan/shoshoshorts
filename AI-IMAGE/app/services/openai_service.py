@@ -107,6 +107,7 @@ class OpenAIService:
         )
 
         # 장면 정보 생성
+        # TODO: 캐릭터가 없는 경우 (나레이션만 존재하는 경우) 처리
         scene_info = f"""
             장면 제목: {scene.story_metadata.title}
             장면 ID: {scene.scene_id}
