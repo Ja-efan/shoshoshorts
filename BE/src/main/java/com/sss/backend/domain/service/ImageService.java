@@ -144,7 +144,11 @@ public class ImageService {
 
             // gender가 String이면 Integer로 변환 (예: "남자" :0, "여자":1)
             String genderStr = (String) charMap.get("gender");
-            character.setGender(genderStr.equals("남자") ? 0 : 1);
+            if(genderStr.equals("남성") || genderStr.equals("남자") || genderStr.equals("1")){
+                character.setGender(0);
+            }else if(genderStr.equals("여성") || genderStr.equals("여자") || genderStr.equals("2")){
+                character.setGender(1);
+            }
 
             character.setDescription((String) charMap.get("properties"));
             characters.add(character);
