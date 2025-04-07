@@ -110,6 +110,9 @@ class RegisterSpeakerRequest(BaseModel):
 
 # 화자 등록 응답 모델
 class RegisterSpeakerResponse(BaseModel):
+    s3_url: str = Field(
+        description="S3에 업로드된 샘플 오디오 파일 URL"
+    ),
     speaker_tensor: List[List[List[float]]] = Field(
         default=[], 
         description="화자 오디오 파일 S3 URL (선택 사항)"
