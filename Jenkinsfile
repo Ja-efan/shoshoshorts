@@ -18,6 +18,13 @@ pipeline {
                     file(credentialsId: 'be-prod-env', variable: 'BE_ENV')
                 ]) {
                     sh '''
+                      # 권한 문제 해결을 위한 디렉토리 권한 설정
+                      mkdir -p FE
+                      mkdir -p BE
+                      chmod -R 777 FE
+                      chmod -R 777 BE
+                      chmod 777 .
+                      
                       # FRONTEND
                       cp $FE_ENV FE/.env.production
                       # BACKEND
