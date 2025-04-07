@@ -90,7 +90,7 @@ class OpenAIConfig:
     SYSTEM_PROMPT_DIR: str = os.path.join(PROMPT_DIR, "system-prompts")
     SYSTEM_PROMPT = {
         "image_prompt": os.path.join(
-            SYSTEM_PROMPT_DIR, "image_prompts", "disney-pixar_style_v01.txt"
+            SYSTEM_PROMPT_DIR, "image_prompts", "disney-pixar_style_v02.txt"
         ),
         "scene_info": os.path.join(
             SYSTEM_PROMPT_DIR, "sceneinfo_prompts", "sceneinfo_v02.txt"
