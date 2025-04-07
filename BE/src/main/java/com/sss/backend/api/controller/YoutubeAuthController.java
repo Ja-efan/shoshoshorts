@@ -19,11 +19,7 @@ public class YoutubeAuthController {
     @Value("${frontend.redirect.url}")
     private String frontendRedirectUrl;
 
-    // 쿠키 설정
-    @Value("${youtube.cookie.domain:localhost}")
-    private String cookieDomain;
-
-    @Value("${youtube.cookie.secure:false}")
+    @Value("${youtube.cookie.secure}")
     private boolean cookieSecure;
 
     @Value("${youtube.cookie.max-age:3600}")
@@ -66,6 +62,9 @@ public class YoutubeAuthController {
             cookie.setPath("/");       // 모든 경로에서 사용 가능
             cookie.setMaxAge(3600);  // 쿠키 만료 시간 (초)
 
+            // HTTPS 환경에서는 Secure 플래그 설정
+            cookie.setSecure(cookieSecure);
+
 //            // SameSite 속성 설정 (Jakarta Servlet 5.0+ 또는 Spring 3.0+에서 사용 가능)
 //            // 이전 버전에서는 헤더를 직접 설정해야 함
 //            try {
@@ -100,48 +99,6 @@ public class YoutubeAuthController {
         }
     }
 
-
-//    /**
-//     * 토큰 유효성을 검사하는 엔드포인트
-//     * Authorization 헤더 또는 쿠키에서 토큰을 가져옴
-//     */
-//    @PostMapping("/validate")
-//    public ResponseEntity<?> validateToken(@RequestHeader(value = "Authorization", required = false) String authHeader,
-//                                           @CookieValue(value = "youtube_access_token", required = false) String cookieToken) {
-//        try {
-//            // 토큰 소스 우선순위: 헤더 > 쿠키
-//            String accessToken = null;
-//
-//            if (authHeader != null && !authHeader.isEmpty()) {
-//                accessToken = authHeader.replace("Bearer ", "");
-//
-////                // 토큰에서 state 파라미터 제거
-////                if (accessToken.contains("&state=")) {
-////                    accessToken = accessToken.substring(0, accessToken.indexOf("&state="));
-////                }
-//            } else if (cookieToken != null && !cookieToken.isEmpty()) {
-//                accessToken = cookieToken;
-//            }
-//
-//            if (accessToken == null) {
-//                throw new IllegalArgumentException("토큰을 찾을 수 없습니다.");
-//            }
-//
-//            boolean isValid = youtubeAuthService.validateToken(accessToken);
-//
-//            Map<String, Object> response = new HashMap<>();
-//            response.put("valid", isValid);
-//
-//            return ResponseEntity.ok(response);
-//        } catch (Exception e) {
-//            Map<String, Object> response = new HashMap<>();
-//            response.put("valid", false);
-//            response.put("message", e.getMessage());
-//
-//            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
-//        }
-//    }
-
     /**
      * 인증 상태를 확인하는 엔드포인트
      * 쿠키에서 토큰을 읽어 유효성을 검사
@@ -174,12 +131,11 @@ public class YoutubeAuthController {
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(0); // 즉시 만료
+        cookie.setSecure(cookieSecure); // HTTPS 환경에서는 Secure 플래그 설정
 
         response.addCookie(cookie);
 
         return ResponseEntity.ok(Map.of("message", "로그아웃 되었습니다."));
     }
-
-
 
 }

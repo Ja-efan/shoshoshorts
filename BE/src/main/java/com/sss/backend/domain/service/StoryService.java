@@ -103,6 +103,9 @@ public class StoryService {
             // 변환 작업 실행
             Map<String, Object> transformedJson = scriptTransformService.transformScriptJson(response);
 
+            // 캐릭터 정보가 없을 경우 기본 캐릭터 정보 추가
+            addDefaultCharactersIfNeeded(transformedJson);
+
             saveScenesToMongoDB(transformedJson);
         } catch (Exception e) {
             System.out.println("FastAPI 요청 실패 :"+ e.getMessage());
@@ -293,8 +296,78 @@ public class StoryService {
     public void saveStoryWithProcessingStatus(Long storyId, StoryRequestDTO request) {
         // 스크립트 처리 단계 설정
         videoProcessingStatusService.updateProcessingStep(storyId.toString(), VideoProcessingStep.SCRIPT_PROCESSING);
-        
+
         // 기존 스토리 저장 로직 수행
         saveStory(storyId, request);
+    }
+
+    /**
+     * 캐릭터 정보가 없는 경우 기본 캐릭터 정보를 생성하여 추가하는 메소드
+     * audioArr에 나오는 각 character의 이름으로 기본 캐릭터를 생성한다
+     * @param transformedJson FastAPI 응답 변환 후 JSON
+     */
+    private void addDefaultCharactersIfNeeded(Map<String, Object> transformedJson) {
+        if (transformedJson == null) {
+            return;
+        }
+
+        Map<String, Object> scriptJson = (Map<String, Object>) transformedJson.get("script_json");
+        if (scriptJson == null) {
+            return;
+        }
+
+        // 캐릭터 배열 확인
+        List<Map<String, Object>> characterArr = (List<Map<String, Object>>) scriptJson.get("characterArr");
+
+        // 캐릭터 정보가 없거나 비어있는 경우에만 기본 캐릭터 생성
+        if (characterArr == null || characterArr.isEmpty()) {
+            log.info("캐릭터가 비어있어 기본 캐릭터를 생성합니다.");
+            List<Map<String, Object>> sceneArr = (List<Map<String, Object>>) scriptJson.get("sceneArr");
+            String narVoiceCode = (String) scriptJson.get("narVoiceCode");
+
+            if (sceneArr != null && !sceneArr.isEmpty()) {
+                // 캐릭터 이름을 저장할 Set (중복 제거)
+                java.util.Set<String> characterNames = new java.util.HashSet<>();
+
+                // 모든 씬의 오디오 배열에서 캐릭터 이름 추출
+                for (Map<String, Object> scene : sceneArr) {
+                    List<Map<String, Object>> audioArr = (List<Map<String, Object>>) scene.get("audioArr");
+                    if (audioArr != null) {
+                        for (Map<String, Object> audio : audioArr) {
+                            String character = (String) audio.get("character");
+                            // "narration"이 아닌 실제 캐릭터 이름만 추가
+                            if (character != null && !character.equals("narration")) {
+                                characterNames.add(character);
+                            }
+                        }
+                    }
+                }
+
+                // 추출된 캐릭터가 없는 경우 기본 캐릭터 "주인공" 추가
+                if (characterNames.isEmpty()) {
+                    characterNames.add("나");
+                    log.info("대화 캐릭터가 없어 기본 '나' 캐릭터를 추가합니다.");
+                }
+
+                // 새 캐릭터 배열 생성
+                List<Map<String, Object>> newCharacterArr = new java.util.ArrayList<>();
+
+                // 추출된 캐릭터 이름으로 기본 캐릭터 정보 생성
+                for (String name : characterNames) {
+                    Map<String, Object> character = new java.util.HashMap<>();
+                    character.put("name", name);
+                    // 성별 랜덤 지정 (남자 또는 여자)
+                    character.put("gender", new java.util.Random().nextBoolean() ? "남자" : "여자");
+                    character.put("properties", "검은 머리, 검은 눈");
+                    character.put("voiceCode", narVoiceCode);
+
+                    newCharacterArr.add(character);
+                }
+
+                // 생성된 기본 캐릭터 정보를 JSON에 설정
+                scriptJson.put("characterArr", newCharacterArr);
+                log.info("캐릭터 정보가 없어 기본 캐릭터 생성: {}", newCharacterArr);
+            }
+        }
     }
 }
