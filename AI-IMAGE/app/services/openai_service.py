@@ -9,7 +9,7 @@ from typing import Union, Tuple
 
 from openai import OpenAI
 
-from app.schemas.models import Scene, SceneInfo, SceneSummary
+from app.schemas.models import Scene, SceneInfo, SceneMetadata, SceneSummary
 from app.core.config import settings
 from app.core.logger import app_logger
 from app.core.api_config import openai_config
@@ -85,13 +85,17 @@ class OpenAIService:
         return base_negative_prompt
 
     @staticmethod
-    async def generate_scene_info(scene: Scene, style: Union[str, ImageStyle]) -> str:
+    async def generate_scene_info(
+        scene: Scene, style: Union[str, ImageStyle]
+    ) -> SceneInfo:
         """
         장면 정보를 바탕으로 이미지 프롬프트 생성에 필요한 장면 정보(scene_info)를 생성합니다.
         """
 
         # 시스템 프롬프트 (scene_info)
         system_prompt = OpenAIService.get_system_prompt("scene_info")
+
+        # TODO: 캐릭터가 없는 경우 (나레이션만 존재하는 경우) 처리 -> 일단 JAVA에서 기본 캐릭터 추가해서 전송
 
         # 장면 요약 생성 (gpt-4o-mini)
         response = client.beta.chat.completions.parse(
@@ -100,40 +104,41 @@ class OpenAIService:
                 {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
-                    "content": json.dumps(scene.model_dump(), ensure_ascii=False),
+                    "content": json.dumps(
+                        scene.model_dump(), ensure_ascii=False, indent=2
+                    ),
                 },
             ],
             response_format=SceneSummary,
         )
+        scene_summary = response.choices[0].message.parsed.summary
 
-        # 장면 정보 생성
-        # TODO: 캐릭터가 없는 경우 (나레이션만 존재하는 경우) 처리
-        scene_info = f"""
-            장면 제목: {scene.story_metadata.title}
-            장면 ID: {scene.scene_id}
-            장면 스타일: {style}
+        scene_audios = scene.audios
 
-            등장인물:
         """
+        SCENE_CONTENT 추출 
+        형식:  
+            "{'type': 'narration', 'text': '기사님도 좀 이상하셨는지 물어보셨어.', 'character': 'narration', 'emotion': None}\n
+            {'type': 'dialogue', 'text': '할아버지~ 안 내리세요?', 'character': '버스 기사님', 'emotion': 'concern'}"
+        """
+        scene_content_list = []
+        for audio in scene_audios:
+            audio_dict = dict(audio.model_dump())
+            audio_str = f"{audio_dict}"
+            scene_content_list.append(audio_str)
+        scene_content = "\n".join(scene_content_list)
 
-        for char in scene.story_metadata.characters:
-            gender = "남자" if char.gender == 0 else "여자"
-            scene_info += f"- {char.name} ({gender}): {char.description}\n"
+        scene_info = SceneInfo(
+            characters=scene.story_metadata.characters,
+            scene_content=scene_content,
+            scene_summary=scene_summary,
+            scene_metadata=SceneMetadata(
+                title=scene.story_metadata.title,
+                scene_id=scene.scene_id,
+                style=style,
+            ),
+        )
 
-        scene_info += "\n장면 내용:\n"
-
-        for audio in scene.audios:
-            if audio.type == "narration":
-                scene_info += f"[내레이션] {audio.text}\n"
-            elif audio.type == "dialogue":
-                emotion_text = f" ({audio.emotion})" if audio.emotion else ""
-                scene_info += f"[대사] {audio.character}{emotion_text}: {audio.text}\n"
-            elif audio.type == "sound":
-                scene_info += f"[효과음] {audio.text}\n"
-
-        scene_info += f"장면 요약: {response.choices[0].message.parsed.summary}"
-
-        app_logger.debug(f"Scene Info: \n{scene_info}")
         return scene_info
 
     @staticmethod
