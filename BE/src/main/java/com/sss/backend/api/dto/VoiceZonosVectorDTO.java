@@ -11,6 +11,6 @@ import java.util.List;
 @NoArgsConstructor
 public class VoiceZonosVectorDTO {
     private List<List<List<Float>>> speaker_tensor; // 3중 lsit
-    private String voice_url;
+    private String s3_url;
 
 }

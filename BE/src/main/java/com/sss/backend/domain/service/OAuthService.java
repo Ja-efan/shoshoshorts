@@ -4,6 +4,7 @@ import com.sss.backend.api.dto.OAuth.UserInfoDTO;
 import com.sss.backend.api.dto.OAuth.UpdateProfileDTO;
 import com.sss.backend.api.dto.TokenResponse;
 import com.sss.backend.api.dto.VoiceResponseDTO;
+import com.sss.backend.config.S3Config;
 import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.entity.Voice;
 import com.sss.backend.domain.repository.UserRepository;
@@ -17,6 +18,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -33,6 +35,7 @@ public class OAuthService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final UserRepository userRepository ;
     private final TokenService tokenService;
+    private final S3Config s3Config;
 
 
     @Value("${oauth2.redirect.google}")
@@ -226,12 +229,23 @@ public class OAuthService {
 
         // Voice 순회하면서 DTO에 넣기
         for (Voice voice : voices) {
+
+            // Presigned URL
+            log.info("url : {}",voice.getVoiceSampleUrl());
+            String presignedUrl = "http://...";
+//            if (voice.getVoiceSampleUrl().isEmpty() && voice.getVoiceSampleUrl() != null){
+            if (StringUtils.hasText(voice.getVoiceSampleUrl())){
+                // null, "", " " 모두 확인.
+//                String s3Key = s3Config.extractS3KeyFromUrl(voice.getVoiceSampleUrl());
+                presignedUrl = s3Config.generatePresignedUrl(voice.getVoiceSampleUrl());
+            }
+
+
             VoiceResponseDTO voicedto = new VoiceResponseDTO(
                     voice.getId(),
                     voice.getTitle(),
                     voice.getDescription(),
-                    //Todo: voiceUrl presigned로 바꾸기
-                    voice.getVoiceSampleUrl(),
+                    presignedUrl,
                     voice.getCreatedAt() != null ? voice.getCreatedAt().toString() : null,
                     voice.getUpdatedAt() != null ? voice.getUpdatedAt().toString() : null
             );
