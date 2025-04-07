@@ -68,10 +68,19 @@ public class YoutubeAuthService {
      * Google 인증 URL 생성
      * @return 인증 URL 문자열
      */
-    public String generateAuthUrl() {
+    public String generateAuthUrl(String storyId) {
 
-        // 고유한 상태 값 생성 (CSRF 공격 방지)
-        String state = UUID.randomUUID().toString();
+        // 상태값 생성 (CSRF 공격 방지 + 스토리 ID 포함)
+        String state;
+
+        if (storyId != null && !storyId.isEmpty()) {
+            // storyId가 제공된 경우: "randomUUID:storyId" 형식으로 state 생성
+            state = UUID.randomUUID().toString() + ":" + storyId;
+        } else {
+            // storyId가 없는 경우: 기존과 동일하게 UUID만 사용
+            state = UUID.randomUUID().toString();
+        }
+
 
         System.out.println("state: "+ state);
 
@@ -134,6 +143,26 @@ public class YoutubeAuthService {
             e.printStackTrace();
             return false; // API 호출 실패 시 토큰 무효
         }
+    }
+
+
+    /**
+     * state 파라미터에서 storyId 추출
+     * @param state OAuth 콜백으로 받은 state 값
+     * @return 추출된 storyId 또는 null
+     */
+    public String extractStoryIdFromState(String state) {
+        if (state == null || state.isEmpty()) {
+            return null;
+        }
+
+        // state 형식이 "randomUUID:storyId"인 경우 storyId 추출
+        String[] parts = state.split(":", 2);
+        if (parts.length == 2) {
+            return parts[1];
+        }
+
+        return null; // storyId가 포함되지 않은 경우
     }
 
 }
