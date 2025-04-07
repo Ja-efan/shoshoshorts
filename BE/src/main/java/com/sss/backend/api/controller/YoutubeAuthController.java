@@ -37,8 +37,8 @@ public class YoutubeAuthController {
      * 프론트엔드에서 이 URL로 사용자를 리다이렉트하여 Google 로그인을 시작함
      */
     @GetMapping("")
-    public ResponseEntity<Map<String, String>> getAuthUrl() {
-        String authUrl = youtubeAuthService.generateAuthUrl();
+    public ResponseEntity<Map<String, String>> getAuthUrl(@RequestParam(value = "storyId") String storyId) {
+        String authUrl = youtubeAuthService.generateAuthUrl(storyId);
         Map<String, String> response = new HashMap<>();
         response.put("authUrl", authUrl);
         return ResponseEntity.ok(response);
@@ -88,9 +88,21 @@ public class YoutubeAuthController {
 
             response.addCookie(cookie);
 
+            // state 파라미터에서 storyId 추출
+            String storyId = youtubeAuthService.extractStoryIdFromState(state);
+
+            // 리다이렉트 URL 구성
+            StringBuilder redirectUrlBuilder = new StringBuilder(frontendRedirectUrl);
+            redirectUrlBuilder.append("?authSuccess=true");
+
+            // storyId가 있으면 추가
+            if (storyId != null && !storyId.isEmpty()) {
+                redirectUrlBuilder.append("&storyId=").append(storyId);
+            }
+
             // 인증 성공 정보만 포함하여 프론트엔드로 리다이렉트
             RedirectView redirectView = new RedirectView();
-            redirectView.setUrl(frontendRedirectUrl + "?authSuccess=true");
+            redirectView.setUrl(redirectUrlBuilder.toString());
             return redirectView;
         } catch (Exception e) {
             RedirectView redirectView = new RedirectView();
