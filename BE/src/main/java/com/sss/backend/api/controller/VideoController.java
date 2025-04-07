@@ -119,7 +119,7 @@ public class VideoController {
             if (status.getStatus() == VideoStatus.PROCESSING) {
                 VideoProcessingStep step = videoProcessingStatusService.getProcessingStep(storyId);
                 if (step != null) {
-                    status.setProcessingStep(step.getDescription());
+                    status.setProcessingStep(step.name());
                 }
             }
 
