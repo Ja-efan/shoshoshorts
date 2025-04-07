@@ -21,6 +21,8 @@ public class SceneDocument {
     private String storyId;
     private String storyTitle;
     private String narVoiceCode;
+    private String audioModelName;
+    private String imageModelName;
     private List<Map<String,Object>> characterArr;
     private List<Map<String,Object>> sceneArr;
 }
