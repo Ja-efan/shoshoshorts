@@ -34,10 +34,8 @@ async def test_generate_scene_info(scene: Scene):
     app_logger.info(
         f"장면 정보 생성 테스트 시작: \n{json.dumps(scene.model_dump(), ensure_ascii=False, indent=2)}"
     )
-    response = await OpenAIService.generate_scene_info(scene)
-    app_logger.info(
-        f"장면 정보 생성 테스트 완료: \n{json.dumps(response.model_dump(), ensure_ascii=False, indent=2)}"
-    )
+    response = await OpenAIService.generate_scene_info(scene, style="DISNEY_PIXAR")
+    app_logger.info(f"장면 정보 생성 테스트 완료: \n{response}")
     return response
 
 
@@ -120,7 +118,7 @@ async def test_generate_image_prompt_with_scene_info(
         app_logger.error(f"OpenAI API 오류: {str(e)}")
 
 
-@router.post("/simple_generate_image")
+@router.post("/generate_image_with_prompt")
 async def test_generate_image(request: ImagePromptRequest):
     """프롬프트만 입력받아 KlingAI API를 직접 호출하여 이미지 생성 테스트"""
     app_logger.info(
@@ -213,9 +211,9 @@ async def test_generate_image(request: ImagePromptRequest):
                 )
                 return result
             else:
-                app_logger.error("이미지 생성 실패: KLINAI image url 없음")
+                app_logger.error("이미지 생성 실패: KlingAI image url 없음")
                 raise HTTPException(
-                    status_code=500, detail="이미지 생성 실패: KLINAI image url 없음"
+                    status_code=500, detail="이미지 생성 실패: KlingAI image url 없음"
                 )
 
     except HTTPException:
