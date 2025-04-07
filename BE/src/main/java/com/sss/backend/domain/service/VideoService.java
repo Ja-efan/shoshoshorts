@@ -22,9 +22,13 @@ import com.sss.backend.domain.entity.Video.VideoStatus;
 import com.sss.backend.api.dto.VideoStatusResponseDto;
 import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.repository.UserRepository;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.support.ResourcePatternResolver;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -56,6 +60,8 @@ public class VideoService {
     private final StoryRepository storyRepository;
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
+    
+    private final ResourcePatternResolver resourcePatternResolver = new PathMatchingResourcePatternResolver();
     
     @PostConstruct
     public void init() {
@@ -119,31 +125,28 @@ public class VideoService {
      */
     private void copyBackgroundMusic() {
         try {
-            // 리소스 경로에서 오디오 파일들 로드
-            ClassPathResource resource = new ClassPathResource(BACKGROUND_MUSIC_PATH);
-            if (!resource.exists()) {
-                logger.error("배경 음악 폴더를 찾을 수 없음: {}", BACKGROUND_MUSIC_PATH);
-                return;
-            }
-
-            // 리소스 폴더 내의 모든 .mp3 파일 찾기
-            File resourceFile = resource.getFile();
-            File[] musicFiles = resourceFile.listFiles((dir, name) -> name.toLowerCase().endsWith(".mp3"));
+            // ResourcePatternResolver를 사용하여 모든 mp3 파일을 찾음
+            Resource[] resources = resourcePatternResolver.getResources("classpath:" + BACKGROUND_MUSIC_PATH + "/*.mp3");
             
-            if (musicFiles == null || musicFiles.length == 0) {
+            if (resources.length == 0) {
                 logger.warn("배경 음악 파일이 없음: {}", BACKGROUND_MUSIC_PATH);
                 return;
             }
 
             // 임시 디렉토리에 복사
-            for (File musicFile : musicFiles) {
-                String destPath = TEMP_DIR + File.separator + "audios" + File.separator + "bg_" + musicFile.getName();
+            for (Resource resource : resources) {
+                String filename = resource.getFilename();
+                if (filename == null) continue;
+                
+                String destPath = TEMP_DIR + File.separator + "audios" + File.separator + "bg_" + filename;
                 File destFile = new File(destPath);
                 
-                // 파일 복사
-                Files.copy(musicFile.toPath(), destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                backgroundMusicFilePaths.add(destFile.getAbsolutePath());
-                logger.info("배경 음악 파일 복사 완료: {}", destFile.getAbsolutePath());
+                // 파일 복사 (InputStream 사용)
+                try (InputStream inputStream = resource.getInputStream()) {
+                    Files.copy(inputStream, destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    backgroundMusicFilePaths.add(destFile.getAbsolutePath());
+                    logger.info("배경 음악 파일 복사 완료: {}", destFile.getAbsolutePath());
+                }
             }
         } catch (IOException e) {
             logger.error("배경 음악 파일 복사 중 오류 발생: {}", e.getMessage(), e);
