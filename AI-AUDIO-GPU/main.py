@@ -14,6 +14,7 @@ from datetime import datetime
 import logging
 import pytz
 import base64
+import uuid
 
 from zonos.model import Zonos, DEFAULT_BACKBONE_CLS as ZonosBackbone
 from zonos.conditioning import make_cond_dict, supported_language_codes
@@ -342,7 +343,7 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         # 진행 상태 업데이트 콜백 함수 (로깅용)
         def update_progress(_frame: torch.Tensor, step: int, _total_steps: int) -> bool:
             if step % 10 == 0:  # 10단계마다 로그 출력
-                print(f"생성 진행 중: {step}/{_total_steps} ({step/_total_steps*100:.1f}%)")
+                print(f"생성 진행 중: {step}/{estimated_total_steps} ({step/estimated_total_steps*100:.1f}%)")
             return True
         
         codes = model.generate(
@@ -427,7 +428,7 @@ async def text_to_speech(request: TTSRequest, background_tasks: BackgroundTasks)
         raise HTTPException(status_code=500, detail=f"TTS 처리 중 오류 발생: {str(e)}")
 
 @app.post("/zonos/base64_to_tensor", response_model=RegisterSpeakerResponse)
-async def base64_to_tensor(request: RegisterSpeakerRequest):
+async def base64_to_tensor(request: RegisterSpeakerRequest, background_tasks: BackgroundTasks):
     """
     화자를 등록하는 API 엔드포인트
     """
@@ -456,8 +457,130 @@ async def base64_to_tensor(request: RegisterSpeakerRequest):
         
         # float로 바꾸기
         speaker_embedding_3d = speaker_embedding.cpu().float().tolist()
+
+        # 2. 예시 mp3 만들기
+        # 샘플링 파라미터 추출
+        sampling_params = {
+            "top_p": 0.0,
+            "top_k": 0,
+            "min_p": 0.0,
+            "linear": 0.5,
+            "conf": 0.4,
+            "quad": 0.0
+        }
+        # 시드 설정정
+        seed = torch.randint(0, 2**32 - 1, (1,)).item()
+        torch.manual_seed(seed)
+
+        # 감정 텐서 생성
+        emotion_tensor = torch.tensor([0.1, 0, 0, 0, 0, 0, 0, 1.0], device=device)
+        
+        # VQ 점수 텐서 생성
+        vq_tensor = torch.tensor([0.78] * 8, device=device).unsqueeze(0)
+
+        # 입력 파라미터 타입 변환 및 검증
+        speaker_noised_bool = bool(False)
+        fmax = float(22050)
+        pitch_std = float(45.0)
+        speaking_rate = float(20.0)
+        cfg_scale = float(2.0)
+
+        speaker_embedding = speaker_embedding.to(device, dtype=torch.bfloat16)
+
+        # 조건부 딕셔너리 생성
+        cond_dict = make_cond_dict(
+            text="등록한 목소리로 생성한 샘플 음성입니다.",
+            language="ko",
+            speaker=speaker_embedding,
+            emotion=emotion_tensor,
+            vqscore_8=vq_tensor,
+            fmax=fmax,
+            pitch_std=pitch_std,
+            speaking_rate=speaking_rate,
+            speaker_noised=speaker_noised_bool,
+            device=device,
+            unconditional_keys=[],
+        )
+        conditioning = CURRENT_MODEL.prepare_conditioning(cond_dict)
+
+        # 오디오 생성
+        max_new_tokens = 86 * 30  # 약 30초 분량의 오디오 생성 (86 토큰/초)
+
+        # 생성 시간 및 단계 추정
+        estimated_generation_duration = 30 * len("등록한 목소리로 생성한 샘플 음성입니다.") / 400
+        estimated_total_steps = int(estimated_generation_duration * 86)
+
+        # 진행 상태 업데이트 콜백 함수 (로깅용)
+        def update_progress(_frame: torch.Tensor, step: int, _total_steps: int) -> bool:
+            if step % 10 == 0:  # 10단계마다 로그 출력
+                print(f"생성 진행 중: {step}/{estimated_total_steps} ({step/estimated_total_steps*100:.1f}%)")
+            return True
+        
+        codes = CURRENT_MODEL.generate(
+            prefix_conditioning=conditioning,
+            audio_prefix_codes=None,
+            max_new_tokens=max_new_tokens,
+            cfg_scale=cfg_scale,
+            batch_size=1,
+            sampling_params=sampling_params,
+            callback=update_progress,
+        )
+
+        # GPU 텐서를 CPU 메모리에 기반한 처리를 위해서 텐서를 CPU로 옮김
+        wav_out = CURRENT_MODEL.autoencoder.decode(codes).cpu().detach()
+        sr_out = CURRENT_MODEL.autoencoder.sampling_rate
+        if wav_out.dim() == 2 and wav_out.size(0) > 1:
+            wav_out = wav_out[0:1, :]
+        
+        # 현재 스크립트 경로 기준으로 output 폴더 생성
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        output_dir = os.path.join(script_dir, "output/speaker")  # 현재 폴더 내의 output 디렉토리 사용
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # 오디오를 바이트로 인코딩
+        audio_bytes = get_audio_bytes(wav_out.squeeze().numpy(), sr_out)
+        print("\n\n\naudio_bytes:")
+        print(audio_bytes)
+
+        # content_type = response.headers.get("Content-Type", f"audio/{request.output_format}")
+        output_format = "mp3"
+        content_type = "audio/mp3"
+        
+        # 파일명 생성 (시간 기반)
+        kst = pytz.timezone('Asia/Seoul')
+        timestamp = datetime.now(kst).strftime("%Y%m%d_%H%M%S")
+        random_filename = str(uuid.uuid4())
+
+        object_name = f"speaker/{timestamp}_{random_filename}.{output_format}"
+        local_file_name = f"output/speaker/{timestamp}_{random_filename}.{output_format}"
+        
+        # 로컬 경로에 오디오 저장
+        logger.info(f"오디오 파일 저장 중: {local_file_name}")
+        try:
+            save_audio_to_file(wav_out.squeeze().numpy(), sr_out, local_file_name)
+            logger.info(f"오디오 파일 저장 완료: {local_file_name}")
+            
+            # 파일이 실제로 존재하는지 확인
+            if not os.path.exists(local_file_name):
+                logger.info(f"경고: 파일이 저장되지 않았습니다: {local_file_name}")
+        except Exception as e:
+            logger.info(f"오디오 파일 저장 중 오류 발생: {str(e)}")
+            # 오류가 발생해도 계속 진행
+        
+        # 메모리 정리를 위한 백그라운드 태스크
+        background_tasks.add_task(torch.cuda.empty_cache)
+
+        # 3. 예시 mp3를 S3에 업로드 한 후 URL 반환
+        logger.info(f"오디오 데이터를 S3에 업로드 중: {len(audio_bytes)} 바이트")
+        upload_result = upload_binary_to_s3(audio_bytes, object_name, content_type)
+        
+        if not upload_result["success"]:
+            raise ValueError(f"S3 업로드 실패: {upload_result.get('error')}")
+        
+        logger.info(f"S3 업로드 완료: {upload_result['url']}")
         
         return RegisterSpeakerResponse(
+            s3_url = upload_result["url"],
             speaker_tensor=speaker_embedding_3d
         )
     
