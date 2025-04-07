@@ -124,7 +124,7 @@ public class VideoController {
             }
 
             // 썸네일 URL 추가
-            String thumbnailUrl = videoService.getThumbnailUrl(storyId);
+            String thumbnailUrl = videoService.getFirstImageURL(storyId);
             if (thumbnailUrl != null) {
                 status.setThumbnailUrl(thumbnailUrl);
             }
