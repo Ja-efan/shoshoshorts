@@ -117,7 +117,7 @@ public class VoiceService {
 
             return ResponseEntity.ok(Map.of(
                     "message","보이스 생성 및 저장이 완료되었습니다.",
-                    "presignedUrl",presignedUrl,
+                    "voiceSampleUrl",presignedUrl,
                     "status",200
             ));
 
