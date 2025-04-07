@@ -1,44 +1,27 @@
 services:
-  frontend:
+  frontend:                # ← 기존 nginx 서비스를 대체
     build:
       context: ./FE
       dockerfile: Dockerfile
     container_name: sss-frontend
-    profiles:
-      - builder 
-    networks:
-      - sss-network
-
-  nginx:
-    image: nginx:latest
-    container_name: sss-nginx
     ports:
-      - "80:80"  # HTTP 포트
-      - "443:443"  # HTTPS 포트
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
-      - ./FE/dist:/usr/share/nginx/html
-      - /etc/letsencrypt:/etc/letsencrypt:ro   # ← 🔐 인증서 읽기 전용 마운트
-    depends_on:
-      - backend
+      - /etc/letsencrypt:/etc/letsencrypt:ro   # 인증서 읽기
     networks:
       - sss-network
     restart: unless-stopped
 
   backend:
-    image: sss-backend:latest
+    build:
+      context: ./BE
+      dockerfile: Dockerfile
     container_name: sss-backend
     ports:
       - "${BACKEND_PORT}:8080"
     env_file:
       - .env
-    environment:
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${POSTGRES_DB}
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
-      - SPRING_DATA_MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/${MONGO_DB}?authSource=admin
-      - API_PASSWORD=${API_PASSWORD}
     depends_on:
       - db
       - mongo
@@ -76,6 +59,18 @@ services:
       - sss-network
     restart: unless-stopped
 
+  # Redis 서비스
+  redis:
+    image: redis:7.2-alpine
+    container_name: sss-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - sss-network
+    restart: unless-stopped
+
 networks:
   sss-network:
     driver: bridge
@@ -83,3 +78,4 @@ networks:
 volumes:
   postgres-data:
   mongo-data:
+  redis-data:

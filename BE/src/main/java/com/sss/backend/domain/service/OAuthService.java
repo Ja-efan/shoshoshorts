@@ -1,8 +1,12 @@
 package com.sss.backend.domain.service;
 
+import com.sss.backend.api.dto.OAuth.UserInfoDTO;
 import com.sss.backend.api.dto.OAuth.UpdateProfileDTO;
 import com.sss.backend.api.dto.TokenResponse;
+import com.sss.backend.api.dto.VoiceResponseDTO;
+import com.sss.backend.config.S3Config;
 import com.sss.backend.domain.entity.Users;
+import com.sss.backend.domain.entity.Voice;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.jwt.JWTUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,10 +18,13 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -28,6 +35,7 @@ public class OAuthService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final UserRepository userRepository ;
     private final TokenService tokenService;
+    private final S3Config s3Config;
 
 
     @Value("${oauth2.redirect.google}")
@@ -204,5 +212,57 @@ public class OAuthService {
         String timestamp = LocalDateTime.now().format(formatter);
         return "user_" + timestamp;
 
+    }
+
+    public ResponseEntity<?> getUserInfo(HttpServletRequest request) {
+        String token = jwtUtil.extractTokenFromRequest(request);
+        String email = jwtUtil.getEmail(token);
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("유저 없음"));
+        log.info("User : {}",user);
+
+        // 유저가 등록한 voice 가져오기
+        List<Voice> voices = user.getVoice();
+
+        // Voice라이브러리 저장할 List
+        List<VoiceResponseDTO> speakerLibrary = new ArrayList<>();
+
+        // Voice 순회하면서 DTO에 넣기
+        for (Voice voice : voices) {
+
+            // Presigned URL
+            log.info("url : {}",voice.getVoiceSampleUrl());
+            String presignedUrl = "http://...";
+//            if (voice.getVoiceSampleUrl().isEmpty() && voice.getVoiceSampleUrl() != null){
+            if (StringUtils.hasText(voice.getVoiceSampleUrl())){
+                // null, "", " " 모두 확인.
+//                String s3Key = s3Config.extractS3KeyFromUrl(voice.getVoiceSampleUrl());
+                presignedUrl = s3Config.generatePresignedUrl(voice.getVoiceSampleUrl());
+            }
+
+
+            VoiceResponseDTO voicedto = new VoiceResponseDTO(
+                    voice.getId(),
+                    voice.getTitle(),
+                    voice.getDescription(),
+                    presignedUrl,
+                    voice.getCreatedAt() != null ? voice.getCreatedAt().toString() : null,
+                    voice.getUpdatedAt() != null ? voice.getUpdatedAt().toString() : null
+            );
+            speakerLibrary.add(voicedto);
+        }
+
+        // Info Response DTO
+        UserInfoDTO dto = new UserInfoDTO();
+        dto.setName(user.getNickname());
+        dto.setEmail(user.getEmail());
+        dto.setToken(0);
+        dto.setSpeakerLibrary(speakerLibrary);
+
+        return ResponseEntity.ok(Map.of(
+                "message","success",
+                "status", 200,
+                "data",dto
+        ));
     }
 }

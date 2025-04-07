@@ -4,9 +4,11 @@ import com.sss.backend.api.dto.*;
 import com.sss.backend.config.S3Config;
 import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.entity.Video.VideoStatus;
+import com.sss.backend.domain.entity.VideoProcessingStep;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.domain.service.MediaService;
 import com.sss.backend.domain.service.StoryService;
+import com.sss.backend.domain.service.VideoProcessingStatusService;
 import com.sss.backend.domain.service.VideoService;
 import com.sss.backend.jwt.JWTUtil;
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,6 +38,7 @@ public class VideoController {
     private final S3Config s3Config;
     private final UserRepository userRepository;
     private final JWTUtil jwtUtil;
+    private final VideoProcessingStatusService videoProcessingStatusService;
 
     @Value("${temp.directory}")
     private String tempDirectory;
@@ -44,7 +48,7 @@ public class VideoController {
     public ResponseEntity<VideoStatusResponseDto> generateVideoAsync(
             @Valid @RequestBody StoryRequestDTO request,
             @RequestParam(value = "audioModelName", required = false, defaultValue = "ElevenLabs") String audioModelName,
-            @RequestParam(value = "imageModelName", required = false, defaultValue = "Cling") String imageModelName,
+            @RequestParam(value = "imageModelName", required = false, defaultValue = "Kling") String imageModelName,
             HttpServletRequest httpRequest) {
         try {
             // 스토리 저장
@@ -57,9 +61,11 @@ public class VideoController {
             // 비동기 처리 시작
             CompletableFuture.runAsync(() -> {
                 try {
-                    storyService.saveStory(storyId, request);
+                    // 스토리 서비스에서 스크립트 생성 및 상태 업데이트 처리
+                    storyService.saveStoryWithProcessingStatus(storyId, request);
                     log.info("스토리 스크립트 생성 완료");
-                    // 상태 업데이트: 처리 중
+                    
+                    // 상태 업데이트: 처리 중 (비디오 서비스에서 처리)
                     videoService.updateVideoStatus(storyId.toString(), VideoStatus.PROCESSING, null);
                     
                     // // 미디어 생성 처리
@@ -67,24 +73,27 @@ public class VideoController {
                     // future.get(30, TimeUnit.MINUTES);
                     // 미디어 생성 처리 - 실패 시 즉시 예외 전파
                     try {
-                        CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString(),audioModelName, imageModelName);
+                        // 미디어 서비스에서 오디오/이미지 생성 및 상태 업데이트
+                        CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString(), audioModelName, imageModelName);
                         future.get(30, TimeUnit.MINUTES);
                     } catch (Exception e) {
                         log.error("미디어 생성 중 오류 발생: {}", e.getMessage(), e);
                         videoService.updateVideoStatus(storyId.toString(), VideoStatus.FAILED, "미디어 생성 실패: " + e.getMessage());
+                        // 상태 삭제는 VideoService에서 처리
                         throw e; // 예외를 상위로 전파하여 비디오 생성 중단
                     }
-                    // 비디오 생성 및 업로드
+                    
+                    // 비디오 생성 및 업로드 - 비디오 서비스에서 상태 업데이트
                     String outputPath = tempDirectory + "/" + UUID.randomUUID() + "_final.mp4";
                     String videoUrl = videoService.createAndUploadVideo(storyId.toString(), outputPath);
                     
-                    // 상태 업데이트: 완료
-                    videoService.updateVideoStatus(storyId.toString(), VideoStatus.COMPLETED, videoUrl);
+                    // 상태 업데이트: 완료 (VideoService에서 처리)
+                    videoService.updateVideoCompleted(storyId.toString(), videoUrl);
                     
                 } catch (Exception e) {
                     log.error("비디오 생성 중 오류 발생: {}", e.getMessage(), e);
-                    // 상태 업데이트: 실패
-                    videoService.updateVideoStatus(storyId.toString(), VideoStatus.FAILED, e.getMessage());
+                    // 상태 업데이트: 실패 (VideoService에서 처리)
+                    videoService.updateVideoFailed(storyId.toString(), e.getMessage());
                 }
             });
             
@@ -105,6 +114,15 @@ public class VideoController {
     public ResponseEntity<VideoStatusResponseDto> getVideoStatus(@PathVariable String storyId) {
         try {
             VideoStatusResponseDto status = videoService.getVideoStatus(storyId);
+            
+            // PROCESSING 상태일 때만 세부 처리 단계 정보 추가
+            if (status.getStatus() == VideoStatus.PROCESSING) {
+                VideoProcessingStep step = videoProcessingStatusService.getProcessingStep(storyId);
+                if (step != null) {
+                    status.setProcessingStep(step.getDescription());
+                }
+            }
+            
             return ResponseEntity.ok(status);
         } catch (Exception e) {
             log.error("비디오 상태 조회 중 오류: {}", e.getMessage(), e);
@@ -148,6 +166,40 @@ public class VideoController {
         } catch (Exception e) {
             log.error("비디오 상태 조회 중 오류 {} ", e.getMessage(), e);
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    //비디오 삭제
+    @DeleteMapping("/{videoId}")
+    public ResponseEntity<?> deleteVideo(@PathVariable Long videoId, HttpServletRequest request){
+        try{
+
+            //토큰에서 정보 추출
+            String token = jwtUtil.extractTokenFromRequest(request);
+
+            if(token == null){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("인증 토큰이 필요합니다.");
+            }
+
+            String email = jwtUtil.getEmail(token);
+            String provider = jwtUtil.getProvider(token);
+
+            //유저 정보 조회
+            Users user = userRepository.findByEmailAndProvider(email,provider)
+                    .orElseThrow(() -> new RuntimeException("해당하는 유저 정보가 없습니다."));
+
+            // 비디오 삭제 서비스 호출 (유저 ID와 비디오 ID를 전달)
+            boolean isDeleted = videoService.deleteVideo(user.getId(), videoId);
+
+            if (isDeleted) {
+                return ResponseEntity.ok().body("비디오가 성공적으로 삭제되었습니다.");
+            } else {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("해당 비디오를 삭제하지 못했습니다.");
+            }
+
+        }catch (Exception e) {
+            log.error("비디오 삭제 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("비디오 삭제 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 
