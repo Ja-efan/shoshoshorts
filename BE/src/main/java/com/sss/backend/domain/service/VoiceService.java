@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 
 
@@ -83,7 +84,7 @@ public class VoiceService {
 //        log.info("FastAPI Response : {}",body);
 
         if (body == null) {
-            return ResponseEntity.status(500).body(Map.of("error", "FastAPI 응답이 null입니다."));
+            return ResponseEntity.status(500).body(Map.of("error", "FastAPI Zonos 응답이 null입니다."));
         }
 
         // 응답처리  (embedding_tensor, voice_url)
@@ -100,7 +101,7 @@ public class VoiceService {
 
 
             // S3 키만 저장
-            String s3Key = s3Config.extractS3KeyFromUrl(body.getVoice_url());
+            String s3Key = s3Config.extractS3KeyFromUrl(body.getS3_url());
 
             // RDBMS 저장.
             Voice voice = new Voice();
@@ -111,15 +112,21 @@ public class VoiceService {
             voice.setUser(user);
 
             voiceRepository.save(voice);
+
+            String presignedUrl = s3Config.generatePresignedUrl(s3Key);
+
+            return ResponseEntity.ok(Map.of(
+                    "message","보이스 생성 및 저장이 완료되었습니다.",
+                    "presignedUrl",presignedUrl,
+                    "status",200
+            ));
+
         }
         catch (JsonProcessingException e) {
             log.error("Tensor Json 직렬화 실패 : {}",e.getMessage());
             return ResponseEntity.status(500).body(Map.of("error","서버 내부 오류 (tensro 직렬화 실패)"));
         }
 
-
-
-        return ResponseEntity.ok(Map.of("message","보이스 생성 및 저장이 완료되었습니다."));
     }
 
     @Transactional //
@@ -139,10 +146,14 @@ public class VoiceService {
 
         List<VoiceResponseDTO> response = new ArrayList<>();
         for (Voice voice : voices) {
-            // Todo: Presigned URL 생성 주석처리 풀기.
-//            String s3Key = s3Config.extractS3KeyFromUrl(voice.getVoiceSampleUrl());
-//            String presignedUrl = s3Config.generatePresignedUrl(s3Key);
-            String presignedUrl = "http://임시 uRL";
+            log.info("url : {}",voice.getVoiceSampleUrl());
+            String presignedUrl = "http://...";
+//            if (voice.getVoiceSampleUrl().isEmpty() && voice.getVoiceSampleUrl() != null){
+            if (StringUtils.hasText(voice.getVoiceSampleUrl())){
+                // null, "", " " 모두 확인.
+//                String s3Key = s3Config.extractS3KeyFromUrl(voice.getVoiceSampleUrl());
+                presignedUrl = s3Config.generatePresignedUrl(voice.getVoiceSampleUrl());
+            }
             log.info("presignedURL : {}", presignedUrl);
             VoiceResponseDTO dto = new VoiceResponseDTO(
                     voice.getId(),
