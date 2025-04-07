@@ -122,6 +122,12 @@ public class VideoController {
                     status.setProcessingStep(step.getDescription());
                 }
             }
+
+            // 썸네일 URL 추가
+            String thumbnailUrl = videoService.getThumbnailUrl(storyId);
+            if (thumbnailUrl != null) {
+                status.setThumbnailUrl(thumbnailUrl);
+            }
             
             return ResponseEntity.ok(status);
         } catch (Exception e) {
