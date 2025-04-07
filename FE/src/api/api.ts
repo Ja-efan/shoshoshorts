@@ -4,7 +4,7 @@ import { SocialProvider } from "@/types/auth"
 import { store } from "@/store/store"
 import { setToken, clearToken } from "@/store/authSlice"
 
-const API_BASE_URL = import.meta.env.REACT_APP_API_URL || "http://localhost:8080";
+const API_BASE_URL = import.meta.env.VITE_API_BASE || "/api";
 
 // axios 기본 설정 추가
 axios.defaults.withCredentials = true;  // 쿠키 자동 전송을 위한 설정
@@ -25,16 +25,16 @@ const clearTokenAndState = () => {
 };
 
 export const API_ENDPOINTS = {
-  CREATE_VIDEO: `${API_BASE_URL}/api/videos/generate`,
-  GET_VIDEOS: `${API_BASE_URL}/api/videos/status/allstory`,
-  YOUTUBE_UPLOAD: `${API_BASE_URL}/api/youtube/upload`,
-  YOUTUBE_AUTH: `${API_BASE_URL}/api/youtube/auth`,
-  DOWNLOAD_VIDEO: `${API_BASE_URL}/api/videos/download`,
+  CREATE_VIDEO: `${API_BASE_URL}/videos/generate`,
+  GET_VIDEOS: `${API_BASE_URL}/videos/status/allstory`,
+  YOUTUBE_UPLOAD: `${API_BASE_URL}/youtube/upload`,
+  YOUTUBE_AUTH: `${API_BASE_URL}/youtube/auth`,
+  DOWNLOAD_VIDEO: `${API_BASE_URL}/videos/download`,
   AUTH: {
-    OAUTH: `${API_BASE_URL}/api/auth/oauth`,
-    REFRESH: `${API_BASE_URL}/api/auth/refresh`,
-    LOGOUT: `${API_BASE_URL}/api/auth/logout`,
-    VALIDATE: `${API_BASE_URL}/api/auth/check`,
+    OAUTH: `${API_BASE_URL}/auth/oauth`,
+    REFRESH: `${API_BASE_URL}/auth/refresh`,
+    LOGOUT: `${API_BASE_URL}/auth/logout`,
+    VALIDATE: `${API_BASE_URL}/auth/check`,
   },
 };
 
@@ -244,4 +244,4 @@ axios.interceptors.response.use(
     }
     return Promise.reject(error);
   }
-); 
+);

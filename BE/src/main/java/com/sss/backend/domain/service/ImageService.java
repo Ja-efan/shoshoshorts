@@ -144,7 +144,11 @@ public class ImageService {
 
             // gender가 String이면 Integer로 변환 (예: "남자" :0, "여자":1)
             String genderStr = (String) charMap.get("gender");
-            character.setGender(genderStr.equals("남자") ? 0 : 1);
+            if(genderStr.equals("남성") || genderStr.equals("남자") || genderStr.equals("1")){
+                character.setGender(0);
+            }else if(genderStr.equals("여성") || genderStr.equals("여자") || genderStr.equals("2")){
+                character.setGender(1);
+            }
 
             character.setDescription((String) charMap.get("properties"));
             characters.add(character);
@@ -182,10 +186,12 @@ public class ImageService {
         try {
 
             String apiUrl = "";
-            if(imageModelName.equals("Cling")){
+            if(imageModelName.equals("Kling")){
                 apiUrl = clingApiUrl;
+                log.info(imageModelName + "---------------------clingAI 모델 사용?");
             }else{
                 apiUrl = stableApiUrl;
+                log.info(imageModelName + "------------------------stableDiffusion 모델 사용?");
             }
 
             // API 호출 (오류 응답 로깅 추가)

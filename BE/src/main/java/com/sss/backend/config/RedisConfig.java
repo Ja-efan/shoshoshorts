@@ -1,6 +1,5 @@
 package com.sss.backend.config;
 
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -29,5 +28,20 @@ public class RedisConfig {
         template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
 
         return template;
+    }
+
+    /**
+     * 비디오 처리 상태를 저장하기 위한 Redis 템플릿
+     * 
+     * @param redisConnectionFactory Redis 연결 팩토리
+     * @return 문자열 키-값 쌍을 저장하는 Redis 템플릿
+     */
+    @Bean
+    public RedisTemplate<String, String> videoStatusRedisTemplate(RedisConnectionFactory redisConnectionFactory) {
+        RedisTemplate<String, String> redisTemplate = new RedisTemplate<>();
+        redisTemplate.setConnectionFactory(redisConnectionFactory);
+        redisTemplate.setKeySerializer(new StringRedisSerializer());
+        redisTemplate.setValueSerializer(new StringRedisSerializer());
+        return redisTemplate;
     }
 }

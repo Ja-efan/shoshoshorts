@@ -75,9 +75,13 @@ public class Securityconfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:5173","http://shoshoshorts.duckdns.org",
-                "http://localhost:63342" // ← IntelliJ에서 HTML 열릴 때 이 주소로 열림
-                //Todo 개발 후 삭제
+        configuration.setAllowedOrigins(Arrays.asList(
+            "http://localhost:3000", 
+            "http://localhost:5173",
+            "http://shoshoshorts.duckdns.org",
+            //Todo 개발 후 삭제
+            "http://localhost:63342", // ← IntelliJ에서 HTML 열릴 때 이 주소로 열림
+            "https://shoshoshorts.duckdns.org"  // HTTPS 주소 추가
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
 //        configuration.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization", "X-Requested-With"));
