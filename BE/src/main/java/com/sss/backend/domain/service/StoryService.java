@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.sss.backend.domain.entity.VideoProcessingStep;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -43,6 +45,7 @@ public class StoryService {
     private final JWTUtil jwtUtil;
     private final MongoTemplate mongoTemplate;
     private final UserRepository userRepository;
+    private final VideoProcessingStatusService videoProcessingStatusService;
 
     @Value("${api.password}")
     private String apiPassword;
@@ -282,5 +285,16 @@ public class StoryService {
 //        sceneRepository.save(sceneDocument);
         System.out.println("MongoDB scenes 컬렉션 저장 완료! (characterArr 포함)");
 
+    }
+
+    /**
+     * 스토리 저장 및 처리 상태 업데이트
+     */
+    public void saveStoryWithProcessingStatus(Long storyId, StoryRequestDTO request) {
+        // 스크립트 처리 단계 설정
+        videoProcessingStatusService.updateProcessingStep(storyId.toString(), VideoProcessingStep.SCRIPT_PROCESSING);
+        
+        // 기존 스토리 저장 로직 수행
+        saveStory(storyId, request);
     }
 }

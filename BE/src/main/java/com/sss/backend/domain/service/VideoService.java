@@ -22,6 +22,8 @@ import com.sss.backend.domain.entity.Video.VideoStatus;
 import com.sss.backend.api.dto.VideoStatusResponseDto;
 import com.sss.backend.domain.entity.Users;
 import com.sss.backend.domain.repository.UserRepository;
+import com.sss.backend.domain.entity.VideoProcessingStep;
+import com.sss.backend.domain.service.VideoProcessingStatusService;
 
 import java.io.File;
 import java.io.IOException;
@@ -56,6 +58,7 @@ public class VideoService {
     private final StoryRepository storyRepository;
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
+    private final VideoProcessingStatusService videoProcessingStatusService;
     
     @PostConstruct
     public void init() {
@@ -652,6 +655,31 @@ public class VideoService {
         }
     }
 
+    /**
+     * 비디오 상태를 완료로 업데이트하고 비디오 URL 설정
+     */
+    public void updateVideoCompleted(String storyId, String videoUrl) {
+        // 상태 업데이트: 완료
+        updateVideoStatus(storyId, VideoStatus.COMPLETED, videoUrl);
+        
+        // 처리 단계 정보 삭제 (완료되었으므로)
+        videoProcessingStatusService.deleteProcessingStep(storyId);
+    }
+
+    /**
+     * 비디오 상태를 실패로 업데이트하고 오류 메시지 설정
+     */
+    public void updateVideoFailed(String storyId, String errorMessage) {
+        // 상태 업데이트: 실패
+        updateVideoStatus(storyId, VideoStatus.FAILED, errorMessage);
+        
+        // 처리 단계 정보 삭제
+        videoProcessingStatusService.deleteProcessingStep(storyId);
+    }
+
+    /**
+     * 비디오 생성 및 S3 업로드 (상태 업데이트 포함)
+     */
     public String createAndUploadVideo(String storyId, String outputPath) {
         try {
             // UUID를 이용한 임시 파일 경로 생성
@@ -659,8 +687,17 @@ public class VideoService {
             String cleanOutputPath = tempOutputPath.replace("\"", "");
             logger.info("비디오 생성 및 업로드 시작", storyId);
 
+            // 비디오 렌더링 중 상태 업데이트
+            videoProcessingStatusService.updateProcessingStep(storyId, VideoProcessingStep.VIDEO_RENDERING);
+
             // 비디오 생성
             File videoFile = createFinalVideo(storyId, cleanOutputPath);
+            
+            // 비디오 렌더링 완료 상태 업데이트
+            videoProcessingStatusService.updateProcessingStep(storyId, VideoProcessingStep.VIDEO_RENDER_COMPLETED);
+            
+            // 비디오 업로드 중 상태 업데이트
+            videoProcessingStatusService.updateProcessingStep(storyId, VideoProcessingStep.VIDEO_UPLOADING);
             
             // S3에 업로드할 키 생성
             String timestamp = java.time.format.DateTimeFormatter
@@ -737,6 +774,12 @@ public class VideoService {
             dto.setCompletedAt(video.getCompletedAt() != null ? video.getCompletedAt().format(formatter) : null);
         } else if (video.getStatus() == VideoStatus.FAILED) {
             dto.setErrorMessage(video.getErrorMessage());
+        } else if (video.getStatus() == VideoStatus.PROCESSING) {
+            // 처리 단계 enum 값 자체를
+            VideoProcessingStep step = videoProcessingStatusService.getProcessingStep(storyId);
+            if (step != null) {
+                dto.setProcessingStep(step.name()); // description 대신 name()을 사용
+            }
         }
         
         return dto;
@@ -966,12 +1009,12 @@ public class VideoService {
         // 각 비디오에 대해 반복
         for (Video video : videos) {
             VideoStatusAllDTO dto = mapToVideoStatusDTO(video);
-            //결과 list에 추가
+            // 중복 코드 제거 - mapToVideoStatusDTO에서 이미 처리 단계 정보 추가
             result.add(dto);
         }
         return new VideoListResponseDTO(result);
-
     }
+    
     private VideoStatusAllDTO mapToVideoStatusDTO(Video video) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -984,7 +1027,7 @@ public class VideoService {
                 ? video.getCompletedAt().format(formatter)
                 : null;
 
-        //썸네일용 Presigned Url 생성
+        // 썸네일용 Presigned Url 생성
         String thumbnailUrl = getFirstImageURL(storyId);
 
         // video_url이 있는 경우에만 presigned URL 생성
@@ -994,17 +1037,24 @@ public class VideoService {
             videoUrl = s3Config.generatePresignedUrl(videoS3Key);
         }
 
-        VideoStatusAllDTO dto = new VideoStatusAllDTO(
+        // PROCESSING 상태인 경우에만 세부 처리 단계 정보 추가
+        String processingStep = null;
+        if (video.getStatus() == VideoStatus.PROCESSING) {
+            VideoProcessingStep step = videoProcessingStatusService.getProcessingStep(storyId);
+            if (step != null) {
+                processingStep = step.name();
+            }
+        }
+
+        return new VideoStatusAllDTO(
                 title,
                 video.getStatus(),
                 completedAt,
                 thumbnailUrl,
                 videoUrl,
-                storyId
+                storyId,
+                processingStep
         );
-
-        return dto;
-
     }
 
     public boolean deleteVideo(Long userId, Long videoId) {
