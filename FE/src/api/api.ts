@@ -1,17 +1,19 @@
-import axios from "axios"
-import { VideoData } from "@/types/video"
-import { SocialProvider } from "@/types/auth"
-import { store } from "@/store/store"
-import { setToken, clearToken } from "@/store/authSlice"
+import axios from "axios";
+import { VideoData } from "@/types/video";
+import { SocialProvider } from "@/types/auth";
+import { store } from "@/store/store";
+import { setToken, clearToken } from "@/store/authSlice";
+import { IUserData } from "@/types/user";
+import { ISpeakerInfo } from "@/types/speakerInfo";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || "/api";
 
 // axios 기본 설정 추가
-axios.defaults.withCredentials = true;  // 쿠키 자동 전송을 위한 설정
+axios.defaults.withCredentials = true; // 쿠키 자동 전송을 위한 설정
 
 // 인터셉터가 없는 axios 인스턴스 생성 (토큰 갱신용)
 const axiosWithoutInterceptor = axios.create({
-  withCredentials: true
+  withCredentials: true,
 });
 
 // refreshToken 요청 횟수를 추적하는 변수
@@ -42,11 +44,14 @@ export const API_ENDPOINTS = {
     LOGOUT: `${API_BASE_URL}/auth/logout`,
     VALIDATE: `${API_BASE_URL}/auth/check`,
   },
+  USER_DATA: `${API_BASE_URL}/auth/userdata`,
+  GET_SPEAKER_LIBRARY: `${API_BASE_URL}/speaker/library`,
+  UPLOAD_SPEAKER: `${API_BASE_URL}/speaker/upload`,
 };
 
 export const apiConfig = {
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 };
 
@@ -101,7 +106,7 @@ export const apiService = {
       const response = await axiosWithoutInterceptor.post<TokenResponse>(
         API_ENDPOINTS.AUTH.REFRESH
       );
-      
+
       const newAccessToken = response.data.accessToken;
       localStorage.setItem("accessToken", newAccessToken);
       store.dispatch(setToken(newAccessToken));
@@ -110,7 +115,7 @@ export const apiService = {
     } catch (error) {
       console.error("토큰 갱신 실패:", error);
       refreshTokenAttempts++;
-      
+
       if (refreshTokenAttempts >= MAX_REFRESH_ATTEMPTS) {
         // 3번 이상 실패하면 로그아웃 처리
         clearTokenAndState();
@@ -148,16 +153,14 @@ export const apiService = {
       } catch (refreshError) {
         console.error("토큰 갱신 실패:", refreshError);
         return false;
-      } 
+      }
     }
   },
 
   // 비디오 관련 API
-  async createVideo({ data }: { 
-    data: any
-  }) {
+  async createVideo({ data }: { data: any }) {
     const token = localStorage.getItem("accessToken");
-    
+
     const response = await axios.post<ApiResponse<VideoData>>(
       API_ENDPOINTS.CREATE_VIDEO,
       data,
@@ -176,7 +179,11 @@ export const apiService = {
   },
 
   // 유튜브 업로드 API
-  async uploadVideoToYoutube(videoURL: string, title: string, description: string) {
+  async uploadVideoToYoutube(
+    videoURL: string,
+    title: string,
+    description: string
+  ) {
     try {
       const token = localStorage.getItem("accessToken");
       const response = await axios.post(
@@ -200,10 +207,10 @@ export const apiService = {
   async getYoutubeAuthUrl(storyId?: string) {
     const token = localStorage.getItem("accessToken");
     try {
-      const url = storyId 
+      const url = storyId
         ? `${API_ENDPOINTS.YOUTUBE_AUTH}?storyId=${storyId}`
         : API_ENDPOINTS.YOUTUBE_AUTH;
-        
+
       const response = await axios.get<{ authUrl: string }>(
         url,
         getAuthConfig(token)
@@ -229,6 +236,35 @@ export const apiService = {
       throw error;
     }
   },
+
+  // 유저 데이터 관련 API
+  async getUserData() {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.get<ApiResponse<IUserData>>(
+      API_ENDPOINTS.USER_DATA,
+      getAuthConfig(token)
+    );
+    return response.data;
+  },
+
+  async getSpeakerLibrary() {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.get<ApiResponse<ISpeakerInfo[]>>(
+      API_ENDPOINTS.GET_SPEAKER_LIBRARY,
+      getAuthConfig(token)
+    );
+    return response.data;
+  },
+
+  async uploadSpeaker(speakerInfo: ISpeakerInfo) {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.post<ApiResponse<ISpeakerInfo>>(
+      API_ENDPOINTS.UPLOAD_SPEAKER,
+      speakerInfo,
+      getAuthConfig(token)
+    );
+    return response.data;
+  },
 };
 
 // 인터셉터 설정
@@ -248,7 +284,11 @@ axios.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     // 이미 재시도한 요청이거나 특정 엔드포인트는 제외
-    if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== API_ENDPOINTS.AUTH.REFRESH) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      originalRequest.url !== API_ENDPOINTS.AUTH.REFRESH
+    ) {
       originalRequest._retry = true;
       try {
         const newToken = await apiService.refreshToken();
