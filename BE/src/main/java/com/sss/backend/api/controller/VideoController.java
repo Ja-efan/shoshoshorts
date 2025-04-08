@@ -129,6 +129,13 @@ public class VideoController {
                 status.setThumbnailUrl(thumbnailUrl);
             }
             
+            // COMPLETED 상태일 때 video URL을 pre-signed URL로 변환
+            if (status.getStatus() == VideoStatus.COMPLETED && status.getVideoUrl() != null) {
+                String s3Key = s3Config.extractS3KeyFromUrl(status.getVideoUrl());
+                String presignedUrl = s3Config.generatePresignedUrl(s3Key);
+                status.setVideoUrl(presignedUrl);
+            }
+            
             return ResponseEntity.ok(status);
         } catch (Exception e) {
             log.error("비디오 상태 조회 중 오류: {}", e.getMessage(), e);
