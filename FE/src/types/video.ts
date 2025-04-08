@@ -6,4 +6,5 @@ export interface VideoData {
   video_url: string | null
   story_id: string
   is_uploaded?: boolean
+  created_at: string
 } 
