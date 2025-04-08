@@ -118,6 +118,8 @@ export default function CreateVideoPage() {
       title,
       story,
       narVoiceCode: voiceCodes[finalAudioModel][narratorGender][parseInt(narratorVoice.slice(-1)) - 1],
+      audioModelName: finalAudioModel,
+      imageModelName: finalImageModel
     };
 
     if (characters.length > 0) {
@@ -141,9 +143,7 @@ export default function CreateVideoPage() {
     try {
       console.log("Request Data:", requestData); // 요청 데이터 로깅
       const response = await apiService.createVideo({
-        data: requestData,
-        audioModelName: finalAudioModel.replace(/\s+/g, ""),
-        imageModelName: finalImageModel.replace(/\s+/g, "")
+        data: requestData
       });
       console.log("API Response:", response);
       setShowSuccessModal(true);
