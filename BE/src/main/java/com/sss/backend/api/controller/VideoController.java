@@ -47,8 +47,6 @@ public class VideoController {
     @PostMapping("/generate")
     public ResponseEntity<VideoStatusResponseDto> generateVideoAsync(
             @Valid @RequestBody StoryRequestDTO request,
-            @RequestParam(value = "audioModelName", required = false, defaultValue = "ElevenLabs") String audioModelName,
-            @RequestParam(value = "imageModelName", required = false, defaultValue = "Kling") String imageModelName,
             HttpServletRequest httpRequest) {
         try {
             // 스토리 저장
@@ -57,6 +55,10 @@ public class VideoController {
             
             // 비디오 엔티티 초기 상태로 저장
             videoService.initVideoEntity(storyId.toString());
+
+            //imageModelName, audioModelName
+            String imageModelName = request.getImageModelName();
+            String audioModelName = request.getAudioModelName();
             
             // 비동기 처리 시작
             CompletableFuture.runAsync(() -> {
