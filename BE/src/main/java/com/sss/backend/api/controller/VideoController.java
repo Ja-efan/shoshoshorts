@@ -119,8 +119,14 @@ public class VideoController {
             if (status.getStatus() == VideoStatus.PROCESSING) {
                 VideoProcessingStep step = videoProcessingStatusService.getProcessingStep(storyId);
                 if (step != null) {
-                    status.setProcessingStep(step.getDescription());
+                    status.setProcessingStep(step.name());
                 }
+            }
+
+            // 썸네일 URL 추가
+            String thumbnailUrl = videoService.getFirstImageURL(storyId);
+            if (thumbnailUrl != null) {
+                status.setThumbnailUrl(thumbnailUrl);
             }
             
             return ResponseEntity.ok(status);
