@@ -112,7 +112,7 @@ async def test_generate_image_prompt_with_scene_info(
 
 
 @router.post("/generate_image_with_prompt")
-async def test_generate_image(prompt: str):
+async def test_generate_image(prompt: str, negative_prompt: str = None):
     """프롬프트만 입력받아 KlingAI API를 직접 호출하여 이미지 생성 테스트"""
     app_logger.info(f"간단한 이미지 생성 테스트 시작: \n{prompt}")
 
@@ -149,6 +149,7 @@ async def test_generate_image(prompt: str):
         payload = {
             "model": klingai_config.MODEL_V1_5,  # 레퍼런스 이미지 없이 V1_5 모델 사용
             "prompt": prompt,
+            "negative_prompt": negative_prompt if negative_prompt else "",
             "n": klingai_config.NUM_OF_IMAGES,
             "aspect_ratio": klingai_config.ASPECT_RATIO,
         }
