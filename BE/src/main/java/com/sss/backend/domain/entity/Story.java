@@ -31,4 +31,7 @@ public class Story {
     @Column(nullable = false)
     private String imageModelName; // 이미지 AI 모델
 
+    @Column(nullable = false)
+    private String narVoiceCode;
+
 }
