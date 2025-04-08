@@ -182,8 +182,8 @@ export const apiService = {
     try {
       const token = localStorage.getItem("accessToken");
       const response = await axios.post(
-        `${API_ENDPOINTS.YOUTUBE_UPLOAD}?videoURL=${encodeURIComponent(videoURL)}`,
-        { title, description },
+        `${API_ENDPOINTS.YOUTUBE_UPLOAD}`,
+        { videoURL, title, description },
         getAuthConfig(token)
       );
       return response.data;
