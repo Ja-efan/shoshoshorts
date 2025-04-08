@@ -20,8 +20,14 @@ const Router: React.FC = () => {
     },
     { path: "/login", element: <LoginPage /> },
     { path: "/terms", element: <TermsPage /> },
-
-
+    {
+      path: "/mypage",
+      element: (
+        <ProtectedRoute>
+          <Mypage />
+        </ProtectedRoute>
+      ),
+    },
     {
       path: "/dashboard/",
       element: (
@@ -41,10 +47,6 @@ const Router: React.FC = () => {
     {
       path: "/auth/:provider/callback",
       element: <AuthCallbackPage />,
-    },
-    {
-      path: "/mypage",
-      element: <Mypage />,
     },
     { path: "*", element: <NotFound /> },
   ]);
