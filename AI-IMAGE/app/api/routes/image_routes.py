@@ -18,7 +18,7 @@ router = APIRouter(prefix="/images", tags=["images"])
 
 
 @router.post("/generations/external", response_model=ImageGenerationResponse)
-async def generate_scene_image(scene: Scene, style: str = "DISNEY-PIXAR"):
+async def generate_scene_image(scene: Scene, style: str = "DISNEY_PIXAR"):
     """
     장면 정보를 기반으로 이미지를 생성합니다.
 
@@ -34,10 +34,9 @@ async def generate_scene_image(scene: Scene, style: str = "DISNEY-PIXAR"):
     start_time = time.time()
     app_logger.info("Received request for image generation...")
 
-    # 필요한 ID 추출
-    story_id = scene.story_metadata.story_id
-    scene_id = scene.scene_id
-    app_logger.info(f"Story {story_id}, Scene {scene_id}")
+    app_logger.info(
+        f"Story ID: {scene.story_metadata.story_id}, Scene ID: {scene.scene_id}"
+    )
     app_logger.info(f"Scene: \n{scene.model_dump_json(indent=4)}")
 
     try:
@@ -50,10 +49,15 @@ async def generate_scene_image(scene: Scene, style: str = "DISNEY-PIXAR"):
 
         # 2. 이미지 프롬프트 생성
         app_logger.info("Generating image prompt...")
-        image_prompt, negative_prompt, scene_info = (
-            await openai_service.generate_image_prompt(scene, style)
-        )
+
+        all_prompts = await openai_service.generate_image_prompt(scene, style)
+
+        image_prompt = all_prompts["image_prompt"]
+        negative_prompt = all_prompts["negative_prompt"]
+        scene_info = all_prompts["scene_info"]
+
         app_logger.info(f"Successfully generated image prompt")
+
         app_logger.debug(f"Image Prompt: \n{image_prompt}")
         app_logger.debug(f"Negative Prompt: \n{negative_prompt}")
         app_logger.debug(f"Scene Info: \n{scene_info}")
@@ -61,8 +65,8 @@ async def generate_scene_image(scene: Scene, style: str = "DISNEY-PIXAR"):
         # 3. KLING AI를 사용하여 이미지 생성
         app_logger.info("Generating image...")
         image_data = await klingai_service.generate_image(
-            story_id=story_id,
-            scene_id=scene_id,
+            story_id=scene.story_metadata.story_id,
+            scene_id=scene.scene_id,
             prompt=image_prompt,
             negative_prompt=negative_prompt,
             scene_info=scene_info,
@@ -78,7 +82,7 @@ async def generate_scene_image(scene: Scene, style: str = "DISNEY-PIXAR"):
         # 4. 생성된 이미지를 로컬에 저장
         app_logger.info("Downloading image...")
         local_image_path = await download_service.download_image(
-            image_url, story_id, scene_id
+            image_url, scene.story_metadata.story_id, scene.scene_id
         )
         if local_image_path:
             app_logger.info(f"Successfully downloaded image: \n{local_image_path}")
@@ -88,7 +92,9 @@ async def generate_scene_image(scene: Scene, style: str = "DISNEY-PIXAR"):
 
         # 5. 이미지를 S3에 업로드
         app_logger.info("Uploading image to S3...")
-        s3_result = await s3_service.upload_image(local_image_path, story_id, scene_id)
+        s3_result = await s3_service.upload_image(
+            local_image_path, scene.story_metadata.story_id, scene.scene_id
+        )
 
         # S3 업로드 결과 처리
         if s3_result["success"]:
@@ -138,7 +144,9 @@ async def generate_scene_image(scene: Scene, style: str = "DISNEY-PIXAR"):
         total_time = end_time - start_time
         app_logger.info(f"Total processing time: {total_time} seconds")
         return ImageGenerationResponse(
-            scene_id=scene_id, image_prompt=image_prompt, image_url=s3_url
+            scene_id=scene.scene_id,
+            image_prompt=image_prompt,
+            image_url=s3_url,
         )
 
     except HTTPException:

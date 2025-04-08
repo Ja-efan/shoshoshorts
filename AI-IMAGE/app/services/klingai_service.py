@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.core.logger import app_logger
 from app.core.api_config import klingai_config
 from app.core.storage_config import s3_config
+from app.schemas.models import SceneInfo, PreviousSceneData
 from app.services.utils import encode_image_to_base64
 
 
@@ -125,48 +126,11 @@ class KlingAIService:
         return os.path.join(data_dir, f"{scene_id:04d}.json")
 
     @staticmethod
-    def get_previous_scene_data(
-        story_id: int, scene_id: int
-    ) -> Optional[Dict[str, Any]]:
-        """이전 씬의 정보와 이미지 프롬프트를 가져옵니다."""
-        if scene_id <= 1:
-            return None
-
-        previous_scene_id = scene_id - 1
-        previous_scene_data_path = KlingAIService.get_scene_data_path(
-            story_id, previous_scene_id
-        )
-
-        if not os.path.exists(previous_scene_data_path):
-            app_logger.info(
-                f"Previous scene data file not found: {previous_scene_data_path}"
-            )
-            return None
-
-        try:
-            with open(previous_scene_data_path, "r", encoding="utf-8") as f:
-                previous_scene_data = json.load(f)
-
-            app_logger.info(
-                f"Previous scene scene_info: \n{json.dumps(previous_scene_data['scene_info'], ensure_ascii=False, indent=2)}"
-            )
-            app_logger.info(
-                f"Previous scene image_prompt: \n{json.dumps(previous_scene_data['image_prompt'], ensure_ascii=False, indent=2)}"
-            )
-
-            # 이전 씬 데이터 반환
-            return {
-                "scene_info": previous_scene_data["scene_info"],
-                "image_prompt": previous_scene_data["image_prompt"],
-            }
-
-        except Exception as e:
-            app_logger.error(f"Previous scene data retrieval error: {str(e)}")
-            return None
-
-    @staticmethod
     def save_scene_data(
-        story_id: int, scene_id: int, scene_info: Any, image_prompt: Dict[str, Any]
+        story_id: int,
+        scene_id: int,
+        scene_info: SceneInfo,
+        image_prompt: Dict[str, Any],
     ) -> None:
         """씬 데이터를 JSON 파일에 저장합니다."""
 
@@ -174,7 +138,8 @@ class KlingAIService:
         try:
             file_path = KlingAIService.get_scene_data_path(story_id, scene_id)
             # 씬 데이터 구조화
-            data = {"scene_info": scene_info, "image_prompt": image_prompt}
+            scene_info_str = scene_info.model_dump_json(indent=4)
+            data = {"scene_info": scene_info_str, "image_prompt": image_prompt}
 
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -250,30 +215,11 @@ class KlingAIService:
 
             ########################################### 이미지 레퍼런스 ###########################################
             reference_image_base64 = None
-            if klingai_config.USE_REFERENCE_IMAGE:
+            if klingai_config.USE_REFERENCE_IMAGE:  # default: False
                 reference_image_base64 = KlingAIService.get_reference_image_base64(
                     story_id, scene_id, style
                 )
-
-            ############################### 이전 씬 정보 및 이미지 프롬프트 레퍼런스 ################################
-            previous_scene_data = None
-            if klingai_config.USE_PREVIOUS_SCENE_DATA:
-                previous_scene_data = KlingAIService.get_previous_scene_data(
-                    story_id, scene_id
-                )
-
-            if previous_scene_data:
-                previous_scene_info_string = json.dumps(
-                    previous_scene_data["scene_info"], ensure_ascii=False
-                )
-                previous_scene_image_prompt_string = json.dumps(
-                    previous_scene_data["image_prompt"]["original_prompt"],
-                    ensure_ascii=False,
-                )
-
-                prompt = f"{prompt}, \
-                previous scene info: {previous_scene_info_string}, \
-                previous image prompt: {previous_scene_image_prompt_string}"
+            ######################################################################################################
 
             # API 요청 데이터
             payload = {
