@@ -60,7 +60,7 @@ export default function YoutubeUploadPage() {
     try {
       setIsUploading(true);
       await apiService.uploadVideoToYoutube(
-        video.video_url || "",
+        video.story_id || "",
         title,
         description
       );
