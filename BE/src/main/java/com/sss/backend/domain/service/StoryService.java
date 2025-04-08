@@ -94,19 +94,18 @@ public class StoryService {
         Map<String, Object> jsonData = createFastAPIJson(storyId, request.getTitle(), request.getStory(), request.getNarVoiceCode());
         log.info("json변환까지 완료 {}",jsonData);
 
-        // 5. FastAPI에 요청 및 응답 처리 // http://localhost:8000/script/convert/
-
+        // 5. FastAPI에 요청 및 응답 처리
         try {
             Map<String, Object> response = sendToFastAPI(jsonData).block();
             log.info("FastAPI 응답 {}",response);
 
             // 변환 작업 실행
-            Map<String, Object> transformedJson = scriptTransformService.transformScriptJson(response);
+            Map<String, Object> transformedJson = scriptTransformService.transformScriptJson(response,request.getAudioModelName(),request.getAudioModelName());
 
             // 캐릭터 정보가 없을 경우 기본 캐릭터 정보 추가
             addDefaultCharactersIfNeeded(transformedJson);
 
-            saveScenesToMongoDB(transformedJson);
+            saveScenesToMongoDB(transformedJson,request.getAudioModelName(),request.getImageModelName());
         } catch (Exception e) {
             System.out.println("FastAPI 요청 실패 :"+ e.getMessage());
             log.info("fastapi 에러 {}",e.getMessage());
@@ -242,6 +241,8 @@ public class StoryService {
         Story entity = new Story();
         entity.setTitle(request.getTitle());
         entity.setStory(request.getStory());
+        entity.setAudioModelName(request.getAudioModelName()); // 오디오모델 추가
+        entity.setImageModelName(request.getImageModelName()); // 이미지모델 추가
         entity.setUser(user);
         return entity;
     }
@@ -260,7 +261,7 @@ public class StoryService {
      *
      * @param response
      */
-    private void saveScenesToMongoDB(Map<String,Object> response) {
+    private void saveScenesToMongoDB(Map<String,Object> response,String audioModelName, String imageModelName) {
         Map<String, Object> scriptJson = (Map<String, Object>) response.get("script_json");
         if (scriptJson == null) {
             System.err.println("MongoDB 저장 실패: script_json이 존재하지 않습니다.");
@@ -274,6 +275,8 @@ public class StoryService {
         Update update = new Update()
                 .set("storyTitle", scriptJson.get("storyTitle"))
                 .set("characterArr", scriptJson.get("characterArr"))
+                .set("audioModelName", audioModelName)
+                .set("imageModelName", imageModelName)
                 .set("narVoiceCode", scriptJson.get("narVoiceCode"))
                 .set("sceneArr", scriptJson.get("sceneArr"));
 

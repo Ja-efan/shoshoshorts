@@ -25,4 +25,10 @@ public class Story {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String story;
 
+    @Column(nullable = false)
+    private String audioModelName; // 오디오 AI 모델
+
+    @Column(nullable = false)
+    private String imageModelName; // 이미지 AI 모델
+
 }
