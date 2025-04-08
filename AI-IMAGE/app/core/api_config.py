@@ -31,8 +31,8 @@ class KlingAIConfig:
     MODEL_V1 = "kling-v1"  # 참조 이미지 사용하기 위해서는 kling-v1 사용
     MODEL_V1_5 = "kling-v1-5"
     ASPECT_RATIO = "1:1"
-    USE_REFERENCE_IMAGE = False
-    USE_PREVIOUS_SCENE_DATA = True
+    USE_REFERENCE_IMAGE = False  # default: False
+    USE_PREVIOUS_SCENE_DATA = True  # default: True
     NUM_OF_IMAGES = 1
     IMAGE_REFERENCE = "subject"  # "subject" or "face"
     IMAGE_FIDELITY = 0.1  # 참조 이미지 참조 정도 (0 ~ 1 소수)
@@ -93,7 +93,7 @@ class OpenAIConfig:
             SYSTEM_PROMPT_DIR, "image_prompts", "disney-pixar_style_v02.txt"
         ),
         "scene_info": os.path.join(
-            SYSTEM_PROMPT_DIR, "sceneinfo_prompts", "sceneinfo_v02.txt"
+            SYSTEM_PROMPT_DIR, "sceneinfo_prompts", "sceneinfo_v03.txt"
         ),
     }
 
