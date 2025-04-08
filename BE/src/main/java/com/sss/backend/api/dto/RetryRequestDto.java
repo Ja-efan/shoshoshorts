@@ -7,6 +7,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class RetryRequestDto {
-    @JsonProperty("StoryId")
+    @JsonProperty("storyId")
     private Long StoryId;
 }
