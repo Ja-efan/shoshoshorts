@@ -9,6 +9,11 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE || "/api";
 // axios 기본 설정 추가
 axios.defaults.withCredentials = true;  // 쿠키 자동 전송을 위한 설정
 
+// 인터셉터가 없는 axios 인스턴스 생성 (토큰 갱신용)
+const axiosWithoutInterceptor = axios.create({
+  withCredentials: true
+});
+
 // refreshToken 요청 횟수를 추적하는 변수
 let refreshTokenAttempts = 0;
 const MAX_REFRESH_ATTEMPTS = 3;
@@ -27,6 +32,7 @@ const clearTokenAndState = () => {
 export const API_ENDPOINTS = {
   CREATE_VIDEO: `${API_BASE_URL}/videos/generate`,
   GET_VIDEOS: `${API_BASE_URL}/videos/status/allstory`,
+  GET_VIDEO_STATUS: `${API_BASE_URL}/videos/status`,
   YOUTUBE_UPLOAD: `${API_BASE_URL}/youtube/upload`,
   YOUTUBE_AUTH: `${API_BASE_URL}/youtube/auth`,
   DOWNLOAD_VIDEO: `${API_BASE_URL}/videos/download`,
@@ -91,7 +97,8 @@ export const apiService = {
 
   async refreshToken() {
     try {
-      const response = await axios.post<TokenResponse>(
+      // 인터셉터가 없는 axios 인스턴스 사용
+      const response = await axiosWithoutInterceptor.post<TokenResponse>(
         API_ENDPOINTS.AUTH.REFRESH
       );
       
@@ -172,18 +179,11 @@ export const apiService = {
 
   // 유튜브 업로드 API
   async uploadVideoToYoutube(videoURL: string, title: string, description: string) {
-    const token = localStorage.getItem("accessToken");
     try {
+      const token = localStorage.getItem("accessToken");
       const response = await axios.post(
-        API_ENDPOINTS.YOUTUBE_UPLOAD,
-        {
-          videoURL,
-          title,
-          description,
-          privacyStatus: "public",
-          categoryId: "22",
-          tags: "테스트,youtube,api"
-        },
+        `${API_ENDPOINTS.YOUTUBE_UPLOAD}`,
+        { videoURL, title, description },
         getAuthConfig(token)
       );
       return response.data;
@@ -199,16 +199,35 @@ export const apiService = {
   },
 
   // YouTube 인증 URL 가져오기
-  async getYoutubeAuthUrl() {
+  async getYoutubeAuthUrl(storyId?: string) {
     const token = localStorage.getItem("accessToken");
     try {
+      const url = storyId 
+        ? `${API_ENDPOINTS.YOUTUBE_AUTH}?storyId=${storyId}`
+        : API_ENDPOINTS.YOUTUBE_AUTH;
+        
       const response = await axios.get<{ authUrl: string }>(
-        API_ENDPOINTS.YOUTUBE_AUTH,
+        url,
         getAuthConfig(token)
       );
       return response.data.authUrl;
     } catch (error) {
       console.error("YouTube 인증 URL 가져오기 실패:", error);
+      throw error;
+    }
+  },
+
+  // 비디오 상태 조회
+  async getVideoStatus(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const response = await axios.get<VideoData>(
+        `${API_ENDPOINTS.GET_VIDEO_STATUS}/${storyId}`,
+        getAuthConfig(token)
+      );
+      return response.data;
+    } catch (error) {
+      console.error("비디오 상태 조회 실패:", error);
       throw error;
     }
   },
@@ -230,7 +249,8 @@ axios.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // 이미 재시도한 요청이거나 특정 엔드포인트는 제외
+    if (error.response?.status === 401 && !originalRequest._retry && originalRequest.url !== API_ENDPOINTS.AUTH.REFRESH) {
       originalRequest._retry = true;
       try {
         const newToken = await apiService.refreshToken();

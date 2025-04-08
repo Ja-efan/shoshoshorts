@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { MoreVertical, Play, Download, Share2, Trash2, Check } from "lucide-react"
+import { MoreVertical, Play, Download, Share2, Trash2, Check, X } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -48,16 +48,35 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
     }
     
     try {
-      // YouTube 인증 URL 가져오기
-      const authUrl = await apiService.getYoutubeAuthUrl();
+      // 새 창에서 업로드/유튜브 로그인 페이지 열기
+      const youtubeLoginUrl = `/upload/youtube/login?storyId=${video.story_id}`;
       
-      // 새 창으로 인증 URL 열기
-      window.open(authUrl, '_blank', 'width=600,height=600');
+      // 모바일 디바이스 확인
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
       
-      // 업로드 모달 열기
-      setIsShareModalOpen(true);
+      if (isMobile) {
+
+        // 모바일에서는 새 탭으로 열기
+        window.open(
+          youtubeLoginUrl, 
+          '_blank'
+        );
+
+      } else {
+        // 데스크톱에서는 팝업 창으로 열기
+        const width = Math.min(600, window.innerWidth * 0.9);
+        const height = Math.min(800, window.innerHeight * 0.9);
+        const left = (window.innerWidth - width) / 2;
+        const top = (window.innerHeight - height) / 2;
+        
+        window.open(
+          youtubeLoginUrl, 
+          '_blank', 
+          `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+        );
+      }
     } catch (error) {
-      toast.error("YouTube 인증 URL을 가져오는 중 오류가 발생했습니다");
+      toast.error("YouTube 인증 처리 중 오류가 발생했습니다");
       console.error(error);
     }
   }
@@ -154,6 +173,13 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
             <DialogDescription>
               동영상을 시청하고 관리할 수 있습니다.
             </DialogDescription>
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">닫기</span>
+            </button>
           </DialogHeader>
           <div className="aspect-video w-full">
             <video
