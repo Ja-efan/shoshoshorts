@@ -1,7 +1,7 @@
 data/*
 images/*
 !data/sample_scripts
-!images/references
+!data/reference_images
 
 # cursor 
 .cursorrules
