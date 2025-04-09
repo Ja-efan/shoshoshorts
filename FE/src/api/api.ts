@@ -35,6 +35,7 @@ export const API_ENDPOINTS = {
   CREATE_VIDEO: `${API_BASE_URL}/videos/generate`,
   GET_VIDEOS: `${API_BASE_URL}/videos/status/allstory`,
   GET_VIDEO_STATUS: `${API_BASE_URL}/videos/status`,
+  DELETE_VIDEO: `${API_BASE_URL}/videos`,
   YOUTUBE_UPLOAD: `${API_BASE_URL}/youtube/upload`,
   YOUTUBE_AUTH: `${API_BASE_URL}/youtube/auth`,
   DOWNLOAD_VIDEO: `${API_BASE_URL}/videos/download`,
@@ -302,6 +303,20 @@ export const apiService = {
       getAuthConfig(token)
     );
     return response.data;
+  },
+
+  async deleteVideo(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const response = await axios.delete(
+        `${API_ENDPOINTS.DELETE_VIDEO}/${storyId}`,
+        getAuthConfig(token)
+      );
+      return response.data;
+    } catch (error) {
+      console.error("비디오 삭제 실패:", error);
+      throw error;
+    }
   },
 };
 

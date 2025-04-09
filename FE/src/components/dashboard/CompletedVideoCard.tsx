@@ -26,6 +26,7 @@ interface CompletedVideoCardProps {
 export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [title, setTitle] = useState(video.title)
   const [description, setDescription] = useState("")
   const [isUploading, setIsUploading] = useState(false)
@@ -81,9 +82,20 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
     }
   }
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    toast.success("삭제 기능은 현재 개발 중입니다")
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    try {
+      await apiService.deleteVideo(video.story_id)
+      toast.success("영상이 삭제되었습니다")
+      window.location.reload()
+    } catch (error) {
+      toast.error("영상 삭제 중 오류가 발생했습니다")
+      console.error(error)
+    }
   }
 
   const handleUploadToYoutube = async () => {
@@ -231,6 +243,25 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
             </Button>
             <Button onClick={handleUploadToYoutube} disabled={isUploading}>
               {isUploading ? "업로드 중..." : "유튜브에 업로드"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>영상 삭제</DialogTitle>
+            <DialogDescription>
+              정말로 이 영상을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+              취소
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              삭제
             </Button>
           </DialogFooter>
         </DialogContent>

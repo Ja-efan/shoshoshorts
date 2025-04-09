@@ -36,7 +36,7 @@ const processingStepColor: Record<string, string> = {
 };
 
 export function InProgressVideoCard({ video, statusText = "처리 중", onStatusChange }: InProgressVideoCardProps) {
-  const { videoStatus, error, isConnected } = useVideoStatus(video.story_id);
+  const { videoStatus, error } = useVideoStatus(video.story_id);
   const [currentStatus, setCurrentStatus] = useState<string>(statusText);
   const [processingStep, setProcessingStep] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<string>("PROCESSING");
