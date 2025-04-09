@@ -22,6 +22,10 @@ const Router: React.FC = () => {
     },
     { path: "/login", element: <LoginPage /> },
     { path: "/terms", element: <TermsPage /> },
+    // {
+    //   path: "/mypage/debug",
+    //   element: <Mypage />,
+    // },
     {
       path: "/mypage",
       element: (
@@ -38,10 +42,10 @@ const Router: React.FC = () => {
         </ProtectedRoute>
       ),
     },
-    {
-      path: "/create/debug",
-      element: <CreateVideoPage />,
-    },
+    // {
+    //   path: "/create/debug",
+    //   element: <CreateVideoPage />,
+    // },
     {
       path: "/create/",
       element: (
