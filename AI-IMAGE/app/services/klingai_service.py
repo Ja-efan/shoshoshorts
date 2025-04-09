@@ -23,95 +23,21 @@ class KlingAIService:
     """Kling AI를 사용한 이미지 생성 서비스"""
 
     @staticmethod
-    def get_reference_image_base64(story_id: int, scene_id: int, style: str) -> str:
-        """참조 이미지를 Base64로 인코딩하여 반환합니다.
-        참조 이미지는 story_id, scene_id, style 에 따라 결정됩니다.
-            1. 이전 씬의 이미지가 존재하는 경우 이전 씬의 이미지를 사용
-            2. 이전 씬의 이미지가 존재하지 않는 경우 스타일별 참조 이미지를 사용
-
-        Args:
-            story_id (int): 스토리 ID
-            scene_id (int): 씬 ID
-            style (str): 이미지 스타일
-
-        Returns:
-            str: Base64로 인코딩된 이미지
-        """
+    def get_reference_image_base64(style: str) -> str:
+        """참조 이미지를 Base64로 인코딩하여 반환합니다."""
         reference_image_path = None
-        previous_scene_id = scene_id - 1
-
-        # 2. 씬 ID 가 1 이 아닌 경우 이전 씬의 이미지를 사용
-        if scene_id > 1:
-            # 이전 씬의 이미지 파일 찾기
-            formatted_story_id = f"{story_id:08d}"
-            formatted_previous_scene_id = f"{previous_scene_id:04d}"
-
-            # story_id 별 이미지 저장 경로
-            images_dir_by_story = (
-                f"images/{s3_config.BUCKET_NAME}/{formatted_story_id}/images"
+        if style == "disney-animation-studio":
+            reference_image_path = os.path.join(
+                "images",
+                "references",
+                "disney-animation-studio",
+                "disney-animation-studio.png",
             )
+        else:
+            pass
 
-            # 이미지 저장 경로가 존재하는 경우
-            if os.path.exists(images_dir_by_story):
-                app_logger.debug(f"Image save path: {images_dir_by_story}")
-                # 이전 scene_id로 시작하는 모든 이미지 파일 찾기
-                # 이미지 파일 형식: {scene_id:04d}_timestamp.jpg
-                previous_scene_image_pattern = (
-                    f"{images_dir_by_story}/{formatted_previous_scene_id}_*.jpg"
-                )
-                previous_scene_image_files = glob.glob(
-                    previous_scene_image_pattern
-                )  # 패턴에 매칭되는 파일 모두 반환 (리스트)
-
-                if previous_scene_image_files:
-                    # 가장 최근 파일 (어차피 하나의 스토리의 하나의 씬에는 하나의 이미지만 존재.)
-                    previous_scene_image_files.sort()
-                    reference_image_path = previous_scene_image_files[-1]
-                    app_logger.info(
-                        f"Reference image found (previous scene image): {reference_image_path}"
-                    )
-                else:
-                    # 이전 scene_id에 해당하는 이미지가 없으면 같은 스토리 내 가장 최근 이미지 사용
-                    all_scene_image_pattern = f"{images_dir_by_story}/*.jpg"
-                    all_scene_image_files = glob.glob(all_scene_image_pattern)
-                    if all_scene_image_files:
-                        # 타임스탬프 기준으로 정렬 (가장 최신 파일이 마지막에 오도록)
-                        all_scene_image_files.sort()
-                        reference_image_path = all_scene_image_files[-1]
-                        app_logger.info(
-                            f"No previous scene image. Using the latest image: {reference_image_path}"
-                        )
-
-        # 이전 씬 이미지가 없는 경우 스타일별 참조 이미지 사용
-        if not reference_image_path:
-            app_logger.info(f"No previous scene image. Using style reference image.")
-            style_reference_dict = {
-                "GHIBLI": "images/references/ghibli/ghibli-reference-01.jpg",
-                "ANIME": "images/references/anime/anime-reference-01.jpg",
-                "DISNEY": "images/references/disney/disney-reference-01.jpg",
-                "DISNEY-PIXAR": "images/references/disney/disney-reference-01.jpg",
-            }
-            reference_image_path = style_reference_dict.get(style)
-            app_logger.info(f"Style reference image path: {reference_image_path}")
-
-            # 참조 이미지가 존재하지 않는 경우 기본 이미지 사용
-            if not reference_image_path or not os.path.exists(reference_image_path):
-                app_logger.warning(
-                    f"{style} style reference image does not exist. Using default reference image."
-                )
-                # 지브리 이미지를 기본 참조 이미지로 사용
-                reference_image_path = (
-                    "images/references/ghibli/ghibli-reference-01.jpg"
-                )
-                app_logger.info(f"Default reference image path: {reference_image_path}")
-
-        # 참조 이미지 Base64로 인코딩 후 반환
-        encoded_image = encode_image_to_base64(reference_image_path)
-        if encoded_image is None:
-            app_logger.warning(
-                f"Failed to encode reference image: {reference_image_path}. Proceeding without reference image."
-            )
-        return encoded_image
+        with open(reference_image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
 
     @staticmethod
     def get_scene_data_path(story_id: int, scene_id: int) -> str:
@@ -125,7 +51,12 @@ class KlingAIService:
         return os.path.join(data_dir, f"{scene_id:04d}.json")
 
     @staticmethod
-    def save_scene_data(story_id: int, scene_id: int, scene_info: SceneInfo, image_prompt: Dict[str, Any]) -> None:
+    def save_scene_data(
+        story_id: int,
+        scene_id: int,
+        scene_info: SceneInfo,
+        image_prompt: Dict[str, Any],
+    ) -> None:
         """씬 데이터를 JSON 파일에 저장합니다."""
 
         # 파일 저장
@@ -134,7 +65,7 @@ class KlingAIService:
             # 씬 데이터 구조화 - 문자열 대신 딕셔너리로 저장
             data = {
                 "scene_info": scene_info.model_dump(),  # 객체를 딕셔너리로 직렬화
-                "image_prompt": image_prompt
+                "image_prompt": image_prompt,
             }
 
             with open(file_path, "w", encoding="utf-8") as f:
@@ -154,55 +85,62 @@ class KlingAIService:
     def legacy_scene_data_migration(story_id: int, scene_id: int) -> bool:
         """
         기존 문자열 형태로 저장된 scene_info를 새로운 형식(딕셔너리)으로 마이그레이션합니다.
-        
+
         Args:
             story_id: 스토리 ID
             scene_id: 씬 ID
-            
+
         Returns:
             bool: 마이그레이션 성공 여부
         """
         try:
             # 씬 데이터 파일 경로
             file_path = KlingAIService.get_scene_data_path(story_id, scene_id)
-            
+
             if not os.path.exists(file_path):
                 app_logger.info(f"Scene data file not found: {file_path}")
                 return False
-                
+
             # 파일 읽기
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                
+
             # 이미 딕셔너리 형태인 경우 마이그레이션 불필요
             if isinstance(data.get("scene_info"), dict):
                 app_logger.info(f"Scene data already in new format: {file_path}")
                 return True
-                
+
             # 문자열 형태인 경우 파싱하여 딕셔너리로 변환
             if isinstance(data.get("scene_info"), str):
                 try:
                     scene_info_dict = json.loads(data["scene_info"])
                     data["scene_info"] = scene_info_dict
-                    
+
                     # 이미지 프롬프트에 original_prompt 필드가 없는 경우 추가
-                    if "image_prompt" in data and isinstance(data["image_prompt"], dict):
-                        if "original_prompt" not in data["image_prompt"] and "prompt" in data["image_prompt"]:
-                            data["image_prompt"]["original_prompt"] = data["image_prompt"]["prompt"]
-                    
+                    if "image_prompt" in data and isinstance(
+                        data["image_prompt"], dict
+                    ):
+                        if (
+                            "original_prompt" not in data["image_prompt"]
+                            and "prompt" in data["image_prompt"]
+                        ):
+                            data["image_prompt"]["original_prompt"] = data[
+                                "image_prompt"
+                            ]["prompt"]
+
                     # 업데이트된 데이터 저장
                     with open(file_path, "w", encoding="utf-8") as f:
                         json.dump(data, f, ensure_ascii=False, indent=2)
-                        
+
                     app_logger.info(f"Successfully migrated scene data: {file_path}")
                     return True
-                    
+
                 except json.JSONDecodeError as je:
                     app_logger.error(f"Failed to parse scene_info string: {str(je)}")
                     return False
-                    
+
             return False
-            
+
         except Exception as e:
             app_logger.error(f"Scene data migration error: {str(e)}")
             return False
@@ -313,7 +251,7 @@ class KlingAIService:
 
                 raise HTTPException(
                     status_code=http_status_code,
-                    detail=f"KLING AI API error (code: {response_code}): {error_message}",
+                    detail=f"KLING AI API error (story_id={story_id}, scene_id={scene_id}, code: {response_code}): {error_message}",
                 )
 
             # 응답 데이터
@@ -333,7 +271,7 @@ class KlingAIService:
                             "prompt": prompt,
                             "negative_prompt": negative_prompt,
                             "style": style,
-                            "original_prompt": original_prompt
+                            "original_prompt": original_prompt,
                         }
 
                         # 씬 데이터를 JSON 파일에 저장
@@ -345,22 +283,27 @@ class KlingAIService:
                         return {"image_url": image_urls[0]["url"], "prompt": prompt}
                     else:
                         app_logger.error(
-                            f"Failed to generate image: KLING AI image url is empty"
+                            f"Failed to generate image (story_id={story_id}, scene_id={scene_id}): KLING AI image url is empty"
                         )
                         raise HTTPException(
                             status_code=500,
-                            detail=f"Failed to generate image: KLING AI image url is empty",
+                            detail=f"Failed to generate image (story_id={story_id}, scene_id={scene_id}): KLING AI image url is empty",
                         )
             except:
-                raise HTTPException(status_code=500, detail="응답 데이터 파싱 오류")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error occurred while generating image (story_id={story_id}, scene_id={scene_id}): 응답 데이터 파싱 오류",
+                )
 
         except HTTPException:
             raise
         except Exception as e:
-            app_logger.error(f"Error occurred while generating image: {str(e)}")
+            app_logger.error(
+                f"Error occurred while generating image (story_id={story_id}, scene_id={scene_id}): {str(e)}"
+            )
             raise HTTPException(
                 status_code=500,
-                detail=f"Error occurred while generating image: {str(e)}",
+                detail=f"Error occurred while generating image (story_id={story_id}, scene_id={scene_id}): {str(e)}",
             )
 
     @staticmethod
@@ -397,11 +340,13 @@ class KlingAIService:
                         return None
 
                 # 아직 완료되지 않은 경우 대기
-                app_logger.info(f"Task in progress... {_+1}/{klingai_config.MAX_ATTEMPTS} attempts")
+                app_logger.info(
+                    f"Task ({task_id}) in progress... {_+1}/{klingai_config.MAX_ATTEMPTS} attempts"
+                )
                 time.sleep(klingai_config.DELAY)
 
             except Exception as e:
-                app_logger.error(f"Failed to get task result: {str(e)}")
+                app_logger.error(f"Failed to get task ({task_id}) result: {str(e)}")
                 time.sleep(klingai_config.DELAY)
 
         app_logger.error(
