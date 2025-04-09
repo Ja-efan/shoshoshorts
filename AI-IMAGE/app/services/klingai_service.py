@@ -12,11 +12,10 @@ import requests
 from fastapi import HTTPException
 from typing import Dict, Any, Optional
 
-from app.core.config import settings
 from app.core.logger import app_logger
 from app.core.api_config import klingai_config
 from app.core.storage_config import s3_config
-from app.schemas.models import SceneInfo, PreviousSceneData
+from app.schemas.models import SceneInfo
 from app.services.utils import encode_image_to_base64
 
 
@@ -126,12 +125,7 @@ class KlingAIService:
         return os.path.join(data_dir, f"{scene_id:04d}.json")
 
     @staticmethod
-    def save_scene_data(
-        story_id: int,
-        scene_id: int,
-        scene_info: SceneInfo,
-        image_prompt: Dict[str, Any],
-    ) -> None:
+    def save_scene_data(story_id: int, scene_id: int, scene_info: SceneInfo, image_prompt: Dict[str, Any]) -> None:
         """씬 데이터를 JSON 파일에 저장합니다."""
 
         # 파일 저장
