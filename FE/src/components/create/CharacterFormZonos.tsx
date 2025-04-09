@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Play, Pause, Plus, X, Loader2 } from "lucide-react";
-import { Character, CurrentlyPlaying } from "@/types/character";
+import { Character } from "@/types/character";
 import { ISpeakerInfoGet } from "@/types/speakerInfo";
 import {
   Select,
