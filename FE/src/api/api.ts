@@ -38,6 +38,7 @@ export const API_ENDPOINTS = {
   YOUTUBE_UPLOAD: `${API_BASE_URL}/youtube/upload`,
   YOUTUBE_AUTH: `${API_BASE_URL}/youtube/auth`,
   DOWNLOAD_VIDEO: `${API_BASE_URL}/videos/download`,
+  YOUTUBE_SSE_STATUS: `${API_BASE_URL}/video/status/sse`,
   AUTH: {
     OAUTH: `${API_BASE_URL}/auth/oauth`,
     REFRESH: `${API_BASE_URL}/auth/refresh`,
@@ -178,17 +179,13 @@ export const apiService = {
     return response.data;
   },
 
-  // 유튜브 업로드 API
-  async uploadVideoToYoutube(
-    videoURL: string,
-    title: string,
-    description: string
-  ) {
+
+  async uploadVideoToYoutube(storyId: string, title: string, description: string) {
     try {
       const token = localStorage.getItem("accessToken");
       const response = await axios.post(
         `${API_ENDPOINTS.YOUTUBE_UPLOAD}`,
-        { videoURL, title, description },
+        { storyId, title, description },
         getAuthConfig(token)
       );
       return response.data;
@@ -236,7 +233,27 @@ export const apiService = {
       throw error;
     }
   },
-
+  async getVideoStatusSSE(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      throw new Error("인증 토큰이 없습니다.");
+    }
+    
+    const response = await fetch(`${API_ENDPOINTS.YOUTUBE_SSE_STATUS}/${storyId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'text/event-stream',
+      },
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response;
+  },
   // 유저 데이터 관련 API
   async getUserData() {
     const token = localStorage.getItem("accessToken");
