@@ -4,6 +4,8 @@
 
 import logging
 import colorlog
+import datetime
+import pytz
 
 
 def setup_logger(name: str):
@@ -18,7 +20,18 @@ def setup_logger(name: str):
     # 컬러 로그 설정
     handler = logging.StreamHandler()
 
-    formatter = colorlog.ColoredFormatter(
+    # 한국 시간(KST) 설정을 위한 Formatter 커스텀 클래스
+    class KSTFormatter(colorlog.ColoredFormatter):
+        def formatTime(self, record, datefmt=None):
+            # UTC 시간을 KST(한국 표준시)로 변환
+            dt = datetime.datetime.fromtimestamp(record.created, tz=pytz.UTC)
+            kst_dt = dt.astimezone(pytz.timezone('Asia/Seoul'))
+            if datefmt:
+                return kst_dt.strftime(datefmt)
+            else:
+                return kst_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    formatter = KSTFormatter(
         "%(log_color)s%(levelname)-8s%(reset)s - %(asctime)s - %(filename)s:%(lineno)d - %(name)s -  %(message)s",
         log_colors={
             "DEBUG": "blue",
@@ -27,6 +40,7 @@ def setup_logger(name: str):
             "ERROR": "red",
             "CRITICAL": "bold_red",
         },
+        datefmt="%Y-%m-%d %H:%M:%S"
     )
 
     handler.setFormatter(formatter)
