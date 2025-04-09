@@ -272,7 +272,12 @@ export default function CreateVideoPage() {
         </div>
       )}
 
-      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+      <Dialog open={showSuccessModal} onOpenChange={(open) => {
+        // 모달이 닫히려고 할 때 대시보드로 이동
+        if (!open) {
+          navigate("/dashboard");
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>비디오 생성 요청 완료</DialogTitle>
