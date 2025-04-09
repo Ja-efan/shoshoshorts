@@ -39,6 +39,10 @@ const Router: React.FC = () => {
       ),
     },
     {
+      path: "/create/debug",
+      element: <CreateVideoPage />,
+    },
+    {
       path: "/create/",
       element: (
         <ProtectedRoute>
