@@ -5,7 +5,7 @@ from app.core.logger import app_logger
 from app.schemas.models import Scene
 
 
-def encode_image_to_base64(image_path: str) -> Optional[str]:
+async def encode_image_to_base64(image_path: str) -> Optional[str]:
     """
     이미지 파일을 Base64로 인코딩하여 반환합니다.
 
@@ -29,7 +29,7 @@ def encode_image_to_base64(image_path: str) -> Optional[str]:
         return None
 
 
-def check_scene(scene: Scene) -> dict:
+async def check_scene(scene: Scene) -> dict:
     """
     장면 정보가 유효한지 검사하고, 유효하지 않은 경우 오류 메시지를 반환합니다.
 
