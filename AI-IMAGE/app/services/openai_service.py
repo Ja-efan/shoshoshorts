@@ -31,42 +31,6 @@ if not api_key:
 client = OpenAI(api_key=api_key)
 
 
-class ImageStyle(str, Enum):
-    """
-    - ANIME: anime-style, cartoon, cel-shaded, Studio Ghibli-style
-    - REALISM: photorealistic, cinematic realism, ultra-realistic
-    - ARTISTIC: watercolor, oil painting, pastel sketch, digital painting, hand-drawn
-    - CONCEPTUAL: fantasy concept art, sci-fi illustration, character sheet
-    - RETRO/LOW-FI: pixel art, 8-bit, VHS aesthetic, low-poly
-    - GENRE: cyberpunk, steampunk, gothic fantasy, dark academia
-    - LIGHTING: cinematic lighting, golden hour glow, soft ambient light, dramatic shadows
-    - MOOD: minimalist, surreal, dreamy, vibrant, moody, textured
-    - GHIBLI: Studio Ghibli-style, anime-style, cartoon, cel-shaded
-    - DISNEY: Disney-style, cartoon, vibrant colors, expressive characters
-    """
-
-    ANIME = "ANIME"
-    REALISM = "REALISM"
-    ARTISTIC = "ARTISTIC"
-    CONCEPTUAL = "CONCEPTUAL"
-    RETRO = "RETRO/LOW-FI"
-    GENRE = "GENRE"
-    LIGHTING = "LIGHTING"
-    MOOD = "MOOD"
-    GHIBLI = "GHIBLI"
-    DISNEY_PIXAR = "DISNEY_PIXAR"
-
-    @classmethod
-    def _missing_(cls, value):
-        """대소문자 구분 없이 Enum 값 찾기"""
-        if isinstance(value, str):
-            # 문자열을 대문자로 변환하여 비교
-            for member in cls:
-                if member.value.upper() == value.upper():
-                    return member
-        return None
-
-
 class OpenAIService:
     """OpenAI API를 활용하여 이미지 프롬프트를 생성하는 서비스"""
 
@@ -81,16 +45,22 @@ class OpenAIService:
             return open(openai_config.SYSTEM_PROMPT["image_prompt"], "r").read()
 
     @staticmethod
-    async def get_negative_prompt(style: ImageStyle) -> str:
+    async def get_negative_prompt(style: str) -> str:
         """
         이미지 스타일에 따른 부정 프롬프트를 반환합니다.
+        style: 이미지 스타일
+            - disney-animation-studio: 디즈니 애니메이션 스튜디오
+            - ghibli-studio: 지브리 스튜디오
         """
         base_negative_prompt = "low quality, bad anatomy, blurry, pixelated, disfigured"
-        if style == ImageStyle.GHIBLI:
-            return f"{base_negative_prompt}, Disney Style"
-        elif style == ImageStyle.DISNEY_PIXAR:
-            return f"{base_negative_prompt}, Studio Ghibli Style"
-        return base_negative_prompt
+        if style == "disney-animation-studio":
+            style_negative_prompt = "ghibli studio, hyper-realistic, photo realistic, cinematic, hyper-detailed, hyper-realistic, photo realistic, cinematic, hyper-detailed"
+        elif style == "ghibli-studio":
+            style_negative_prompt = "disney animation studio, hyper-realistic, photo realistic, cinematic, hyper-detailed, hyper-realistic, photo realistic, cinematic, hyper-detailed"
+        else:
+            style_negative_prompt = ""
+            
+        return f"{base_negative_prompt}, {style_negative_prompt}"
 
     @staticmethod
     async def get_scene_data_path(story_id: int, scene_id: int) -> str:
@@ -175,7 +145,7 @@ class OpenAIService:
 
     @staticmethod
     async def generate_scene_info(
-        scene: Scene, style: Union[str, ImageStyle], system_prompt: str | None = None
+        scene: Scene, style: str, system_prompt: str | None = None
     ) -> SceneInfo:
         """
         장면 정보를 바탕으로 이미지 프롬프트 생성에 필요한 장면 정보(scene_info)를 생성합니다.
@@ -186,7 +156,7 @@ class OpenAIService:
                         "name": "캐릭터 이름",
                         "gender": "남자/여자",
                         "description": "캐릭터 설명"
-                    }
+                    }                
                 ],
                 "scene_content": "장면 내용",
                 "scene_summary": "장면 요약"
@@ -246,27 +216,18 @@ class OpenAIService:
 
     @staticmethod
     async def generate_image_prompt(
-        scene: Scene, style: Union[str, ImageStyle] = ImageStyle.DISNEY_PIXAR
+        scene: Scene, style: str = "disney-animation-studio"
     ) -> Tuple[str, str, SceneInfo]:
         """
         장면 정보를 바탕으로 이미지 생성(KLING AI)에 사용할 이미지 프롬프트를 생성합니다.
 
         Args:
             scene(Scene): 장면 정보
-            style(Union[str, ImageStyle]): 이미지 스타일 (대소문자 구분 없이 입력 가능)
+            style(str): 이미지 스타일 (대소문자 구분 없이 입력 가능)
 
         Returns(str):
             생성된 이미지 프롬프트
         """
-        # 문자열로 입력된 경우 ImageStyle Enum으로 변환
-        if isinstance(style, str) and not isinstance(style, ImageStyle):
-            try:
-                style = ImageStyle(style)
-            except ValueError:
-                app_logger.warning(
-                    f"Invalid image style '{style}'. Using default value '{ImageStyle.DISNEY_PIXAR}'."
-                )
-                style = ImageStyle.DISNEY_PIXAR
 
         # 캐릭터 성별 정보
         for character in scene.story_metadata.characters:
@@ -317,7 +278,7 @@ class OpenAIService:
 
         try:
             # 시스템 프롬프트 (image_prompt)
-            system_prompt = await OpenAIService.get_system_prompt("image_prompt")  # str 반환
+            system_prompt = await OpenAIService.get_system_prompt("image_prompt")  # str
             
             # OpenAI API 호출
             response = client.chat.completions.create(
@@ -331,11 +292,7 @@ class OpenAIService:
             )
 
             image_prompt = response.choices[0].message.content.strip()
-            negative_prompt = None
-            # negative_prompt = OpenAIService.get_negative_prompt(style)
-
-            # app_logger.debug(f"Positive Prompt: \n{image_prompt}")
-            # app_logger.debug(f"Negative Prompt: {negative_prompt}")
+            negative_prompt = OpenAIService.get_negative_prompt(style)
 
             # 생성된 프롬프트 반환
             return {
