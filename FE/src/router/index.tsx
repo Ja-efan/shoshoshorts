@@ -22,8 +22,14 @@ const Router: React.FC = () => {
     },
     { path: "/login", element: <LoginPage /> },
     { path: "/terms", element: <TermsPage /> },
-
-
+    {
+      path: "/mypage",
+      element: (
+        <ProtectedRoute>
+          <Mypage />
+        </ProtectedRoute>
+      ),
+    },
     {
       path: "/dashboard/",
       element: (
@@ -46,15 +52,19 @@ const Router: React.FC = () => {
     },
     {
       path: "/upload/youtube/login",
-      element: <ProtectedRoute><YoutubeLoginPage /></ProtectedRoute>,
+      element: (
+        <ProtectedRoute>
+          <YoutubeLoginPage />
+        </ProtectedRoute>
+      ),
     },
     {
       path: "/youtube-upload",
-      element: <ProtectedRoute><YoutubeUploadPage /></ProtectedRoute>,
-    },
-    {
-      path: "/mypage",
-      element: <Mypage />,
+      element: (
+        <ProtectedRoute>
+          <YoutubeUploadPage />
+        </ProtectedRoute>
+      ),
     },
     { path: "*", element: <NotFound /> },
   ]);

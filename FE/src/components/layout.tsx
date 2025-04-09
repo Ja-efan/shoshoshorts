@@ -5,7 +5,7 @@ import Navbar from "./nav-bar/NavBar";
 const Layout: React.FC = () => {
   return (
     <div>
-      <Navbar /> 
+      <Navbar />
       <div className="p-4">
         <Outlet />
       </div>
