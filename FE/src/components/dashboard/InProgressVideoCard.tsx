@@ -8,6 +8,7 @@ import { useEffect, useState } from "react"
 interface InProgressVideoCardProps {
   video: VideoData
   statusText?: string
+  onStatusChange?: (storyId: string, newStatus: string) => void
 }
 
 // 처리 단계에 따른 한글 텍스트 매핑
@@ -34,7 +35,7 @@ const processingStepColor: Record<string, string> = {
   VIDEO_UPLOADING: "bg-red-100 text-red-800"
 };
 
-export function InProgressVideoCard({ video, statusText = "처리 중" }: InProgressVideoCardProps) {
+export function InProgressVideoCard({ video, statusText = "처리 중", onStatusChange }: InProgressVideoCardProps) {
   const { videoStatus, error, isConnected } = useVideoStatus(video.story_id);
   const [currentStatus, setCurrentStatus] = useState<string>(statusText);
   const [processingStep, setProcessingStep] = useState<string | undefined>(undefined);
@@ -61,18 +62,19 @@ export function InProgressVideoCard({ video, statusText = "처리 중" }: InProg
       } else if (videoStatus.status === "PENDING") {
         setCurrentStatus("대기 중");
         setProcessingStep(undefined);
-      } else if (videoStatus.status === "COMPLETED") {
-        setCurrentStatus("완료됨");
-        setProcessingStep(undefined);
-      } else if (videoStatus.status === "FAILED") {
-        setCurrentStatus("실패");
+      } else if (videoStatus.status === "COMPLETED" || videoStatus.status === "FAILED") {
+        // 상태가 COMPLETED나 FAILED로 변경되면 부모 컴포넌트에 알림
+        if (onStatusChange) {
+          onStatusChange(video.story_id, videoStatus.status);
+        }
+        setCurrentStatus(videoStatus.status === "COMPLETED" ? "완료됨" : "실패");
         setProcessingStep(undefined);
       } else {
         setCurrentStatus(statusText);
         setProcessingStep(undefined);
       }
     }
-  }, [videoStatus, statusText]);
+  }, [videoStatus, statusText, onStatusChange, video.story_id]);
 
   // 상태에 따른 아이콘 및 스타일 결정
   const getStatusIcon = () => {
@@ -110,11 +112,6 @@ export function InProgressVideoCard({ video, statusText = "처리 중" }: InProg
             {getStatusIcon()}
             {currentStatus}
           </Badge>
-          {!isConnected && (
-            <Badge variant="outline" className="text-xs text-red-500">
-              연결 끊김
-            </Badge>
-          )}
         </div>
         {error && (
           <p className="mt-1 text-xs text-red-500">{error}</p>

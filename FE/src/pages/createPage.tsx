@@ -147,50 +147,50 @@ export default function CreateVideoPage() {
 
     setIsGenerating(true);
 
-    // 선택된 모델 가져오기
-    const selectedVoiceModel =
-      voiceModels.find((model) => model.isSelected)?.name || "Eleven Labs";
-    const selectedImageModel =
-      imageModels.find((model) => model.isSelected)?.name || "Kling";
-
-    // URL 파라미터 값이 있으면 그것을 우선 사용, 없으면 선택된 모델 사용
-    const finalAudioModel = audioModelName || selectedVoiceModel;
-    const finalImageModel = imageModelName || selectedImageModel;
-
-    const requestData: any = {
-      title,
-      story,
-      // Zonos가 선택된 경우 내레이터 ID 사용, 아니면 기존 방식 사용
-      narVoiceCode: isZonosSelected
-        ? String(narratorZonosId) // Zonos ID를 직접 사용
-        : voiceCodes[finalAudioModel][narratorGender][
-            parseInt(narratorVoice.slice(-1)) - 1
-          ],
-      audioModelName: finalAudioModel,
-      imageModelName: finalImageModel,
-    };
-
-    if (characters.length > 0) {
-      requestData.characterArr = characters.map((character) => ({
-        name: character.name,
-        gender: character.gender
-          ? character.gender === "male"
-            ? "1"
-            : "2"
-          : null,
-        properties: character.description || "이미지 생성을 위한 설명...",
-        // Zonos가 선택된 경우 캐릭터의 Zonos 음성 ID 사용, 아니면 기존 방식 사용
-        voiceCode: isZonosSelected
-          ? String(character.voice) || null // Zonos ID 사용
-          : character.voice && character.gender
-          ? voiceCodes[finalAudioModel][character.gender][
-              parseInt(character.voice.slice(-1)) - 1
-            ]
-          : null,
-      }));
-    }
-
     try {
+      // 선택된 모델 가져오기
+      const selectedVoiceModel =
+        voiceModels.find((model) => model.isSelected)?.name || "Eleven Labs";
+      const selectedImageModel =
+        imageModels.find((model) => model.isSelected)?.name || "Kling";
+
+      // URL 파라미터 값이 있으면 그것을 우선 사용, 없으면 선택된 모델 사용
+      const finalAudioModel = audioModelName || selectedVoiceModel;
+      const finalImageModel = imageModelName || selectedImageModel;
+
+      const requestData: any = {
+        title,
+        story,
+        // Zonos가 선택된 경우 내레이터 ID 사용, 아니면 기존 방식 사용
+        narVoiceCode: isZonosSelected
+          ? String(narratorZonosId) // Zonos ID를 직접 사용
+          : voiceCodes[finalAudioModel][narratorGender][
+              parseInt(narratorVoice.slice(-1)) - 1
+            ],
+        audioModelName: finalAudioModel,
+        imageModelName: finalImageModel,
+      };
+
+      if (characters.length > 0) {
+        requestData.characterArr = characters.map((character) => ({
+          name: character.name,
+          gender: character.gender
+            ? character.gender === "male"
+              ? "1"
+              : "2"
+            : null,
+          properties: character.description || "이미지 생성을 위한 설명...",
+          // Zonos가 선택된 경우 캐릭터의 Zonos 음성 ID 사용, 아니면 기존 방식 사용
+          voiceCode: isZonosSelected
+            ? String(character.voice) || null // Zonos ID 사용
+            : character.voice && character.gender
+            ? voiceCodes[finalAudioModel][character.gender][
+                parseInt(character.voice.slice(-1)) - 1
+              ]
+            : null,
+        }));
+      }
+
       console.log("Request Data:", requestData); // 요청 데이터 로깅
       const response = await apiService.createVideo({
         data: requestData,
@@ -199,7 +199,12 @@ export default function CreateVideoPage() {
       setShowSuccessModal(true);
     } catch (error) {
       console.error("API Error:", error);
-      toast.error("비디오 생성에 실패했습니다. 다시 시도해주세요.");
+      if (error instanceof Error && error.message === "토큰 갱신에 실패했습니다. 다시 로그인해주세요.") {
+        toast.error("세션이 만료되었습니다. 다시 로그인해주세요.");
+        navigate("/login");
+      } else {
+        toast.error("비디오 생성에 실패했습니다. 다시 시도해주세요.");
+      }
     } finally {
       setIsGenerating(false);
     }
