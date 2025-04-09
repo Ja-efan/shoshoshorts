@@ -99,6 +99,30 @@ class OpenAIConfig:
     # Prompt 파일 경로
     PROMPT_DIR: str = "app/prompts"
     SYSTEM_PROMPT_DIR: str = os.path.join(PROMPT_DIR, "system-prompts")
+    
+    # 스타일별 시스템 프롬프트 및 참고 이미지 설정
+    IMAGE_STYLES = {
+        "disney": {
+            "prompt": os.path.join(
+                SYSTEM_PROMPT_DIR, "image_prompts", os.getenv("DISNEY_STYLE_PROMPT", "disney/disney_v01.txt")
+            ),
+            "reference_image": os.getenv("DISNEY_STYLE_REFERENCE_IMAGE", "disney/disney-reference.png")
+        },
+        "pixar": {
+            "prompt": os.path.join(
+                SYSTEM_PROMPT_DIR, "image_prompts", os.getenv("PIXAR_STYLE_PROMPT", "pixar/pixar_v01.txt")
+            ),
+            "reference_image": os.getenv("PIXAR_STYLE_REFERENCE_IMAGE", "pixar/pixar-reference.png")
+        },
+        "illustrate": {
+            "prompt": os.path.join(
+                SYSTEM_PROMPT_DIR, "image_prompts", os.getenv("ILLUSTRATE_STYLE_PROMPT", "illustrate/Illustrate_v01.txt")
+            ),
+            "reference_image": os.getenv("ILLUSTRATE_STYLE_REFERENCE_IMAGE", "illustrate/illustrate-reference.png")
+        }
+    }
+    
+    # 기본 시스템 프롬프트 설정 (스타일별 설정이 없는 경우 사용)
     SYSTEM_PROMPT = {
         "image_prompt": os.path.join(
             SYSTEM_PROMPT_DIR, "image_prompts", os.getenv("SYSTEM_PROMPT_FOR_IMAGE_PROMPT")

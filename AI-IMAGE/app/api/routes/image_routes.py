@@ -3,6 +3,7 @@
 """
 
 import time
+import random
 from fastapi import APIRouter, HTTPException
 from app.schemas.models import Scene, ImageGenerationResponse
 from app.services.openai_service import openai_service
@@ -18,7 +19,7 @@ router = APIRouter(prefix="/images", tags=["images"])
 
 
 @router.post("/generations/external", response_model=ImageGenerationResponse)
-async def generate_scene_image(scene: Scene, style: str = "DISNEY_PIXAR"):
+async def generate_scene_image(scene: Scene, style: str = 'pixar'):
     """
     장면 정보를 기반으로 이미지를 생성합니다.
 
@@ -29,19 +30,26 @@ async def generate_scene_image(scene: Scene, style: str = "DISNEY_PIXAR"):
     4. 생성된 이미지를 로컬에 저장
     5. 이미지를 S3에 업로드
     6. 결과 반환
+    
+    Args:
+        scene (Scene): 장면 정보
+        style (str): 이미지 생성 스타일 (기본값: disney)
+            - disney: 디즈니 애니메이션 스튜디오 스타일
+            - pixar: 픽사 3D 스타일
+            - illustrate: 일러스트레이트 스타일
     """
 
     start_time = time.time()
     app_logger.info("Received request for image generation...")
 
     app_logger.info(
-        f"Story ID: {scene.story_metadata.story_id}, Scene ID: {scene.scene_id}"
+        f"Story ID: {scene.story_metadata.story_id}, Scene ID: {scene.scene_id}, Style: {style}"
     )
     app_logger.info(f"Scene: \n{scene.model_dump_json(indent=4)}")
 
     try:
         # 1. 장면 정보 검증 - 비즈니스 로직 유효성 검사
-        check_scene_result = check_scene(scene)
+        check_scene_result = await check_scene(scene)
         if check_scene_result["result"] == False:
             raise HTTPException(
                 status_code=400, detail=check_scene_result["validation_errors"]

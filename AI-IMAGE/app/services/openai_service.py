@@ -35,13 +35,25 @@ class OpenAIService:
     """OpenAI API를 활용하여 이미지 프롬프트를 생성하는 서비스"""
 
     @staticmethod
-    async def get_system_prompt(which: str) -> str:
+    async def get_system_prompt(which: str, style: str = None) -> str:
         """
         시스템 프롬프트를 반환합니다.
+        
+        Args:
+            which: 시스템 프롬프트 종류 (image_prompt, scene_info)
+            style: 이미지 스타일 (disney, pixar, illustrate)
+            
+        Returns:
+            시스템 프롬프트
         """
         if which == "scene_info":
             return open(openai_config.SYSTEM_PROMPT["scene_info"], "r").read()
         elif which == "image_prompt":
+            # 스타일이 지정되고, 해당 스타일의 프롬프트가 있을 경우
+            if style and style.lower() in openai_config.IMAGE_STYLES:
+                prompt_path = openai_config.IMAGE_STYLES[style.lower()]["prompt"]
+                return open(prompt_path, "r").read()
+            # 스타일이 지정되지 않거나, 해당 스타일의 프롬프트가 없을 경우 기본 프롬프트 사용
             return open(openai_config.SYSTEM_PROMPT["image_prompt"], "r").read()
 
     @staticmethod
@@ -49,13 +61,24 @@ class OpenAIService:
         """
         이미지 스타일에 따른 부정 프롬프트를 반환합니다.
         style: 이미지 스타일
-            - disney-animation-studio: 디즈니 애니메이션 스튜디오
-            - ghibli-studio: 지브리 스튜디오
+            - disney: 디즈니 애니메이션 스튜디오 스타일
+            - pixar: 픽사 3D 스타일
+            - illustrate: 일러스트레이트 스타일
         """
         base_negative_prompt = "low quality, bad anatomy, blurry, pixelated, disfigured"
-        if style == "disney-animation-studio":
+        
+        # 스타일 이름을 소문자로 변환하여 처리
+        style_lower = style.lower()
+        
+        if style_lower == "disney":
+            style_negative_prompt = "pixar 3d, illustration, ghibli studio, hyper-realistic, photo realistic, cinematic, hyper-detailed"
+        elif style_lower == "pixar":
+            style_negative_prompt = "disney animation studio, illustration, ghibli studio, hyper-realistic, photo realistic, cinematic, hyper-detailed"
+        elif style_lower == "illustrate":
+            style_negative_prompt = "disney animation studio, pixar 3d, ghibli studio, hyper-realistic, photo realistic, cinematic, hyper-detailed"
+        elif style_lower == "disney-animation-studio":
             style_negative_prompt = "ghibli studio, hyper-realistic, photo realistic, cinematic, hyper-detailed, hyper-realistic, photo realistic, cinematic, hyper-detailed"
-        elif style == "ghibli-studio":
+        elif style_lower == "ghibli-studio":
             style_negative_prompt = "disney animation studio, hyper-realistic, photo realistic, cinematic, hyper-detailed, hyper-realistic, photo realistic, cinematic, hyper-detailed"
         else:
             style_negative_prompt = ""
@@ -96,48 +119,17 @@ class OpenAIService:
             return None
             
         # 기존 데이터 마이그레이션 (문자열 -> 딕셔너리)
-        KlingAIService.legacy_scene_data_migration(story_id, previous_scene_id)
+        await KlingAIService.legacy_scene_data_migration(story_id, previous_scene_id)
 
         try:
             with open(previous_scene_data_path, "r", encoding="utf-8") as f:
                 previous_scene_data = json.load(f)
-            
-            # scene_info가 문자열인 경우 JSON으로 파싱
-            if isinstance(previous_scene_data.get("scene_info"), str):
-                try:
-                    scene_info_dict = json.loads(previous_scene_data["scene_info"])
-                    previous_scene_data["scene_info"] = scene_info_dict
-                    app_logger.info(f"Successfully parsed scene_info string to dictionary")
-                except json.JSONDecodeError as je:
-                    app_logger.error(f"Failed to parse scene_info string: {str(je)}")
-                    return None
-            
-            # scene_info가 딕셔너리인지 확인
-            if not isinstance(previous_scene_data.get("scene_info"), dict):
-                app_logger.error(f"Invalid scene_info format in {previous_scene_data_path}")
-                return None
-                
-            try:
-                # SceneMetadata 생성 시도
-                scene_metadata = SceneMetadata(
-                    title=previous_scene_data["scene_info"]["scene_metadata"]["title"],
-                    scene_id=previous_scene_data["scene_info"]["scene_metadata"]["scene_id"],
-                    style=previous_scene_data["scene_info"]["scene_metadata"]["style"]
-                )
-                
-                # 이전 씬 데이터 반환
-                return PreviousSceneData(
-                    scene_info=SceneInfo(
-                        characters=[Character(**char) for char in previous_scene_data["scene_info"]["characters"]],
-                        scene_content=previous_scene_data["scene_info"]["scene_content"],
-                        scene_summary=previous_scene_data["scene_info"]["scene_summary"],
-                        scene_metadata=scene_metadata
-                    ),
-                    image_prompt=previous_scene_data["image_prompt"],
-                )
-            except KeyError as ke:
-                app_logger.error(f"Missing key in scene_info: {str(ke)}")
-                return None
+
+            # 이전 씬 데이터 반환
+            return PreviousSceneData(
+                scene_info=previous_scene_data["scene_info"],
+                image_prompt=previous_scene_data["image_prompt"],
+            )
 
         except Exception as e:
             app_logger.error(f"Previous scene data retrieval error: {str(e)}")
@@ -223,11 +215,20 @@ class OpenAIService:
 
         Args:
             scene(Scene): 장면 정보
-            style(str): 이미지 스타일 (대소문자 구분 없이 입력 가능)
+            style(str): 이미지 스타일 (disney, pixar, illustrate)
 
         Returns(str):
             생성된 이미지 프롬프트
         """
+        
+        # 스타일 이름 표준화
+        normalized_style = style.lower()
+        if normalized_style == "disney-animation-studio":
+            normalized_style = "disney"
+        elif normalized_style == "pixar-3d" or normalized_style == "pixar_3d":
+            normalized_style = "pixar"
+        elif normalized_style == "illustration":
+            normalized_style = "illustrate"
 
         # 캐릭터 성별 정보
         for character in scene.story_metadata.characters:
@@ -249,7 +250,7 @@ class OpenAIService:
             }
         """
         scene_info = await OpenAIService.generate_scene_info(
-            scene, style
+            scene, normalized_style
         )  # SceneInfo 객체 반환
 
         ####################################### 이전 씬 정보 및 이미지 프롬프트 #######################################
@@ -278,7 +279,7 @@ class OpenAIService:
 
         try:
             # 시스템 프롬프트 (image_prompt)
-            system_prompt = await OpenAIService.get_system_prompt("image_prompt")  # str
+            system_prompt = await OpenAIService.get_system_prompt("image_prompt", normalized_style)  # str
             
             # OpenAI API 호출
             response = client.chat.completions.create(
@@ -292,7 +293,7 @@ class OpenAIService:
             )
 
             image_prompt = response.choices[0].message.content.strip()
-            negative_prompt = OpenAIService.get_negative_prompt(style)
+            negative_prompt = await OpenAIService.get_negative_prompt(normalized_style)
 
             # 생성된 프롬프트 반환
             return {
