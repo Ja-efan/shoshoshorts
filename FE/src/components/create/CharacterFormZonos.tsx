@@ -188,7 +188,7 @@ export function CharacterFormZonos({
               <div className="mt-3 space-y-3">
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor={`name-${character.id}`}>
+                    <Label className="mb-2" htmlFor={`name-${character.id}`}>
                       캐릭터 이름 <span className="text-red-500">*</span>
                     </Label>
                     <Input
@@ -207,7 +207,10 @@ export function CharacterFormZonos({
                     />
                   </div>
                   <div>
-                    <Label htmlFor={`description-${character.id}`}>
+                    <Label
+                      className="mb-2"
+                      htmlFor={`description-${character.id}`}
+                    >
                       캐릭터 설명 <span className="text-red-500">*</span>
                     </Label>
                     <Textarea

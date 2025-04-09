@@ -98,7 +98,7 @@ export function ModelSelector({
       </Button>
 
       {showModelSelector && (
-        <div className="absolute z-10 w-full mt-2 p-4 bg-white border rounded-lg shadow-lg">
+        <div className="absolute z-5 w-full mt-2 p-4 bg-white border rounded-lg shadow-lg">
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-medium mb-2 flex items-center gap-2">

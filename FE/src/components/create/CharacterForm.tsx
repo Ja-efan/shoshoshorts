@@ -1,26 +1,26 @@
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Card } from "@/components/ui/card"
-import { Plus, X } from "lucide-react"
-import { Character, CurrentlyPlaying } from "@/types/character"
-import { VoiceButtons } from "./VoiceButtons"
-import { NarratorRef } from "./NarratorSettings"
-import { RefObject } from "react"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { Plus, X } from "lucide-react";
+import { Character, CurrentlyPlaying } from "@/types/character";
+import { VoiceButtons } from "./VoiceButtons";
+import { NarratorRef } from "./NarratorSettings";
+import { RefObject } from "react";
 
 interface CharacterFormProps {
-  characters: Character[]
-  addCharacter: () => void
-  updateCharacter: (id: string, field: keyof Character, value: any) => void
-  removeCharacter: (id: string) => void
-  currentlyPlaying: CurrentlyPlaying
-  setCurrentlyPlaying: (value: CurrentlyPlaying) => void
-  voiceModel: string
+  characters: Character[];
+  addCharacter: () => void;
+  updateCharacter: (id: string, field: keyof Character, value: any) => void;
+  removeCharacter: (id: string) => void;
+  currentlyPlaying: CurrentlyPlaying;
+  setCurrentlyPlaying: (value: CurrentlyPlaying) => void;
+  voiceModel: string;
   validationErrors?: {
-    characters: boolean
-  }
-  narratorRef?: RefObject<NarratorRef> | null
+    characters: boolean;
+  };
+  narratorRef?: RefObject<NarratorRef> | null;
 }
 
 export function CharacterForm({
@@ -32,7 +32,7 @@ export function CharacterForm({
   setCurrentlyPlaying,
   voiceModel,
   validationErrors = { characters: false },
-  narratorRef
+  narratorRef,
 }: CharacterFormProps) {
   return (
     <div>
@@ -51,7 +51,10 @@ export function CharacterForm({
 
       {characters.length === 0 ? (
         <div className="mt-4 rounded-lg border border-dashed p-6 text-center">
-          <p className="text-gray-500">아직 캐릭터가 없습니다. 스토리를 더 풍부하게 만들기 위해 캐릭터를 추가해보세요.</p>
+          <p className="text-gray-500">
+            아직 캐릭터가 없습니다. 스토리를 더 풍부하게 만들기 위해 캐릭터를
+            추가해보세요.
+          </p>
         </div>
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -71,27 +74,45 @@ export function CharacterForm({
               <div className="mt-3 space-y-3">
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="name">
+                    <Label className="mb-2" htmlFor="name">
                       캐릭터 이름 <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="name"
                       value={character.name}
-                      onChange={(e) => updateCharacter(character.id, "name", e.target.value)}
+                      onChange={(e) =>
+                        updateCharacter(character.id, "name", e.target.value)
+                      }
                       placeholder="홍길동"
-                      className={`${character.name.trim() === "" && validationErrors.characters ? "border-red-500" : ""}`}
+                      className={`${
+                        character.name.trim() === "" &&
+                        validationErrors.characters
+                          ? "border-red-500"
+                          : ""
+                      }`}
                     />
                   </div>
                   <div>
-                    <Label htmlFor="description">
+                    <Label className="mb-2" htmlFor="description">
                       캐릭터 설명 <span className="text-red-500">*</span>
                     </Label>
                     <Textarea
                       id="description"
                       value={character.description || ""}
-                      onChange={(e) => updateCharacter(character.id, "description", e.target.value)}
+                      onChange={(e) =>
+                        updateCharacter(
+                          character.id,
+                          "description",
+                          e.target.value
+                        )
+                      }
                       placeholder="빨간 머리, 초록색 가디건, 25세, 이쁨"
-                      className={`min-h-[100px] ${(character.description || "").trim() === "" && validationErrors.characters ? "border-red-500" : ""}`}
+                      className={`min-h-[100px] ${
+                        (character.description || "").trim() === "" &&
+                        validationErrors.characters
+                          ? "border-red-500"
+                          : ""
+                      }`}
                     />
                   </div>
                 </div>
@@ -100,23 +121,31 @@ export function CharacterForm({
                   <div className="mt-1 flex gap-3">
                     <Button
                       type="button"
-                      variant={character.gender === "male" ? "default" : "outline"}
+                      variant={
+                        character.gender === "male" ? "default" : "outline"
+                      }
                       size="sm"
                       onClick={() =>
-                        updateCharacter(character.id, "gender", character.gender === "male" ? null : "male")
+                        updateCharacter(
+                          character.id,
+                          "gender",
+                          character.gender === "male" ? null : "male"
+                        )
                       }
                     >
                       남성
                     </Button>
                     <Button
                       type="button"
-                      variant={character.gender === "female" ? "default" : "outline"}
+                      variant={
+                        character.gender === "female" ? "default" : "outline"
+                      }
                       size="sm"
                       onClick={() =>
                         updateCharacter(
                           character.id,
                           "gender",
-                          character.gender === "female" ? null : "female",
+                          character.gender === "female" ? null : "female"
                         )
                       }
                     >
@@ -127,8 +156,8 @@ export function CharacterForm({
                 <div className="mt-3">
                   <Label>목소리</Label>
                   <div className="mt-1">
-                    <VoiceButtons 
-                      character={character} 
+                    <VoiceButtons
+                      character={character}
                       updateCharacter={updateCharacter}
                       currentlyPlaying={currentlyPlaying}
                       setCurrentlyPlaying={setCurrentlyPlaying}
@@ -143,5 +172,5 @@ export function CharacterForm({
         </div>
       )}
     </div>
-  )
-} 
+  );
+}

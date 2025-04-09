@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { apiService } from "@/api/api";
@@ -33,8 +33,8 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Navbar } from "@/components/common/Navbar";
 import { ISpeakerInfoGet } from "@/types/speakerInfo";
+import shortLogo from "@/assets/short_logo.png";
 
 export default function CreateVideoPage() {
   const { characters, addCharacter, updateCharacter, removeCharacter } =
@@ -74,6 +74,16 @@ export default function CreateVideoPage() {
 
   // Zonos 내레이터 ID 추적
   const [narratorZonosId, setNarratorZonosId] = useState<number | null>(null);
+
+  // 스크롤 위치에 따른 텍스트 상태 관리
+
+  // 글자 변경을 위한 상태와 트랜지션을 관리하는 상태 추가
+  const [headerTextVisible, setHeaderTextVisible] = useState(true);
+  const [queuedHeaderText, setQueuedHeaderText] = useState({
+    title: "동영상 만들기",
+    description:
+      "스토리를 입력하고 캐릭터를 추가하여 1분 길이의 동영상을 만들어보세요.",
+  });
 
   useEffect(() => {
     const fetchZonosList = async () => {
@@ -215,120 +225,271 @@ export default function CreateVideoPage() {
     setIsZonosSelected(isZonos);
   };
 
+  // 각 섹션에 hover될 때 호출될 함수
+  const handleSectionHover = (section: string) => {
+    // 트랜지션을 위해 텍스트 변경 예약
+    setHeaderTextVisible(false); // 먼저 현재 텍스트를 숨김
+
+    // 섹션에 따라 새 텍스트 설정
+    let newHeaderText = {
+      title: "",
+      description: "",
+    };
+
+    switch (section) {
+      case "model":
+        newHeaderText = {
+          title: "1단계: 음성 및 이미지 모델 선택",
+          description: "원하는 음성 및 이미지 생성 모델을 선택하세요",
+        };
+        break;
+      case "title":
+        newHeaderText = {
+          title: "2단계: 비디오 제목 입력",
+          description: "생성할 비디오의 제목을 20자 이내로 입력해주세요",
+        };
+        break;
+      case "story":
+        newHeaderText = {
+          title: "3단계: 스토리 작성",
+          description: "비디오에 담길 스토리를 500자 이내로 작성해주세요",
+        };
+        break;
+      case "narrator":
+        newHeaderText = {
+          title: "4단계: 내레이터 설정",
+          description:
+            "스토리를 읽어줄 내레이터의 목소리를 선택해주세요. 인물의 대사가 아닌 글을 읽어줍니다.",
+        };
+        break;
+      case "character":
+        newHeaderText = {
+          title: "5단계: 캐릭터 설정",
+          description:
+            "스토리에 등장할 캐릭터와 그 특성과 목소리를 설정해주세요. 이곳에 작성된 내용을 기반으로 인물 이미지를 생성하고, 인물의 대사를 읽어줍니다.",
+        };
+        break;
+      default:
+        newHeaderText = {
+          title: "동영상 만들기",
+          description:
+            "스토리를 입력하고 캐릭터를 추가하여 1분 길이의 동영상을 만들어보세요",
+        };
+    }
+
+    // 텍스트가 모두 숨겨진 후 새 텍스트를 설정하고 표시
+    setTimeout(() => {
+      setQueuedHeaderText(newHeaderText);
+      setHeaderTextVisible(true);
+    }, 200); // 페이드 아웃 시간
+  };
+
+  // 마우스가 영역을 벗어날 때 기본값으로 복원
+  const handleMouseLeave = () => {
+    setHeaderTextVisible(false);
+
+    setTimeout(() => {
+      const defaultText = {
+        title: "동영상 만들기",
+        description:
+          "스토리를 입력하고 캐릭터를 추가하여 1분 길이의 동영상을 만들어보세요",
+      };
+      setQueuedHeaderText(defaultText);
+      setHeaderTextVisible(true);
+    }, 200); // 페이드 아웃 시간
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
-      <main className="flex-1 py-8">
-        <div className="container mx-auto px-4">
+      <main className="flex-1 py-4">
+        <div className="sticky top-0 bg-white z-20">
           <div className="mx-auto max-w-3xl">
-            <ModelSelector
-              showModelSelector={showModelSelector}
-              setShowModelSelector={setShowModelSelector}
-              voiceModels={voiceModels}
-              setVoiceModels={setVoiceModels}
-              imageModels={imageModels}
-              setImageModels={setImageModels}
-              onVoiceModelChange={handleVoiceModelChange}
-              onSelectZonos={handleZonosSelection}
-            />
-
-            <h1 className="text-3xl font-bold">동영상 만들기</h1>
-            <p className="mt-2 text-gray-600">
-              스토리를 입력하고 캐릭터를 추가하여 1분 길이의 동영상을
-              만들어보세요
-            </p>
-
+            <Link to="/" className="flex items-center gap-2 px-4 sm:px-0">
+              <img src={shortLogo} alt="쇼쇼숏 로고" className="h-8 w-auto" />
+            </Link>
+          </div>
+        </div>
+        <div className="container mx-auto px-4">
+          <div className="sticky top-0 bg-white py-4 z-20 mb-1">
+            <div className="mx-auto max-w-3xl">
+              <h1
+                className={`text-3xl font-bold transition-opacity duration-200 ease-in-out ${
+                  headerTextVisible ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                {queuedHeaderText.title}
+              </h1>
+              <p
+                className={`my-4 text-lg transition-opacity duration-200 ease-in-out ${
+                  headerTextVisible ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                {queuedHeaderText.description}
+              </p>
+            </div>
+          </div>
+          <div className="mx-auto max-w-3xl">
+            <div className="relative">
+              <div className="absolute -left-20 top-7 -translate-y-1/2 bg-red-100 px-3 py-2 rounded-lg font-medium text-red-700 transition-opacity duration-200 ease-in-out shadow-sm">
+                1단계
+              </div>
+              <div
+                className="rounded-lg border border-gray-200 p-4 transition-all hover:border-red-200 focus-within:border-gray-500 focus-within:ring-1 focus-within:ring-gray-500"
+                onMouseEnter={() => handleSectionHover("model")}
+                onMouseLeave={handleMouseLeave}
+              >
+                <ModelSelector
+                  showModelSelector={showModelSelector}
+                  setShowModelSelector={setShowModelSelector}
+                  voiceModels={voiceModels}
+                  setVoiceModels={setVoiceModels}
+                  imageModels={imageModels}
+                  setImageModels={setImageModels}
+                  onVoiceModelChange={handleVoiceModelChange}
+                  onSelectZonos={handleZonosSelection}
+                />
+              </div>
+            </div>
             <div className="mt-8 space-y-6">
               <div className="space-y-4">
-                <div>
-                  <Label className="mb-2" htmlFor="title">
-                    제목
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="title"
-                      value={title}
-                      onChange={handleTitleChange}
-                      placeholder="비디오 제목을 입력하세요"
-                      className={validationErrors.title ? "border-red-500" : ""}
-                    />
-                    <span
-                      className={`absolute right-2 top-2 text-sm ${
-                        title.length > 20 ? "text-red-500" : "text-gray-500"
-                      }`}
+                <div className="relative">
+                  <div className="absolute -left-20 top-7 -translate-y-1/2 bg-red-100 px-3 py-2 rounded-lg font-medium text-red-700 transition-opacity duration-200 ease-in-out shadow-sm">
+                    2단계
+                  </div>
+                  <div
+                    className="rounded-lg border border-gray-200 p-4 transition-all hover:border-red-200 focus-within:border-gray-500 focus-within:ring-1 focus-within:ring-gray-500"
+                    onMouseEnter={() => handleSectionHover("title")}
+                    onMouseLeave={handleMouseLeave}
+                  >
+                    <Label
+                      className="mb-2 block font-semibold text-lg"
+                      htmlFor="title"
                     >
-                      {title.length}/20
-                    </span>
+                      제목
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="title"
+                        value={title}
+                        onChange={handleTitleChange}
+                        placeholder="비디오 제목을 입력하세요"
+                        className={`border-0 p-0 shadow-none focus-visible:ring-0 ${
+                          validationErrors.title ? "text-red-500" : ""
+                        }`}
+                      />
+                      <span
+                        className={`absolute right-2 top-2 text-sm ${
+                          title.length > 20 ? "text-red-500" : "text-gray-500"
+                        }`}
+                      >
+                        {title.length}/20
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <Label className="mb-2" htmlFor="story">
-                    스토리
-                  </Label>
-                  <div className="relative">
-                    <Textarea
-                      id="story"
-                      value={story}
-                      onChange={handleStoryChange}
-                      placeholder="스토리를 입력하세요"
-                      className={`min-h-[200px] ${
-                        validationErrors.story ? "border-red-500" : ""
-                      }`}
-                    />
-                    <span
-                      className={`absolute right-2 bottom-2 text-sm ${
-                        story.length > 500 ? "text-red-500" : "text-gray-500"
-                      }`}
+                <div className="relative">
+                  <div className="absolute -left-20 top-7 -translate-y-1/2 bg-red-100 px-3 py-2 rounded-lg font-medium text-red-700 transition-opacity duration-200 ease-in-out shadow-sm">
+                    3단계
+                  </div>
+                  <div
+                    className="rounded-lg border border-gray-200 p-4 transition-all hover:border-red-200 focus-within:border-gray-500 focus-within:ring-1 focus-within:ring-gray-500"
+                    onMouseEnter={() => handleSectionHover("story")}
+                    onMouseLeave={handleMouseLeave}
+                  >
+                    <Label
+                      className="mb-3 block font-semibold text-lg"
+                      htmlFor="story"
                     >
-                      {story.length}/500
-                    </span>
+                      스토리
+                    </Label>
+                    <div className="relative">
+                      <Textarea
+                        id="story"
+                        value={story}
+                        onChange={handleStoryChange}
+                        placeholder="스토리를 입력하세요"
+                        className={`min-h-[200px] border-0 p-0 shadow-none focus-visible:ring-0 ${
+                          validationErrors.story ? "text-red-500" : ""
+                        }`}
+                      />
+                      <span
+                        className={`absolute right-2 bottom-2 text-sm ${
+                          story.length > 500 ? "text-red-500" : "text-gray-500"
+                        }`}
+                      >
+                        {story.length}/500
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-              {!isZonosSelected ? (
-                <NarratorSettings
-                  ref={narratorRef}
-                  narratorGender={narratorGender}
-                  setNarratorGender={setNarratorGender}
-                  narratorVoice={narratorVoice}
-                  setNarratorVoice={setNarratorVoice}
-                  selectedVoiceModel={getSelectedVoiceModel()}
-                  setCurrentlyPlaying={setCurrentlyPlaying}
-                  currentlyPlaying={currentlyPlaying}
-                />
-              ) : (
-                <NarratorSettingsZonos
-                  zonosList={zonosList}
-                  zonosLoading={zonosLoading}
-                  setNarratorZonosId={setNarratorZonosId}
-                  narratorZonosId={narratorZonosId}
-                />
-              )}
 
-              {!isZonosSelected ? (
-                <CharacterForm
-                  characters={characters}
-                  addCharacter={addCharacter}
-                  updateCharacter={updateCharacter}
-                  removeCharacter={removeCharacter}
-                  currentlyPlaying={currentlyPlaying}
-                  setCurrentlyPlaying={setCurrentlyPlaying}
-                  voiceModel={getSelectedVoiceModel()}
-                  validationErrors={validationErrors}
-                  narratorRef={narratorRef as React.RefObject<NarratorRef>}
-                />
-              ) : (
-                <CharacterFormZonos
-                  characters={characters}
-                  addCharacter={addCharacter}
-                  updateCharacter={updateCharacter}
-                  removeCharacter={removeCharacter}
-                  zonosList={zonosList}
-                  zonosLoading={zonosLoading}
-                  validationErrors={validationErrors}
-                />
-              )}
+              <div className="relative">
+                <div className="absolute -left-20 top-7 -translate-y-1/2 bg-red-100 px-3 py-2 rounded-lg font-medium text-red-700 transition-opacity duration-200 ease-in-out shadow-sm">
+                  4단계
+                </div>
+                <div
+                  className="rounded-lg border border-gray-200 p-4 transition-all hover:border-red-200 focus-within:border-gray-500 focus-within:ring-1 focus-within:ring-gray-500"
+                  onMouseEnter={() => handleSectionHover("narrator")}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  {!isZonosSelected ? (
+                    <NarratorSettings
+                      ref={narratorRef}
+                      narratorGender={narratorGender}
+                      setNarratorGender={setNarratorGender}
+                      narratorVoice={narratorVoice}
+                      setNarratorVoice={setNarratorVoice}
+                      selectedVoiceModel={getSelectedVoiceModel()}
+                      setCurrentlyPlaying={setCurrentlyPlaying}
+                      currentlyPlaying={currentlyPlaying}
+                    />
+                  ) : (
+                    <NarratorSettingsZonos
+                      zonosList={zonosList}
+                      zonosLoading={zonosLoading}
+                      setNarratorZonosId={setNarratorZonosId}
+                      narratorZonosId={narratorZonosId}
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="relative">
+                <div className="absolute -left-20 top-7 -translate-y-1/2 bg-red-100 px-3 py-2 rounded-lg font-medium text-red-700 transition-opacity duration-200 ease-in-out shadow-sm">
+                  5단계
+                </div>
+                <div
+                  className="rounded-lg border border-gray-200 p-4 transition-all hover:border-red-200 focus-within:border-gray-500 focus-within:ring-1 focus-within:ring-gray-500"
+                  onMouseEnter={() => handleSectionHover("character")}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  {!isZonosSelected ? (
+                    <CharacterForm
+                      characters={characters}
+                      addCharacter={addCharacter}
+                      updateCharacter={updateCharacter}
+                      removeCharacter={removeCharacter}
+                      currentlyPlaying={currentlyPlaying}
+                      setCurrentlyPlaying={setCurrentlyPlaying}
+                      voiceModel={getSelectedVoiceModel()}
+                      validationErrors={validationErrors}
+                      narratorRef={narratorRef as React.RefObject<NarratorRef>}
+                    />
+                  ) : (
+                    <CharacterFormZonos
+                      characters={characters}
+                      addCharacter={addCharacter}
+                      updateCharacter={updateCharacter}
+                      removeCharacter={removeCharacter}
+                      zonosList={zonosList}
+                      zonosLoading={zonosLoading}
+                      validationErrors={validationErrors}
+                    />
+                  )}
+                </div>
+              </div>
 
               <Button
                 onClick={handleGenerateVideo}
@@ -362,12 +523,15 @@ export default function CreateVideoPage() {
         </div>
       )}
 
-      <Dialog open={showSuccessModal} onOpenChange={(open) => {
-        // 모달이 닫히려고 할 때 대시보드로 이동
-        if (!open) {
-          navigate("/dashboard");
-        }
-      }}>
+      <Dialog
+        open={showSuccessModal}
+        onOpenChange={(open) => {
+          // 모달이 닫히려고 할 때 대시보드로 이동
+          if (!open) {
+            navigate("/dashboard");
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>비디오 생성 요청 완료</DialogTitle>
