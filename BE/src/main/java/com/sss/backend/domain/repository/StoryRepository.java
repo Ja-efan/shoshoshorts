@@ -11,4 +11,8 @@ public interface StoryRepository extends JpaRepository<Story, Long> {
     @Query("SELECT s.story FROM Story s WHERE s.id = :id")
     String findStoryById(Long id);
 
+    @Query("SELECT s.title FROM Story s WHERE s.id = :id")
+    String findTitleById(Long id);
+
+
 }

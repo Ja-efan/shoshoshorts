@@ -1,9 +1,12 @@
 package com.sss.backend.domain.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sss.backend.domain.document.CharacterDocument;
 import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.repository.SceneDocumentRepository;
 import com.sss.backend.config.S3Config;
+import com.sss.backend.domain.repository.VoiceRepository;
 import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFprobe;
 import net.bramp.ffmpeg.probe.FFmpegProbeResult;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Value;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Service
@@ -20,6 +24,7 @@ import java.util.*;
 public class AudioService {
 
     private final SceneDocumentRepository sceneDocumentRepository;
+    private final VoiceRepository voiceRepository;
     private final WebClient webClient;
     private final S3Config s3Config;
     private final FFmpeg ffmpeg;
@@ -40,20 +45,15 @@ public class AudioService {
 
 
     public AudioService(SceneDocumentRepository sceneDocumentRepository, WebClient webClient, 
-                       S3Config s3Config, FFmpeg ffmpeg, FFprobe ffprobe) {
+                       S3Config s3Config, FFmpeg ffmpeg, FFprobe ffprobe, VoiceRepository voiceRepository) {
         this.sceneDocumentRepository = sceneDocumentRepository;
         this.webClient = webClient;
         this.s3Config = s3Config;
         this.ffmpeg = ffmpeg;
         this.ffprobe = ffprobe;
+        this.voiceRepository = voiceRepository;
     }
 
-//    @Value("${audio.api.url}")
-//    private String audioApiUrl;
-//
-//    @Value("${audio.default.voice-code}")
-//    private String defaultVoiceCode;
-//
 //    @Value("${audio.default.model-id}")
 //    private String defaultModelId;
 //
@@ -61,7 +61,6 @@ public class AudioService {
 //    private String defaultOutputFormat;
 
 
-//    private final String defaultVoiceCode = "uyVNoMrnUku1dZyVEXwD";
     private final String defaultModelId = "eleven_multilingual_v2";
     private final String defaultOutputFormat = "mp3";
 
@@ -231,10 +230,30 @@ public class AudioService {
             throw new RuntimeException("오디오 텍스트가 비어있습니다: audioId=" + audioId);
         }
 
-        // character에 따른 voicecode 찾기
+        // character에 따른 voicecode 찾기 -> 실제로는 voiceId(voice 테이블의 pk 값)----------------------------------------------
         String voiceCode = findVoiceCodeByCharacter(sceneDocument,character);
 
-        //emtion arr 찾기
+        //voiceCode(voiceId)에 따른 tensor 값 찾기
+        Long voiceId = Long.parseLong(voiceCode);
+        byte[] tensorBytes = voiceRepository.findEmbeddingTensorById(voiceId);
+
+
+        // byte[] -> JSON 형식의 문자열 변환
+        String tensorJson = new String(tensorBytes, StandardCharsets.UTF_8);
+
+        // JSON -> List<List<List<Float>>> 역직렬화
+        List<List<List<Float>>> speakerTensor;
+        try {
+            ObjectMapper objectMapper = new ObjectMapper(); //JSON과 Java 객체 간의 변환 담당
+            speakerTensor = objectMapper.readValue(tensorJson,
+                    new TypeReference<List<List<List<Float>>>>() {});
+            log.info("텐서 데이터 역직렬화 완료: {}", speakerTensor.size());
+        } catch (Exception e) {
+            log.error("텐서 데이터 역직렬화 중 오류 발생", e);
+            throw new RuntimeException("텐서 데이터 변환에 실패했습니다: " + e.getMessage(), e);
+        }
+
+        //emtion arr 찾기------------------------------------------------------------------------------------
         Map<String, Object> emotionParams = (Map<String, Object>) targetAudio.get("emotionParams");
         List<Float> emotions = new ArrayList<>();
 
@@ -267,14 +286,15 @@ public class AudioService {
 
         // API 요청 데이터 준비
         Map<String, Object> requestData = new HashMap<>();
+//        requestData.put("model_choice", "Zyphra/Zonos-v0.1-transformer");
         requestData.put("text", text);
-        requestData.put("voice_code", voiceCode);
-//        requestData.put("speaker_id", defaultModelId);
-        requestData.put("output_format", defaultOutputFormat);
+//        requestData.put("language", "ko"); // 기본값 ko
+        requestData.put("speaker_tensor", speakerTensor);
         requestData.put("script_id", Integer.parseInt(storyId));
         requestData.put("scene_id", sceneId);
         requestData.put("audio_id", audioId);
         requestData.put("emotion", emotions);
+
 
         try {
             // WebClient를 사용하여 API 호출
@@ -294,8 +314,6 @@ public class AudioService {
             // 해당 오디오 정보 업데이트 (기존에 있더라도 덮어쓰기)
             String audioUrl = (String) responseBody.get("s3_url");
             targetAudio.put("audio_url", audioUrl);
-//            targetAudio.put("content_type", responseBody.get("content_type"));
-//            targetAudio.put("file_size", responseBody.get("file_size"));
             targetAudio.put("base_model", "Zyphra/Zonos-v0.1-transformer");
             targetAudio.put("audio_settings", defaultOutputFormat);
             targetAudio.put("voice_code", voiceCode);

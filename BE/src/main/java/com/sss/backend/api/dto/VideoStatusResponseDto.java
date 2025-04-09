@@ -18,6 +18,7 @@ public class VideoStatusResponseDto {
     private String createdAt;
     private String completedAt;
     private String processingStep; // 처리 단계에 대한 상세 정보
+    private String thumbnailUrl;
     
     // 진행 중인 경우 초기 응답용 생성자 (storyId, status, createdAt 포함)
     public VideoStatusResponseDto(String storyId, VideoStatus status, String createdAt) {
@@ -36,5 +37,13 @@ public class VideoStatusResponseDto {
         this.createdAt = createdAt;
         this.completedAt = completedAt;
         this.processingStep = processingStep;
+    }
+
+    public void setThumbnailUrl(String thumbnailUrl) {
+        this.thumbnailUrl = thumbnailUrl;
+    }
+
+    public String getThumbnailUrl() {
+        return thumbnailUrl;
     }
 }
