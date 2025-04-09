@@ -208,29 +208,25 @@ class KlingAIService:
             payload = {
                 "model": klingai_config.MODEL_V1_5,
                 "prompt": prompt,
-                "negative_prompt": (
-                    negative_prompt
-                    if negative_prompt and not reference_image_base64
-                    else ""
-                ),
+                "negative_prompt": negative_prompt,
                 "n": klingai_config.NUM_OF_IMAGES,
                 "aspect_ratio": klingai_config.ASPECT_RATIO,
             }
 
-            ####################################### 이미지 레퍼런스 : 현재 사용 x #################################
+            ####################################### 이미지 레퍼런스 #################################
             reference_image_base64 = None
-            if klingai_config.USE_REFERENCE_IMAGE:  # default: False
-                reference_image_base64 = KlingAIService.get_reference_image_base64(
-                    story_id, scene_id, style
-                )
+            if klingai_config.USE_REFERENCE_IMAGE:
+                reference_image_base64 = KlingAIService.get_reference_image_base64(style)
                 payload["image"] = reference_image_base64
                 payload["image_fidelity"] = klingai_config.IMAGE_FIDELITY
 
-            ######################################################################################################
-
+            ######################################################################################
+            
             # API 요청 보내기 (이미지 생성 요청)
             response = requests.post(
-                klingai_config.API_URL, headers=headers, json=payload
+                klingai_config.API_URL,
+                headers=headers,
+                json=payload,
             ).json()
 
             response_code = response["code"]
