@@ -10,6 +10,7 @@ import com.sss.backend.domain.service.YoutubeAuthService;
 import com.sss.backend.domain.service.YoutubeService;
 import com.sss.backend.jwt.JWTUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +22,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/youtube")
+@Slf4j
 public class YoutubeController {
 
 
@@ -41,6 +43,7 @@ public class YoutubeController {
     public ResponseEntity<?> uploadVideo(@RequestBody VideoUploadDTO uploadDTO,
                                          @CookieValue(value = "youtube_access_token", required = false) String accessToken,
                                          HttpServletRequest request) {
+        log.info(uploadDTO.toString());
 
         // storyId가 비어있는지 확인
         if (uploadDTO.getStoryId() == null || uploadDTO.getStoryId().isEmpty()) {
