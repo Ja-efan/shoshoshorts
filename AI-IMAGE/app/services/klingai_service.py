@@ -374,7 +374,7 @@ class KlingAIService:
 
     @staticmethod
     async def get_task_result(
-        task_id: str, max_attempts: int = 10, delay: int = 3
+        task_id: str, max_attempts: int = 20, delay: int = 3
     ) -> Optional[list]:
         """
         이미지 생성 태스크의 결과를 가져옵니다.
