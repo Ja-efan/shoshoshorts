@@ -36,6 +36,7 @@ export const API_ENDPOINTS = {
   GET_VIDEOS: `${API_BASE_URL}/videos/status/allstory`,
   GET_VIDEO_STATUS: `${API_BASE_URL}/videos/status`,
   DELETE_VIDEO: `${API_BASE_URL}/videos`,
+  RETRY_VIDEO: `${API_BASE_URL}/videos/retry`,
   YOUTUBE_UPLOAD: `${API_BASE_URL}/youtube/upload`,
   YOUTUBE_AUTH: `${API_BASE_URL}/youtube/auth`,
   DOWNLOAD_VIDEO: `${API_BASE_URL}/videos/download`,
@@ -315,6 +316,21 @@ export const apiService = {
       return response.data;
     } catch (error) {
       console.error("비디오 삭제 실패:", error);
+      throw error;
+    }
+  },
+
+  async retryVideo(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const response = await axios.post(
+        API_ENDPOINTS.RETRY_VIDEO,
+        { storyId },
+        getAuthConfig(token)
+      );
+      return response.data;
+    } catch (error) {
+      console.error("비디오 재시도 실패:", error);
       throw error;
     }
   },

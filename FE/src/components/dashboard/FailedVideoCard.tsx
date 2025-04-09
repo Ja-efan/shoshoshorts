@@ -14,9 +14,17 @@ interface FailedVideoCardProps {
 
 export function FailedVideoCard({ video }: FailedVideoCardProps) {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isRetryModalOpen, setIsRetryModalOpen] = useState(false)
 
-  const handleRetry = () => {
-    toast.success("추후 개발 예정입니다")
+  const handleRetry = async () => {
+    try {
+      await apiService.retryVideo(video.story_id)
+      toast.success("영상 생성을 다시 시도합니다")
+      window.location.reload()
+    } catch (error) {
+      toast.error("다시 시도 중 오류가 발생했습니다")
+      console.error(error)
+    }
   }
 
   const handleDelete = async () => {
@@ -49,7 +57,12 @@ export function FailedVideoCard({ video }: FailedVideoCardProps) {
             </Badge>
           </div>
           <div className="mt-3 flex gap-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={handleRetry}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex-1" 
+              onClick={() => setIsRetryModalOpen(true)}
+            >
               다시 시도
             </Button>
             <Button 
@@ -64,6 +77,25 @@ export function FailedVideoCard({ video }: FailedVideoCardProps) {
           </div>
         </div>
       </Card>
+
+      <Dialog open={isRetryModalOpen} onOpenChange={setIsRetryModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>영상 생성 재시도</DialogTitle>
+            <DialogDescription>
+              영상 생성을 다시 시도하시겠습니까? 이 작업은 이전 생성 결과를 덮어쓰게 됩니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRetryModalOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleRetry}>
+              다시 시도
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent>
