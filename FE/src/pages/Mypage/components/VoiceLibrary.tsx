@@ -42,8 +42,7 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
   const {
     register,
     handleSubmit,
-    resetField,
-    formState: { errors },
+    formState: {},
   } = useForm<IForm>();
 
   useEffect(() => {
@@ -86,7 +85,7 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
         audioBase64: base64String, // 서버에서 이 키로 받을지 협의 필요
       };
 
-      const response = await apiService.uploadSpeaker(payload);
+      await apiService.uploadSpeaker(payload);
 
       toast.success("목소리가 성공적으로 업로드되었습니다!");
       setIsOpen(false); // 성공 시 모달 닫기
