@@ -452,51 +452,23 @@ public class VideoService {
                 if (backgroundMusic != null && new File(backgroundMusic).exists()) {
                     logger.info("배경 음악 추가: {}", backgroundMusic);
                     
-                    // 영상 길이에 따라 처리 방법 분리
-                    if (videoDuration < 3.0) {
-                        logger.info("매우 짧은 영상({}초)에 대한 특수 처리 적용", videoDuration);
+                    FFmpegBuilder musicBuilder = new FFmpegBuilder()
+                        .setInput(cleanOutputPath)
+                        .addInput(backgroundMusic)
+                        .addExtraArgs("-y")
+                        .addOutput(cleanTempWithMusicPath)
+                        .addExtraArgs("-filter_complex", 
+                            "[1:a]volume=0.3,aloop=loop=-1:size=2e+09[a1];" + 
+                            "[0:a][a1]amerge=inputs=2[aout]")  // amix 대신 amerge 사용
+                        .addExtraArgs("-map", "0:v")
+                        .addExtraArgs("-map", "[aout]")
+                        .setVideoCodec("copy")
+                        .setAudioCodec("aac")
+                        .setAudioBitRate(192000)
+                        .setFormat("mp4")
+                        .done();
                         
-                        // 짧은 영상에는 단순히 배경 음악만 낮은 볼륨으로 추가하고 원본 오디오 보존
-                        FFmpegBuilder musicBuilder = new FFmpegBuilder()
-                            .setInput(cleanOutputPath)
-                            .addInput(backgroundMusic)
-                            .addExtraArgs("-y")
-                            .addOutput(cleanTempWithMusicPath)
-                            .addExtraArgs("-filter_complex", 
-                                "[1:a]volume=0.3,aloop=loop=-1:size=2e+09[a1];" + 
-                                "[0:a][a1]amerge=inputs=2[aout]")  // amix 대신 amerge 사용
-                            .addExtraArgs("-map", "0:v")
-                            .addExtraArgs("-map", "[aout]")
-                            .setVideoCodec("copy")
-                            .setAudioCodec("aac")
-                            .setAudioBitRate(192000)
-                            .setFormat("mp4")
-                            .done();
-                            
-                        executor.createJob(musicBuilder).run();
-                    } else {
-                        // 기존 방식대로 처리 (3초 이상 영상)
-                        float dropoutTransition = videoDuration < 10 ? 0.5f : 3.0f;
-                        logger.info("설정된 dropout_transition 값: {}", dropoutTransition);
-                        
-                        FFmpegBuilder musicBuilder = new FFmpegBuilder()
-                            .setInput(cleanOutputPath)
-                            .addInput(backgroundMusic)
-                            .addExtraArgs("-y")
-                            .addOutput(cleanTempWithMusicPath)
-                            .addExtraArgs("-filter_complex", 
-                                "[1:a]volume=0.3,aloop=loop=-1:size=2e+09[a1];" + 
-                                "[0:a][a1]amix=inputs=2:duration=first:dropout_transition=" + dropoutTransition + "[aout]")
-                            .addExtraArgs("-map", "0:v")
-                            .addExtraArgs("-map", "[aout]")
-                            .setVideoCodec("copy")
-                            .setAudioCodec("aac")
-                            .setAudioBitRate(192000)
-                            .setFormat("mp4")
-                            .done();
-                            
-                        executor.createJob(musicBuilder).run();
-                    }
+                    executor.createJob(musicBuilder).run();
                     
                     // 배경음악이 추가된 파일 확인
                     File musicAddedFile = new File(cleanTempWithMusicPath);
