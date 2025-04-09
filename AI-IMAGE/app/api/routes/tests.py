@@ -219,7 +219,7 @@ async def test_generate_image(prompt: str, negative_prompt: str = None):
 async def test_get_previous_scene_data(story_id: int, scene_id: int):
     """TEST: 이전 씬 데이터 가져오기"""
     app_logger.info(f"TEST: story_id: {story_id}, scene_id: {scene_id}")
-    previous_scene_data = KlingAIService.get_previous_scene_data(story_id, scene_id)
+    previous_scene_data = await KlingAIService.get_previous_scene_data(story_id, scene_id)
     app_logger.info(
         f"TEST: previous_scene_data: \n{json.dumps(previous_scene_data.model_dump(), ensure_ascii=False, indent=2)}"
     )
