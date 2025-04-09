@@ -137,9 +137,11 @@ class KlingAIService:
         # 파일 저장
         try:
             file_path = KlingAIService.get_scene_data_path(story_id, scene_id)
-            # 씬 데이터 구조화
-            scene_info_str = scene_info.model_dump_json(indent=4)
-            data = {"scene_info": scene_info_str, "image_prompt": image_prompt}
+            # 씬 데이터 구조화 - 문자열 대신 딕셔너리로 저장
+            data = {
+                "scene_info": scene_info.model_dump(),  # 객체를 딕셔너리로 직렬화
+                "image_prompt": image_prompt
+            }
 
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
@@ -153,6 +155,63 @@ class KlingAIService:
     def get_standard_http_status_code(response_code: int) -> int:
         """Kling AI API 응답 코드를 표준 HTTP 상태 코드로 변환합니다."""
         return klingai_config.KLING_TO_HTTP[response_code]
+
+    @staticmethod
+    def legacy_scene_data_migration(story_id: int, scene_id: int) -> bool:
+        """
+        기존 문자열 형태로 저장된 scene_info를 새로운 형식(딕셔너리)으로 마이그레이션합니다.
+        
+        Args:
+            story_id: 스토리 ID
+            scene_id: 씬 ID
+            
+        Returns:
+            bool: 마이그레이션 성공 여부
+        """
+        try:
+            # 씬 데이터 파일 경로
+            file_path = KlingAIService.get_scene_data_path(story_id, scene_id)
+            
+            if not os.path.exists(file_path):
+                app_logger.info(f"Scene data file not found: {file_path}")
+                return False
+                
+            # 파일 읽기
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                
+            # 이미 딕셔너리 형태인 경우 마이그레이션 불필요
+            if isinstance(data.get("scene_info"), dict):
+                app_logger.info(f"Scene data already in new format: {file_path}")
+                return True
+                
+            # 문자열 형태인 경우 파싱하여 딕셔너리로 변환
+            if isinstance(data.get("scene_info"), str):
+                try:
+                    scene_info_dict = json.loads(data["scene_info"])
+                    data["scene_info"] = scene_info_dict
+                    
+                    # 이미지 프롬프트에 original_prompt 필드가 없는 경우 추가
+                    if "image_prompt" in data and isinstance(data["image_prompt"], dict):
+                        if "original_prompt" not in data["image_prompt"] and "prompt" in data["image_prompt"]:
+                            data["image_prompt"]["original_prompt"] = data["image_prompt"]["prompt"]
+                    
+                    # 업데이트된 데이터 저장
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                        
+                    app_logger.info(f"Successfully migrated scene data: {file_path}")
+                    return True
+                    
+                except json.JSONDecodeError as je:
+                    app_logger.error(f"Failed to parse scene_info string: {str(je)}")
+                    return False
+                    
+            return False
+            
+        except Exception as e:
+            app_logger.error(f"Scene data migration error: {str(e)}")
+            return False
 
     @staticmethod
     async def generate_image(
@@ -213,37 +272,29 @@ class KlingAIService:
                 "Authorization": f"Bearer {klingai_config.JWT_TOKEN}",
             }
 
-            ########################################### 이미지 레퍼런스 ###########################################
-            reference_image_base64 = None
-            if klingai_config.USE_REFERENCE_IMAGE:  # default: False
-                reference_image_base64 = KlingAIService.get_reference_image_base64(
-                    story_id, scene_id, style
-                )
-            ######################################################################################################
-
             # API 요청 데이터
             payload = {
-                "model": (
-                    klingai_config.MODEL_V1
-                    if reference_image_base64
-                    else klingai_config.MODEL_V1_5
-                ),
+                "model": klingai_config.MODEL_V1_5,
                 "prompt": prompt,
                 "negative_prompt": (
                     negative_prompt
                     if negative_prompt and not reference_image_base64
                     else ""
                 ),
+                "n": klingai_config.NUM_OF_IMAGES,
+                "aspect_ratio": klingai_config.ASPECT_RATIO,
             }
 
-            # 참조 이미지가 있는 경우에만 추가
-            if reference_image_base64:
+            ####################################### 이미지 레퍼런스 : 현재 사용 x #################################
+            reference_image_base64 = None
+            if klingai_config.USE_REFERENCE_IMAGE:  # default: False
+                reference_image_base64 = KlingAIService.get_reference_image_base64(
+                    story_id, scene_id, style
+                )
                 payload["image"] = reference_image_base64
                 payload["image_fidelity"] = klingai_config.IMAGE_FIDELITY
 
-            # 공통 파라미터
-            payload["n"] = klingai_config.NUM_OF_IMAGES
-            payload["aspect_ratio"] = klingai_config.ASPECT_RATIO
+            ######################################################################################################
 
             # API 요청 보내기 (이미지 생성 요청)
             response = requests.post(
@@ -286,9 +337,9 @@ class KlingAIService:
                         # 이미지 프롬프트 정보 구성
                         image_prompt_to_save = {
                             "prompt": prompt,
-                            "original_prompt": original_prompt,
                             "negative_prompt": negative_prompt,
                             "style": style,
+                            "original_prompt": original_prompt
                         }
 
                         # 씬 데이터를 JSON 파일에 저장
@@ -319,9 +370,7 @@ class KlingAIService:
             )
 
     @staticmethod
-    async def get_task_result(
-        task_id: str, max_attempts: int = 10, delay: int = 3
-    ) -> Optional[list]:
+    async def get_task_result(task_id: str) -> Optional[list]:
         """
         이미지 생성 태스크의 결과를 가져옵니다.
 
@@ -337,7 +386,7 @@ class KlingAIService:
         headers = {"Authorization": f"Bearer {klingai_config.JWT_TOKEN}"}
         params = {"pageSize": 500}
 
-        for _ in range(max_attempts):
+        for _ in range(klingai_config.MAX_ATTEMPTS):
             try:
                 response = requests.get(url, headers=headers, params=params).json()
                 response_code = response["code"]
@@ -354,15 +403,15 @@ class KlingAIService:
                         return None
 
                 # 아직 완료되지 않은 경우 대기
-                app_logger.info(f"Task in progress... {_+1}/{max_attempts} attempts")
-                time.sleep(delay)
+                app_logger.info(f"Task in progress... {_+1}/{klingai_config.MAX_ATTEMPTS} attempts")
+                time.sleep(klingai_config.DELAY)
 
             except Exception as e:
                 app_logger.error(f"Failed to get task result: {str(e)}")
-                time.sleep(delay)
+                time.sleep(klingai_config.DELAY)
 
         app_logger.error(
-            f"Maximum number of attempts ({max_attempts}) exceeded. Task ID: {task_id}"
+            f"Maximum number of attempts ({klingai_config.MAX_ATTEMPTS}) exceeded. Task ID: {task_id}"
         )
         return None
 

@@ -15,10 +15,12 @@ from app.schemas.models import (
     SceneMetadata,
     CharacterNSceneSummary,
     PreviousSceneData,
+    Character,
 )
 from app.core.config import settings
 from app.core.logger import app_logger
 from app.core.api_config import openai_config, klingai_config
+from app.services.klingai_service import KlingAIService
 
 # OpenAI API 키 가져오기
 api_key = openai_config.API_KEY
@@ -122,16 +124,50 @@ class OpenAIService:
                 f"Previous scene data file not found: {previous_scene_data_path}"
             )
             return None
+            
+        # 기존 데이터 마이그레이션 (문자열 -> 딕셔너리)
+        KlingAIService.legacy_scene_data_migration(story_id, previous_scene_id)
 
         try:
             with open(previous_scene_data_path, "r", encoding="utf-8") as f:
                 previous_scene_data = json.load(f)
-
-            # 이전 씬 데이터 반환
-            return PreviousSceneData(
-                scene_info=previous_scene_data["scene_info"],
-                image_prompt=previous_scene_data["image_prompt"],
-            )
+            
+            # scene_info가 문자열인 경우 JSON으로 파싱
+            if isinstance(previous_scene_data.get("scene_info"), str):
+                try:
+                    scene_info_dict = json.loads(previous_scene_data["scene_info"])
+                    previous_scene_data["scene_info"] = scene_info_dict
+                    app_logger.info(f"Successfully parsed scene_info string to dictionary")
+                except json.JSONDecodeError as je:
+                    app_logger.error(f"Failed to parse scene_info string: {str(je)}")
+                    return None
+            
+            # scene_info가 딕셔너리인지 확인
+            if not isinstance(previous_scene_data.get("scene_info"), dict):
+                app_logger.error(f"Invalid scene_info format in {previous_scene_data_path}")
+                return None
+                
+            try:
+                # SceneMetadata 생성 시도
+                scene_metadata = SceneMetadata(
+                    title=previous_scene_data["scene_info"]["scene_metadata"]["title"],
+                    scene_id=previous_scene_data["scene_info"]["scene_metadata"]["scene_id"],
+                    style=previous_scene_data["scene_info"]["scene_metadata"]["style"]
+                )
+                
+                # 이전 씬 데이터 반환
+                return PreviousSceneData(
+                    scene_info=SceneInfo(
+                        characters=[Character(**char) for char in previous_scene_data["scene_info"]["characters"]],
+                        scene_content=previous_scene_data["scene_info"]["scene_content"],
+                        scene_summary=previous_scene_data["scene_info"]["scene_summary"],
+                        scene_metadata=scene_metadata
+                    ),
+                    image_prompt=previous_scene_data["image_prompt"],
+                )
+            except KeyError as ke:
+                app_logger.error(f"Missing key in scene_info: {str(ke)}")
+                return None
 
         except Exception as e:
             app_logger.error(f"Previous scene data retrieval error: {str(e)}")
@@ -167,7 +203,7 @@ class OpenAIService:
 
         # 장면에 등장하는 '캐릭터' 추출 및 '장면 요약' 생성 (gpt-4o-mini)
         response = client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+            model=openai_config.SCENE_INFO_GENERATION_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {
@@ -177,6 +213,8 @@ class OpenAIService:
                     ),
                 },
             ],
+            max_tokens=openai_config.SCENE_INFO_MAX_TOKENS,
+            temperature=openai_config.SCENE_INFO_TEMPERATURE,
             response_format=CharacterNSceneSummary,
         )
         characters_n_scene_summary = response.choices[0].message.parsed
@@ -253,55 +291,43 @@ class OpenAIService:
             scene, style
         )  # SceneInfo 객체 반환
 
-        # 시스템 프롬프트 (image_prompt)
-        system_prompt = await OpenAIService.get_system_prompt(
-            "image_prompt"
-        )  # str 반환
-
-        # 현재 씬 정보 문자열 변환
-        scene_info_str = json.dumps(
-            scene_info.model_dump(), ensure_ascii=False, indent=2
-        )
-
-        # 이전 씬 정보 및 이미지 프롬프트를 레퍼런스로 사용
+        ####################################### 이전 씬 정보 및 이미지 프롬프트 #######################################
         previous_scene_data = None
-        if klingai_config.USE_PREVIOUS_SCENE_DATA:
+        if klingai_config.USE_PREVIOUS_SCENE_DATA:  # default: True
             previous_scene_data = await OpenAIService.get_previous_scene_data(
                 scene.story_metadata.story_id, scene.scene_id
             )  # PreviousSceneData | None 반환
+
+        #############################################################################################################
         if previous_scene_data:
-            # 이전 씬 정보 문자열 변환
-            previous_scene_info_string = json.dumps(
-                previous_scene_data["scene_info"],
-                ensure_ascii=False,
-                indent=2,
-            )
-            # 이전 씬 이미지 프롬프트 문자열 변환
-            previous_scene_image_prompt_string = json.dumps(
-                previous_scene_data["image_prompt"]["original_prompt"],
-                ensure_ascii=False,
-                indent=2,
-            )
-            # 현재 씬 정보 + 이전 씬 정보 + 이미지 프롬프트 (str)
-            content = f"{scene_info_str}, \
-            previous scene info: {previous_scene_info_string}, \
-            previous image prompt: {previous_scene_image_prompt_string}"
+            # 구조화된 딕셔너리 생성
+            content_dict = {
+                "current_scene": scene_info.model_dump(),
+                "previous_scene": previous_scene_data.scene_info.model_dump(),
+                "previous_image_prompt": previous_scene_data.image_prompt["original_prompt"]
+            }
 
+            # 딕셔너리를 JSON 문자열로 변환
+            content = json.dumps(content_dict, ensure_ascii=False, indent=2)
         else:
-            content = scene_info_str
+            # 이전 씬 정보가 없는 경우 현재 씬 정보만 포함
+            content = json.dumps({"current_scene": scene_info.model_dump()}, ensure_ascii=False, indent=2)
 
-        app_logger.info(f"Content for Generate Image Prompt: \n{content}")
+        # app_logger.info(f"Content for Generate Image Prompt: \n{content}")
 
         try:
+            # 시스템 프롬프트 (image_prompt)
+            system_prompt = await OpenAIService.get_system_prompt("image_prompt")  # str 반환
+            
             # OpenAI API 호출
             response = client.chat.completions.create(
-                model=openai_config.MODEL,
+                model=openai_config.IMAGE_PROMPT_GENERATION_MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": content},
                 ],
-                max_tokens=openai_config.MAX_TOKENS,
-                temperature=openai_config.TEMPERATURE,
+                max_tokens=openai_config.IMAGE_PROMPT_MAX_TOKENS,
+                temperature=openai_config.IMAGE_PROMPT_TEMPERATURE,
             )
 
             image_prompt = response.choices[0].message.content.strip()
