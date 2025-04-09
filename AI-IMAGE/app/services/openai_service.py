@@ -69,7 +69,7 @@ class OpenAIService:
     """OpenAI API를 활용하여 이미지 프롬프트를 생성하는 서비스"""
 
     @staticmethod
-    def get_system_prompt(which: str):
+    async def get_system_prompt(which: str) -> str:
         """
         시스템 프롬프트를 반환합니다.
         """
@@ -79,7 +79,7 @@ class OpenAIService:
             return open(openai_config.SYSTEM_PROMPT["image_prompt"], "r").read()
 
     @staticmethod
-    def get_negative_prompt(style: ImageStyle) -> str:
+    async def get_negative_prompt(style: ImageStyle) -> str:
         """
         이미지 스타일에 따른 부정 프롬프트를 반환합니다.
         """
@@ -91,7 +91,7 @@ class OpenAIService:
         return base_negative_prompt
 
     @staticmethod
-    def get_scene_data_path(story_id: int, scene_id: int) -> str:
+    async def get_scene_data_path(story_id: int, scene_id: int) -> str:
         """씬 데이터 JSON 파일 경로를 반환합니다."""
         # 데이터 저장 디렉토리 생성
         story_base_dir = os.path.join("data", "stories")
@@ -102,7 +102,7 @@ class OpenAIService:
         return os.path.join(data_dir, f"{scene_id:04d}.json")
 
     @staticmethod
-    def get_previous_scene_data(
+    async def get_previous_scene_data(
         story_id: int, scene_id: int
     ) -> Optional[PreviousSceneData]:
         """이전 씬의 정보와 이미지 프롬프트를 가져옵니다."""
@@ -113,7 +113,7 @@ class OpenAIService:
             return None
 
         previous_scene_id = scene_id - 1
-        previous_scene_data_path = OpenAIService.get_scene_data_path(
+        previous_scene_data_path = await OpenAIService.get_scene_data_path(
             story_id, previous_scene_id
         )
 
@@ -126,14 +126,6 @@ class OpenAIService:
         try:
             with open(previous_scene_data_path, "r", encoding="utf-8") as f:
                 previous_scene_data = json.load(f)
-
-            app_logger.info(type(previous_scene_data["scene_info"]))
-            app_logger.info(
-                f"Previous scene scene_info: \n{previous_scene_data['scene_info']}"
-            )
-            app_logger.info(
-                f"Previous scene image_prompt: \n{previous_scene_data['image_prompt']}"
-            )
 
             # 이전 씬 데이터 반환
             return PreviousSceneData(
@@ -167,7 +159,7 @@ class OpenAIService:
 
         # 시스템 프롬프트 (scene_info)
         if system_prompt is None:
-            system_prompt = OpenAIService.get_system_prompt("scene_info")
+            system_prompt = await OpenAIService.get_system_prompt("scene_info")
         else:
             system_prompt = system_prompt
 
@@ -243,39 +235,59 @@ class OpenAIService:
             character.gender = "남자" if character.gender == 0 else "여자"
 
         # 장면 정보 생성 (gpt-4o-mini)
-        scene_info = await OpenAIService.generate_scene_info(scene, style)
+        """
+        scene_info 형식:
+            {
+                "characters": [
+                    {
+                        "name": "캐릭터 이름",
+                        "gender": "남자/여자",
+                        "description": "캐릭터 설명"
+                    }
+                ],
+                "scene_content": "장면 내용",
+                "scene_summary": "장면 요약"
+            }
+        """
+        scene_info = await OpenAIService.generate_scene_info(
+            scene, style
+        )  # SceneInfo 객체 반환
 
         # 시스템 프롬프트 (image_prompt)
-        system_prompt = OpenAIService.get_system_prompt("image_prompt")
+        system_prompt = await OpenAIService.get_system_prompt(
+            "image_prompt"
+        )  # str 반환
 
-        # 이전씬 정보 및 이미지 프롬프트를 레퍼런스로 사용
+        # 현재 씬 정보 문자열 변환
+        scene_info_str = json.dumps(
+            scene_info.model_dump(), ensure_ascii=False, indent=2
+        )
+
+        # 이전 씬 정보 및 이미지 프롬프트를 레퍼런스로 사용
         previous_scene_data = None
         if klingai_config.USE_PREVIOUS_SCENE_DATA:
-            previous_scene_data = OpenAIService.get_previous_scene_data(
+            previous_scene_data = await OpenAIService.get_previous_scene_data(
                 scene.story_metadata.story_id, scene.scene_id
-            )
+            )  # PreviousSceneData | None 반환
         if previous_scene_data:
+            # 이전 씬 정보 문자열 변환
             previous_scene_info_string = json.dumps(
                 previous_scene_data["scene_info"],
                 ensure_ascii=False,
                 indent=2,
             )
+            # 이전 씬 이미지 프롬프트 문자열 변환
             previous_scene_image_prompt_string = json.dumps(
                 previous_scene_data["image_prompt"]["original_prompt"],
                 ensure_ascii=False,
                 indent=2,
             )
-            scene_info_str = json.dumps(
-                scene_info.model_dump(), ensure_ascii=False, indent=2
-            )
+            # 현재 씬 정보 + 이전 씬 정보 + 이미지 프롬프트 (str)
             content = f"{scene_info_str}, \
             previous scene info: {previous_scene_info_string}, \
             previous image prompt: {previous_scene_image_prompt_string}"
+
         else:
-            # scene_info 객체를 문자열로 변환
-            scene_info_str = json.dumps(
-                scene_info.model_dump(), ensure_ascii=False, indent=2
-            )
             content = scene_info_str
 
         app_logger.info(f"Content for Generate Image Prompt: \n{content}")
