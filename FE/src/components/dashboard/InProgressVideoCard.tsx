@@ -25,21 +25,31 @@ const processingStepText: Record<string, string> = {
 
 // 처리 단계에 따른 배지 색상 매핑
 const processingStepColor: Record<string, string> = {
-  SCRIPT_PROCESSING: "bg-blue-100 text-blue-800",
-  VOICE_GENERATING: "bg-purple-100 text-purple-800",
-  IMAGE_GENERATING: "bg-green-100 text-green-800",
-  VOICE_COMPLETED: "bg-teal-100 text-teal-800",
-  IMAGE_COMPLETED: "bg-emerald-100 text-emerald-800",
-  VIDEO_RENDERING: "bg-amber-100 text-amber-800",
-  VIDEO_RENDER_COMPLETED: "bg-orange-100 text-orange-800",
-  VIDEO_UPLOADING: "bg-red-100 text-red-800"
+  SCRIPT_PROCESSING: "bg-blue-100 text-blue-800 border-blue-200",
+  VOICE_GENERATING: "bg-purple-100 text-purple-800 border-purple-200",
+  IMAGE_GENERATING: "bg-green-100 text-green-800 border-green-200",
+  VOICE_COMPLETED: "bg-teal-100 text-teal-800 border-teal-200",
+  IMAGE_COMPLETED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  VIDEO_RENDERING: "bg-amber-100 text-amber-800 border-amber-200",
+  VIDEO_RENDER_COMPLETED: "bg-orange-100 text-orange-800 border-orange-200",
+  VIDEO_UPLOADING: "bg-red-100 text-red-800 border-red-200"
 };
 
 export function InProgressVideoCard({ video, statusText = "처리 중", onStatusChange }: InProgressVideoCardProps) {
-  const { videoStatus, error } = useVideoStatus(video.story_id);
+  const { videoStatus, error, connect, disconnect } = useVideoStatus(video.story_id);
   const [currentStatus, setCurrentStatus] = useState<string>(statusText);
   const [processingStep, setProcessingStep] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<string>("PROCESSING");
+
+  useEffect(() => {
+    // 컴포넌트가 마운트될 때 SSE 연결
+    connect();
+
+    // 컴포넌트가 언마운트될 때 SSE 연결 해제
+    return () => {
+      disconnect();
+    };
+  }, [connect, disconnect]);
 
   // SSE 상태 업데이트
   useEffect(() => {
@@ -96,7 +106,7 @@ export function InProgressVideoCard({ video, statusText = "처리 중", onStatus
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow h-full">
       <div className="relative aspect-video w-full">
         <div className="flex h-full w-full items-center justify-center bg-gray-100">
           <Clock className="h-12 w-12 text-gray-400" />
@@ -105,17 +115,17 @@ export function InProgressVideoCard({ video, statusText = "처리 중", onStatus
           <div className="h-full bg-blue-600 animate-pulse"></div>
         </div>
       </div>
-      <div className="p-4">
-        <h3 className="font-medium">{video.title}</h3>
-        <div className="mt-2 flex items-center gap-2">
-          <Badge variant="secondary" className={`flex items-center gap-1 ${getBadgeStyle()}`}>
+      <div className="p-4 flex flex-col h-[calc(100%-16rem)]">
+        <h3 className="font-medium text-gray-800 line-clamp-1 mb-3">{video.title}</h3>
+        <div className="mt-auto">
+          <Badge variant="outline" className={`flex items-center gap-1.5 py-1 border ${getBadgeStyle()}`}>
             {getStatusIcon()}
-            {currentStatus}
+            <span className="whitespace-nowrap">{currentStatus}</span>
           </Badge>
+          {error && (
+            <p className="mt-2 text-xs text-red-500">{error}</p>
+          )}
         </div>
-        {error && (
-          <p className="mt-1 text-xs text-red-500">{error}</p>
-        )}
       </div>
     </Card>
   )
