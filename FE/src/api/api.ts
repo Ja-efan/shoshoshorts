@@ -4,7 +4,11 @@ import { SocialProvider } from "@/types/auth";
 import { store } from "@/store/store";
 import { setToken, clearToken } from "@/store/authSlice";
 import { IUserData } from "@/types/user";
-import { ISpeakerInfo, ISpeakerInfoGet } from "@/types/speakerInfo";
+import {
+  ISpeakerInfo,
+  ISpeakerInfoDelete,
+  ISpeakerInfoGet,
+} from "@/types/speakerInfo";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || "/api";
 
@@ -48,6 +52,7 @@ export const API_ENDPOINTS = {
   USER_DATA: `${API_BASE_URL}/auth/userdata`,
   GET_SPEAKER_LIBRARY: `${API_BASE_URL}/speaker/library`,
   UPLOAD_SPEAKER: `${API_BASE_URL}/speaker/upload`,
+  DELETE_SPEAKER: `${API_BASE_URL}/speaker/delete`,
 };
 
 export const apiConfig = {
@@ -179,8 +184,11 @@ export const apiService = {
     return response.data;
   },
 
-
-  async uploadVideoToYoutube(storyId: string, title: string, description: string) {
+  async uploadVideoToYoutube(
+    storyId: string,
+    title: string,
+    description: string
+  ) {
     try {
       const token = localStorage.getItem("accessToken");
       const response = await axios.post(
@@ -238,20 +246,23 @@ export const apiService = {
     if (!token) {
       throw new Error("인증 토큰이 없습니다.");
     }
-    
-    const response = await fetch(`${API_ENDPOINTS.YOUTUBE_SSE_STATUS}/${storyId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'text/event-stream',
-      },
-      credentials: 'include'
-    });
-    
+
+    const response = await fetch(
+      `${API_ENDPOINTS.YOUTUBE_SSE_STATUS}/${storyId}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "text/event-stream",
+        },
+        credentials: "include",
+      }
+    );
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+
     return response;
   },
   // 유저 데이터 관련 API
@@ -278,6 +289,16 @@ export const apiService = {
     const response = await axios.post<ApiResponse<ISpeakerInfo>>(
       API_ENDPOINTS.UPLOAD_SPEAKER,
       speakerInfo,
+      getAuthConfig(token)
+    );
+    return response.data;
+  },
+
+  async deleteSpeaker(speakerId: string) {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.post<ApiResponse<ISpeakerInfoDelete>>(
+      API_ENDPOINTS.DELETE_SPEAKER,
+      speakerId,
       getAuthConfig(token)
     );
     return response.data;
