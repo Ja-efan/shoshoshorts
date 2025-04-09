@@ -10,6 +10,8 @@ import TermsPage from "@/pages/terms";
 import { ProtectedRoute } from "@/components/common/ProtectedRoute";
 import AuthCallbackPage from "@/pages/auth/callback";
 import Mypage from "../pages/Mypage/Mypage";
+import YoutubeLoginPage from "@/pages/upload/youtube/login";
+import YoutubeUploadPage from "@/pages/upload/youtube/upload";
 
 const Router: React.FC = () => {
   return useRoutes([
@@ -20,8 +22,14 @@ const Router: React.FC = () => {
     },
     { path: "/login", element: <LoginPage /> },
     { path: "/terms", element: <TermsPage /> },
-
-
+    {
+      path: "/mypage",
+      element: (
+        <ProtectedRoute>
+          <Mypage />
+        </ProtectedRoute>
+      ),
+    },
     {
       path: "/dashboard/",
       element: (
@@ -29,6 +37,10 @@ const Router: React.FC = () => {
           <DashboardPage />
         </ProtectedRoute>
       ),
+    },
+    {
+      path: "/create/debug",
+      element: <CreateVideoPage />,
     },
     {
       path: "/create/",
@@ -43,8 +55,20 @@ const Router: React.FC = () => {
       element: <AuthCallbackPage />,
     },
     {
-      path: "/mypage",
-      element: <Mypage />,
+      path: "/upload/youtube/login",
+      element: (
+        <ProtectedRoute>
+          <YoutubeLoginPage />
+        </ProtectedRoute>
+      ),
+    },
+    {
+      path: "/youtube-upload",
+      element: (
+        <ProtectedRoute>
+          <YoutubeUploadPage />
+        </ProtectedRoute>
+      ),
     },
     { path: "*", element: <NotFound /> },
   ]);

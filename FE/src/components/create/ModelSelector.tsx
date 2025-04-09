@@ -13,6 +13,7 @@ interface ModelSelectorProps {
   imageModels: ModelType[];
   setImageModels: (models: ModelType[]) => void;
   onVoiceModelChange: () => void;
+  onSelectZonos?: (isZonos: boolean) => void;
 }
 
 export function ModelSelector({
@@ -22,13 +23,17 @@ export function ModelSelector({
   setVoiceModels,
   imageModels,
   setImageModels,
-  onVoiceModelChange
+  onVoiceModelChange,
+  onSelectZonos,
 }: ModelSelectorProps) {
   const modelSelectorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (modelSelectorRef.current && !modelSelectorRef.current.contains(event.target as Node)) {
+      if (
+        modelSelectorRef.current &&
+        !modelSelectorRef.current.contains(event.target as Node)
+      ) {
         setShowModelSelector(false);
       }
     }
@@ -41,14 +46,20 @@ export function ModelSelector({
 
   const selectVoiceModel = (index: number) => {
     onVoiceModelChange();
-    
+
+    const isZonosSelected = voiceModels[index].name === "Zonos";
+
     setVoiceModels(
       voiceModels.map((model, i) => ({
         ...model,
         isSelected: i === index,
       }))
     );
-    
+
+    if (onSelectZonos) {
+      onSelectZonos(isZonosSelected);
+    }
+
     toast("모델별로 목소리의 차이가 있을 수 있습니다.", {
       icon: "⚠️",
       duration: 3000,
@@ -110,7 +121,13 @@ export function ModelSelector({
                       {model.name}
                     </Button>
                     <div className="absolute -right-1 -top-1">
-                      <HelpTooltip content={modelDescriptions[model.name as keyof typeof modelDescriptions]} />
+                      <HelpTooltip
+                        content={
+                          modelDescriptions[
+                            model.name as keyof typeof modelDescriptions
+                          ]
+                        }
+                      />
                     </div>
                   </div>
                 ))}
@@ -127,7 +144,11 @@ export function ModelSelector({
                     <Button
                       onClick={() => selectImageModel(index)}
                       variant={model.isSelected ? "default" : "outline"}
-                      className={`w-full ${model.name === "Stable Diffusion" ? "opacity-50 cursor-pointer" : ""}`}
+                      className={`w-full ${
+                        model.name === "Stable Diffusion"
+                          ? "opacity-50 cursor-pointer"
+                          : ""
+                      }`}
                       aria-disabled={model.name === "Stable Diffusion"}
                     >
                       <img
@@ -138,9 +159,12 @@ export function ModelSelector({
                       {model.name}
                     </Button>
                     <div className="absolute -right-1 -top-1">
-                      <HelpTooltip content={model.name === "Stable Diffusion" 
-                        ? "더 저렴한 비용으로 안정적인 이미지 생성이 가능한 모델입니다. 다양한 스타일의 이미지를 효율적으로 생성할 수 있습니다. (개발 중)" 
-                        : "고품질 이미지 생성이 가능한 모델입니다. 세부적인 디테일을 잘 표현합니다."} 
+                      <HelpTooltip
+                        content={
+                          model.name === "Stable Diffusion"
+                            ? "더 저렴한 비용으로 안정적인 이미지 생성이 가능한 모델입니다. 다양한 스타일의 이미지를 효율적으로 생성할 수 있습니다. (개발 중)"
+                            : "고품질 이미지 생성이 가능한 모델입니다. 세부적인 디테일을 잘 표현합니다."
+                        }
                       />
                     </div>
                   </div>
@@ -152,4 +176,4 @@ export function ModelSelector({
       )}
     </div>
   );
-} 
+}

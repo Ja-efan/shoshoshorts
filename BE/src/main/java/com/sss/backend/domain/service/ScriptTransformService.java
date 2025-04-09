@@ -22,7 +22,7 @@ public class ScriptTransformService {
      * @return 변환된 JSON 데이터 (Map 형태)
      */
 
-    public Map<String, Object> transformScriptJson(Map<String, Object> originalJson) {
+    public Map<String, Object> transformScriptJson(Map<String, Object> originalJson, String audioModelName, String imageModelName ) {
         Map<String, Object> result = new HashMap<>();
         Map<String, Object> scriptJson = (Map<String, Object>) originalJson.get("script_json");
 
@@ -32,6 +32,8 @@ public class ScriptTransformService {
             newScriptJson.put("storyTitle", scriptJson.get("storyTitle")); // 스토리 제목 저장
             newScriptJson.put("characterArr", scriptJson.get("characterArr")); // 캐릭터 배열 저장
             newScriptJson.put("narVoiceCode", scriptJson.get("narVoiceCode")); // 나레이션 코드 저장
+            newScriptJson.put("imageModelName", imageModelName); // 이미지모델 종류 저장
+            newScriptJson.put("audioModelName", audioModelName); // 오디오모델 종류 저장
 
 
             // sceneArr 변환 및 저장

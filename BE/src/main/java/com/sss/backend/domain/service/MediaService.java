@@ -54,6 +54,10 @@ public class MediaService {
             //Optional에서 실제 SceneDocument 객체 추출
             SceneDocument sceneDocument = sceneDocumentOpt.get();
 
+            //sceneDocument 데이터에 audioModelName, imageModelName 저장
+            sceneDocument.setAudioModelName(audioModelName);
+            sceneDocument.setImageModelName(imageModelName);
+
             List<Map<String, Object>> sceneArr = sceneDocument.getSceneArr();
             log.info("scene배열 가져오기");
 

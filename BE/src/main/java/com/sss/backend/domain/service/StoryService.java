@@ -94,96 +94,49 @@ public class StoryService {
         Map<String, Object> jsonData = createFastAPIJson(storyId, request.getTitle(), request.getStory(), request.getNarVoiceCode());
         log.info("json변환까지 완료 {}",jsonData);
 
-        // 5. FastAPI에 요청 및 응답 처리 // http://localhost:8000/script/convert/
-
+        // 5. FastAPI에 요청 및 응답 처리
         try {
             Map<String, Object> response = sendToFastAPI(jsonData).block();
             log.info("FastAPI 응답 {}",response);
 
             // 변환 작업 실행
-            Map<String, Object> transformedJson = scriptTransformService.transformScriptJson(response);
+            Map<String, Object> transformedJson = scriptTransformService.transformScriptJson(response,request.getAudioModelName(),request.getAudioModelName());
 
             // 캐릭터 정보가 없을 경우 기본 캐릭터 정보 추가
             addDefaultCharactersIfNeeded(transformedJson);
 
-            saveScenesToMongoDB(transformedJson);
+            saveScenesToMongoDB(transformedJson,request.getAudioModelName(),request.getImageModelName());
         } catch (Exception e) {
             System.out.println("FastAPI 요청 실패 :"+ e.getMessage());
             log.info("fastapi 에러 {}",e.getMessage());
         }
     }
 
-    // Dummy json getter
-    private Map<String, Object> getDummyJson() {
-        String jsonString = """
-                {
-                  "script_json": {
-                    "storyId": 1,
-                    "storyTitle": "운명을 믿으시나요?",
-                    "characterArr": [
-                      {
-                        "name": "나",
-                        "gender": "남자",
-                        "properties": "흑발에 검은 눈. 한국인. 여자를 도와주고 결혼까지 한다."
-                      },
-                      {
-                        "name": "아내",
-                        "gender": "여자",
-                        "properties": "갈색 머리에 긴 장발. 한국인. 외국에서 기차표를 잘못 샀다가 내가 도와주었다."
-                      }
-                    ],
-                    "sceneArr": [
-                      {
-                        "audioArr": [
-                          {
-                            "text": "외국 여행 갔을 때 기차역에서 있었던 일이야.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "neutral",
-                            "emotionParams": {
-                              "neutral": 1
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "내 앞에 어떤 여자가 역무원이랑 얘기하다가 진짜 멘붕 온 표정으로 서 있는 거야.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "surprise",
-                            "emotionParams": {
-                              "surprise": 1
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "audioArr": [
-                          {
-                            "text": "듣다 보니까 기차표를 잘못 사서 지금 기차를 못 탄다는 거였는데 문제는 역무원이 영어를 아예 못 한다는 거지.",
-                            "type": "narration",
-                            "character": "narration",
-                            "emotion": "worry",
-                            "emotionParams": {
-                              "fear": 0.5,
-                              "neutral": 0.5
-                            }
-                          }
-                        ]
-                      }                   
-                    ]
-                  }
-                }
-            """;
+    @Transactional
+    public void saveStory(Long storyId) {
+
+        Story storyEntity = storyRepository.findById(storyId)
+                .orElseThrow(() -> new RuntimeException("스토리 엔티티를 찾을 수 없습니다."));
+
+        // 4. FastAPI로 보낼 JSON 데이터 생성
+        Map<String, Object> jsonData = createFastAPIJson(storyId, storyEntity.getTitle(), storyEntity.getStory(), storyEntity.getNarVoiceCode());
+        log.info("json변환까지 완료 {}",jsonData);
+
+        // 5. FastAPI에 요청 및 응답 처리
         try {
-            // JSON 문자열을 Map<String, Object>로 변환
-            ObjectMapper objectMapper = new ObjectMapper(); // Java에서 JSON을 다룰 때 사용하는 라이브러리.
-            return objectMapper.readValue(jsonString, Map.class);
+            Map<String, Object> response = sendToFastAPI(jsonData).block();
+            log.info("FastAPI 응답 {}",response);
+
+            // 변환 작업 실행
+            Map<String, Object> transformedJson = scriptTransformService.transformScriptJson(response,storyEntity.getAudioModelName(),storyEntity.getAudioModelName());
+
+            // 캐릭터 정보가 없을 경우 기본 캐릭터 정보 추가
+            addDefaultCharactersIfNeeded(transformedJson);
+
+            saveScenesToMongoDB(transformedJson,storyEntity.getAudioModelName(),storyEntity.getImageModelName());
         } catch (Exception e) {
-            e.printStackTrace();
-            return Map.of(); // 변환 실패 시 빈 Map 반환
+            System.out.println("FastAPI 요청 실패 :"+ e.getMessage());
+            log.info("fastapi 에러 {}",e.getMessage());
         }
     }
 
@@ -213,8 +166,6 @@ public class StoryService {
         log.info("character 넣기 전 json  : \n {}",jsonData);
 
         // MongoDB에서 캐릭터 정보 조회
-//        CharacterDocument characterDocument = getCharacterDocument(storyId);
-//        jsonData.put("characterArr", characterDocument != null ? characterDocument.getCharacterArr() : List.of());
         Optional<CharacterDocument> characterDocument = characterRepository.findByStoryId(String.valueOf(storyId));
 
         jsonData.put("characterArr", characterDocument.map(CharacterDocument::getCharacterArr).orElse(List.of()));
@@ -242,6 +193,9 @@ public class StoryService {
         Story entity = new Story();
         entity.setTitle(request.getTitle());
         entity.setStory(request.getStory());
+        entity.setAudioModelName(request.getAudioModelName()); // 오디오모델 추가
+        entity.setImageModelName(request.getImageModelName()); // 이미지모델 추가
+        entity.setNarVoiceCode(request.getNarVoiceCode());
         entity.setUser(user);
         return entity;
     }
@@ -260,7 +214,7 @@ public class StoryService {
      *
      * @param response
      */
-    private void saveScenesToMongoDB(Map<String,Object> response) {
+    private void saveScenesToMongoDB(Map<String,Object> response,String audioModelName, String imageModelName) {
         Map<String, Object> scriptJson = (Map<String, Object>) response.get("script_json");
         if (scriptJson == null) {
             System.err.println("MongoDB 저장 실패: script_json이 존재하지 않습니다.");
@@ -274,6 +228,8 @@ public class StoryService {
         Update update = new Update()
                 .set("storyTitle", scriptJson.get("storyTitle"))
                 .set("characterArr", scriptJson.get("characterArr"))
+                .set("audioModelName", audioModelName)
+                .set("imageModelName", imageModelName)
                 .set("narVoiceCode", scriptJson.get("narVoiceCode"))
                 .set("sceneArr", scriptJson.get("sceneArr"));
 
@@ -300,6 +256,21 @@ public class StoryService {
         // 기존 스토리 저장 로직 수행
         saveStory(storyId, request);
     }
+
+    public void saveStoryWithProcessingStatus(Long storyId) {
+        // 스크립트 처리 단계 설정
+        videoProcessingStatusService.updateProcessingStep(storyId.toString(), VideoProcessingStep.SCRIPT_PROCESSING);
+
+        // 기존 스토리 저장 로직 수행
+        saveStory(storyId);
+    }
+
+    public Boolean sceneExistsInMongo(Long storyId){
+        Query query = new Query(Criteria.where("storyId").is(String.valueOf(storyId)));
+        return mongoTemplate.exists(query, SceneDocument.class);
+    }
+
+
 
     /**
      * 캐릭터 정보가 없는 경우 기본 캐릭터 정보를 생성하여 추가하는 메소드

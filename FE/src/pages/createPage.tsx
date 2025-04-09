@@ -1,27 +1,40 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { apiService } from "@/api/api";
 import { useCharacter } from "@/hooks/useCharacter";
 import { CharacterForm } from "@/components/create/CharacterForm";
+import { CharacterFormZonos } from "@/components/create/CharacterFormZonos";
 import { ModelSelector } from "@/components/create/ModelSelector";
-import { NarratorSettings, NarratorRef } from "@/components/create/NarratorSettings";
+import { NarratorSettingsZonos } from "@/components/create/NarratorSettingsZonos";
+import {
+  NarratorSettings,
+  NarratorRef,
+} from "@/components/create/NarratorSettings";
 import { CurrentlyPlaying } from "@/types/character";
 import { ModelType } from "@/types/voice";
-import { 
-  defaultVoiceModels, 
-  defaultImageModels, 
-  voiceCodes
+import {
+  defaultVoiceModels,
+  defaultImageModels,
+  voiceCodes,
 } from "@/constants/voiceData";
 import { toast } from "react-hot-toast";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Navbar } from "@/components/common/Navbar";
+import { ISpeakerInfoGet } from "@/types/speakerInfo";
 
 export default function CreateVideoPage() {
   const { characters, addCharacter, updateCharacter, removeCharacter } =
@@ -35,25 +48,53 @@ export default function CreateVideoPage() {
   const [validationErrors, setValidationErrors] = useState({
     title: false,
     story: false,
-    characters: false
+    characters: false,
   });
   const [currentlyPlaying, setCurrentlyPlaying] = useState<CurrentlyPlaying>({
     voiceOption: null,
     characterId: null,
   });
-  const [narratorGender, setNarratorGender] = useState<"male" | "female">("male");
+  const [narratorGender, setNarratorGender] = useState<"male" | "female">(
+    "male"
+  );
   const [narratorVoice, setNarratorVoice] = useState<string>("male1");
-  const [voiceModels, setVoiceModels] = useState<ModelType[]>(defaultVoiceModels);
-  const [imageModels, setImageModels] = useState<ModelType[]>(defaultImageModels);
+  const [voiceModels, setVoiceModels] =
+    useState<ModelType[]>(defaultVoiceModels);
+  const [imageModels, setImageModels] =
+    useState<ModelType[]>(defaultImageModels);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const narratorRef = useRef<NarratorRef>(null);
   const navigate = useNavigate();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isZonosSelected, setIsZonosSelected] = useState(false);
+
+  // 사용자의 Zonos 음성 목록 가져오기
+  const [zonosList, setZonosList] = useState<ISpeakerInfoGet[] | null>(null);
+  const [zonosLoading, setZonosLoading] = useState(false);
+
+  // Zonos 내레이터 ID 추적
+  const [narratorZonosId, setNarratorZonosId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchZonosList = async () => {
+      try {
+        const response = await apiService.getSpeakerLibrary();
+        setZonosList(response.data);
+      } catch (error) {
+        console.error("사용자 정보를 가져오는 중 오류가 발생했습니다:", error);
+      } finally {
+        setZonosLoading(false);
+      }
+    };
+
+    fetchZonosList();
+  }, []);
 
   const validateCharacters = () => {
-    return characters.every(character => 
-      character.name.trim() !== "" && 
-      (character.description?.trim() || "").length > 0
+    return characters.every(
+      (character) =>
+        character.name.trim() !== "" &&
+        (character.description?.trim() || "").length > 0
     );
   };
 
@@ -63,7 +104,7 @@ export default function CreateVideoPage() {
     if (currentlyPlaying.voiceOption && currentlyPlaying.characterId) {
       setCurrentlyPlaying({ voiceOption: null, characterId: null });
     }
-    
+
     // 나레이터 음성 정지
     if (narratorRef.current) {
       narratorRef.current.stopAudio();
@@ -71,7 +112,7 @@ export default function CreateVideoPage() {
   };
 
   const getSelectedVoiceModel = () => {
-    return voiceModels.find(model => model.isSelected)?.name || "ElevenLabs";
+    return voiceModels.find((model) => model.isSelected)?.name || "ElevenLabs";
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,10 +133,10 @@ export default function CreateVideoPage() {
     const errors = {
       title: title.trim() === "" || title.length > 20,
       story: story.trim() === "" || story.length > 500,
-      characters: characters.length > 0 && !validateCharacters()
+      characters: characters.length > 0 && !validateCharacters(),
     };
     setValidationErrors(errors);
-    return !Object.values(errors).some(error => error);
+    return !Object.values(errors).some((error) => error);
   };
 
   const handleGenerateVideo = async () => {
@@ -107,8 +148,10 @@ export default function CreateVideoPage() {
     setIsGenerating(true);
 
     // 선택된 모델 가져오기
-    const selectedVoiceModel = voiceModels.find(model => model.isSelected)?.name || "Eleven Labs";
-    const selectedImageModel = imageModels.find(model => model.isSelected)?.name || "Kling";
+    const selectedVoiceModel =
+      voiceModels.find((model) => model.isSelected)?.name || "Eleven Labs";
+    const selectedImageModel =
+      imageModels.find((model) => model.isSelected)?.name || "Kling";
 
     // URL 파라미터 값이 있으면 그것을 우선 사용, 없으면 선택된 모델 사용
     const finalAudioModel = audioModelName || selectedVoiceModel;
@@ -117,7 +160,14 @@ export default function CreateVideoPage() {
     const requestData: any = {
       title,
       story,
-      narVoiceCode: voiceCodes[finalAudioModel][narratorGender][parseInt(narratorVoice.slice(-1)) - 1],
+      // Zonos가 선택된 경우 내레이터 ID 사용, 아니면 기존 방식 사용
+      narVoiceCode: isZonosSelected
+        ? String(narratorZonosId) // Zonos ID를 직접 사용
+        : voiceCodes[finalAudioModel][narratorGender][
+            parseInt(narratorVoice.slice(-1)) - 1
+          ],
+      audioModelName: finalAudioModel,
+      imageModelName: finalImageModel,
     };
 
     if (characters.length > 0) {
@@ -129,12 +179,14 @@ export default function CreateVideoPage() {
             : "2"
           : null,
         properties: character.description || "이미지 생성을 위한 설명...",
-        voiceCode:
-          character.voice && character.gender
-            ? voiceCodes[finalAudioModel][character.gender][
-                parseInt(character.voice.slice(-1)) - 1
-              ]
-            : null,
+        // Zonos가 선택된 경우 캐릭터의 Zonos 음성 ID 사용, 아니면 기존 방식 사용
+        voiceCode: isZonosSelected
+          ? String(character.voice) || null // Zonos ID 사용
+          : character.voice && character.gender
+          ? voiceCodes[finalAudioModel][character.gender][
+              parseInt(character.voice.slice(-1)) - 1
+            ]
+          : null,
       }));
     }
 
@@ -142,8 +194,6 @@ export default function CreateVideoPage() {
       console.log("Request Data:", requestData); // 요청 데이터 로깅
       const response = await apiService.createVideo({
         data: requestData,
-        audioModelName: finalAudioModel.replace(/\s+/g, ""),
-        imageModelName: finalImageModel.replace(/\s+/g, "")
       });
       console.log("API Response:", response);
       setShowSuccessModal(true);
@@ -160,13 +210,18 @@ export default function CreateVideoPage() {
     navigate("/dashboard");
   };
 
+  // Zonos 선택 여부를 업데이트하는 함수
+  const handleZonosSelection = (isZonos: boolean) => {
+    setIsZonosSelected(isZonos);
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-3xl">
-            <ModelSelector 
+            <ModelSelector
               showModelSelector={showModelSelector}
               setShowModelSelector={setShowModelSelector}
               voiceModels={voiceModels}
@@ -174,6 +229,7 @@ export default function CreateVideoPage() {
               imageModels={imageModels}
               setImageModels={setImageModels}
               onVoiceModelChange={handleVoiceModelChange}
+              onSelectZonos={handleZonosSelection}
             />
 
             <h1 className="text-3xl font-bold">동영상 만들기</h1>
@@ -185,7 +241,9 @@ export default function CreateVideoPage() {
             <div className="mt-8 space-y-6">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="title">제목</Label>
+                  <Label className="mb-2" htmlFor="title">
+                    제목
+                  </Label>
                   <div className="relative">
                     <Input
                       id="title"
@@ -194,51 +252,83 @@ export default function CreateVideoPage() {
                       placeholder="비디오 제목을 입력하세요"
                       className={validationErrors.title ? "border-red-500" : ""}
                     />
-                    <span className={`absolute right-2 top-2 text-sm ${title.length > 20 ? "text-red-500" : "text-gray-500"}`}>
+                    <span
+                      className={`absolute right-2 top-2 text-sm ${
+                        title.length > 20 ? "text-red-500" : "text-gray-500"
+                      }`}
+                    >
                       {title.length}/20
                     </span>
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="story">스토리</Label>
+                  <Label className="mb-2" htmlFor="story">
+                    스토리
+                  </Label>
                   <div className="relative">
                     <Textarea
                       id="story"
                       value={story}
                       onChange={handleStoryChange}
                       placeholder="스토리를 입력하세요"
-                      className={`min-h-[200px] ${validationErrors.story ? "border-red-500" : ""}`}
+                      className={`min-h-[200px] ${
+                        validationErrors.story ? "border-red-500" : ""
+                      }`}
                     />
-                    <span className={`absolute right-2 bottom-2 text-sm ${story.length > 500 ? "text-red-500" : "text-gray-500"}`}>
+                    <span
+                      className={`absolute right-2 bottom-2 text-sm ${
+                        story.length > 500 ? "text-red-500" : "text-gray-500"
+                      }`}
+                    >
                       {story.length}/500
                     </span>
                   </div>
                 </div>
               </div>
+              {!isZonosSelected ? (
+                <NarratorSettings
+                  ref={narratorRef}
+                  narratorGender={narratorGender}
+                  setNarratorGender={setNarratorGender}
+                  narratorVoice={narratorVoice}
+                  setNarratorVoice={setNarratorVoice}
+                  selectedVoiceModel={getSelectedVoiceModel()}
+                  setCurrentlyPlaying={setCurrentlyPlaying}
+                  currentlyPlaying={currentlyPlaying}
+                />
+              ) : (
+                <NarratorSettingsZonos
+                  zonosList={zonosList}
+                  zonosLoading={zonosLoading}
+                  setNarratorZonosId={setNarratorZonosId}
+                  narratorZonosId={narratorZonosId}
+                />
+              )}
 
-              <NarratorSettings 
-                ref={narratorRef}
-                narratorGender={narratorGender}
-                setNarratorGender={setNarratorGender}
-                narratorVoice={narratorVoice}
-                setNarratorVoice={setNarratorVoice}
-                selectedVoiceModel={getSelectedVoiceModel()}
-                setCurrentlyPlaying={setCurrentlyPlaying}
-                currentlyPlaying={currentlyPlaying}
-              />
-
-              <CharacterForm
-                characters={characters}
-                addCharacter={addCharacter}
-                updateCharacter={updateCharacter}
-                removeCharacter={removeCharacter}
-                currentlyPlaying={currentlyPlaying}
-                setCurrentlyPlaying={setCurrentlyPlaying}
-                voiceModel={getSelectedVoiceModel()}
-                validationErrors={validationErrors}
-                narratorRef={narratorRef as React.RefObject<NarratorRef>}
-              />
+              {!isZonosSelected ? (
+                <CharacterForm
+                  characters={characters}
+                  addCharacter={addCharacter}
+                  updateCharacter={updateCharacter}
+                  removeCharacter={removeCharacter}
+                  currentlyPlaying={currentlyPlaying}
+                  setCurrentlyPlaying={setCurrentlyPlaying}
+                  voiceModel={getSelectedVoiceModel()}
+                  validationErrors={validationErrors}
+                  narratorRef={narratorRef as React.RefObject<NarratorRef>}
+                />
+              ) : (
+                <CharacterFormZonos
+                  characters={characters}
+                  addCharacter={addCharacter}
+                  updateCharacter={updateCharacter}
+                  removeCharacter={removeCharacter}
+                  zonosList={zonosList}
+                  zonosLoading={zonosLoading}
+                  validationErrors={validationErrors}
+                />
+              )}
 
               <Button
                 onClick={handleGenerateVideo}
@@ -272,7 +362,12 @@ export default function CreateVideoPage() {
         </div>
       )}
 
-      <Dialog open={showSuccessModal} onOpenChange={setShowSuccessModal}>
+      <Dialog open={showSuccessModal} onOpenChange={(open) => {
+        // 모달이 닫히려고 할 때 대시보드로 이동
+        if (!open) {
+          navigate("/dashboard");
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>비디오 생성 요청 완료</DialogTitle>

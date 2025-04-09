@@ -12,6 +12,7 @@ import com.google.api.services.youtube.model.VideoStatus;
 import com.sss.backend.api.dto.VideoMetadata;
 import com.sss.backend.api.dto.VideoUploadResponse;
 import com.sss.backend.config.S3Config;
+import com.sss.backend.domain.repository.StoryRepository;
 import com.sss.backend.domain.repository.VideoRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -19,14 +20,10 @@ import reactor.core.publisher.Mono;
 
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Optional;
 
 @Service
 public class YoutubeService {
@@ -36,16 +33,37 @@ public class YoutubeService {
 
     private final VideoRepository videoRepository;
     private final S3Config s3Config;
+    private final StoryRepository storyRepository;
 
-    public YoutubeService(VideoRepository videoRepository, S3Config s3Config){
+    public YoutubeService(VideoRepository videoRepository, S3Config s3Config, StoryRepository storyRepository){
         this.videoRepository = videoRepository;
         this.s3Config = s3Config;
+        this.storyRepository = storyRepository;
     }
 
     // 비동기 방식의 업로드 메서드 (Controller에서 호출)
-    public Mono<VideoUploadResponse> uploadVideo(String accessToken, String videoUrl, VideoMetadata metadata) {
+    public Mono<VideoUploadResponse> uploadVideo(String accessToken, String storyId, VideoMetadata metadata, Long userId) {
         return Mono.fromCallable(() -> {
             try {
+
+                //user가 일치하는 지 확인
+
+                Optional<com.sss.backend.domain.entity.Video> videoOpt = videoRepository.findByStoryId(Long.parseLong(storyId));
+
+                if (!videoOpt.isPresent()) {
+                    throw new RuntimeException("해당 스토리 ID에 해당하는 비디오가 없습니다.");
+                }
+
+                com.sss.backend.domain.entity.Video video = videoOpt.get();
+
+                // 2. 비디오의 소유자 확인 (Story의 User ID와 로그인한 사용자 ID 비교)
+                if (!video.getStory().getUser().getId().equals(userId)) {
+                    throw new RuntimeException("로그인한 사용자에 해당하는 storyId가 아닙니다.");
+                }
+
+                //storyId를 통해서 videoUrl 찾기
+                String videoUrl = videoRepository.findVideoUrlByStoryId(Long.parseLong(storyId));
+
                 if (videoUrl == null || videoUrl.isEmpty()) {
                     throw new RuntimeException("비디오 URL이 필요합니다.");
                 }
@@ -60,6 +78,9 @@ public class YoutubeService {
 
                     // S3에서 파일 다운로드
                     s3Config.downloadFromS3(s3key,tempFile.getAbsolutePath());
+
+                    //기본값 다 넣어주기
+                    setDefaultMetadata(metadata, storyId);
 
                     // 동기식 업로드 메서드 호출
                     String youtubeVideoId = uploadVideoToYoutube(
@@ -93,8 +114,6 @@ public class YoutubeService {
             }
         });
     }
-
-
 
 
     // 실제 YouTube API 호출하는 내부 메서드
@@ -181,6 +200,40 @@ public class YoutubeService {
 
         // 요청 실행
         thumbnailSet.execute();
+    }
+
+
+    public void setDefaultMetadata(VideoMetadata metadata, String storyId){
+
+        // 스토리 ID로부터 정보 가져오기
+        String storyTitle = storyRepository.findTitleById(Long.parseLong(storyId));
+
+        // 제목
+        if (metadata.getTitle() == null || metadata.getTitle().isEmpty()) {
+            metadata.setTitle(storyTitle != null ? storyTitle : "Untitled");
+        }
+
+        //설명
+        if (metadata.getDescription() == null || metadata.getDescription().isEmpty()) {
+            metadata.setDescription("#Shorts");
+        } else {
+            metadata.setDescription(metadata.getDescription() + " #Shorts");
+        }
+
+        //태그
+        if (metadata.getTags() == null || metadata.getTags().isEmpty()) {
+            metadata.setTags("shorts");
+        }
+
+        // 개인정보 설정
+        if (metadata.getPrivacyStatus() == null || metadata.getPrivacyStatus().isEmpty()) {
+            metadata.setPrivacyStatus("private");
+        }
+
+        // 카테고리 ID
+        if (metadata.getCategoryId() == null || metadata.getCategoryId().isEmpty()) {
+            metadata.setCategoryId("23");
+        }
     }
 
 }

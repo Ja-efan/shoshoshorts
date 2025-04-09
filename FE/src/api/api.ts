@@ -1,13 +1,20 @@
-import axios from "axios"
-import { VideoData } from "@/types/video"
-import { SocialProvider } from "@/types/auth"
-import { store } from "@/store/store"
-import { setToken, clearToken } from "@/store/authSlice"
+import axios from "axios";
+import { VideoData } from "@/types/video";
+import { SocialProvider } from "@/types/auth";
+import { store } from "@/store/store";
+import { setToken, clearToken } from "@/store/authSlice";
+import { IUserData } from "@/types/user";
+import { ISpeakerInfo, ISpeakerInfoGet } from "@/types/speakerInfo";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || "/api";
 
 // axios 기본 설정 추가
-axios.defaults.withCredentials = true;  // 쿠키 자동 전송을 위한 설정
+axios.defaults.withCredentials = true; // 쿠키 자동 전송을 위한 설정
+
+// 인터셉터가 없는 axios 인스턴스 생성 (토큰 갱신용)
+const axiosWithoutInterceptor = axios.create({
+  withCredentials: true,
+});
 
 // refreshToken 요청 횟수를 추적하는 변수
 let refreshTokenAttempts = 0;
@@ -27,20 +34,25 @@ const clearTokenAndState = () => {
 export const API_ENDPOINTS = {
   CREATE_VIDEO: `${API_BASE_URL}/videos/generate`,
   GET_VIDEOS: `${API_BASE_URL}/videos/status/allstory`,
+  GET_VIDEO_STATUS: `${API_BASE_URL}/videos/status`,
   YOUTUBE_UPLOAD: `${API_BASE_URL}/youtube/upload`,
   YOUTUBE_AUTH: `${API_BASE_URL}/youtube/auth`,
   DOWNLOAD_VIDEO: `${API_BASE_URL}/videos/download`,
+  YOUTUBE_SSE_STATUS: `${API_BASE_URL}/video/status/sse`,
   AUTH: {
     OAUTH: `${API_BASE_URL}/auth/oauth`,
     REFRESH: `${API_BASE_URL}/auth/refresh`,
     LOGOUT: `${API_BASE_URL}/auth/logout`,
     VALIDATE: `${API_BASE_URL}/auth/check`,
   },
+  USER_DATA: `${API_BASE_URL}/auth/userdata`,
+  GET_SPEAKER_LIBRARY: `${API_BASE_URL}/speaker/library`,
+  UPLOAD_SPEAKER: `${API_BASE_URL}/speaker/upload`,
 };
 
 export const apiConfig = {
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 };
 
@@ -91,10 +103,11 @@ export const apiService = {
 
   async refreshToken() {
     try {
-      const response = await axios.post<TokenResponse>(
+      // 인터셉터가 없는 axios 인스턴스 사용
+      const response = await axiosWithoutInterceptor.post<TokenResponse>(
         API_ENDPOINTS.AUTH.REFRESH
       );
-      
+
       const newAccessToken = response.data.accessToken;
       localStorage.setItem("accessToken", newAccessToken);
       store.dispatch(setToken(newAccessToken));
@@ -103,7 +116,7 @@ export const apiService = {
     } catch (error) {
       console.error("토큰 갱신 실패:", error);
       refreshTokenAttempts++;
-      
+
       if (refreshTokenAttempts >= MAX_REFRESH_ATTEMPTS) {
         // 3번 이상 실패하면 로그아웃 처리
         clearTokenAndState();
@@ -141,21 +154,17 @@ export const apiService = {
       } catch (refreshError) {
         console.error("토큰 갱신 실패:", refreshError);
         return false;
-      } 
+      }
     }
   },
 
   // 비디오 관련 API
-  async createVideo({ data, audioModelName = "Eleven Labs", imageModelName = "Kling" }: { 
-    data: any, 
-    audioModelName: string, 
-    imageModelName: string 
-  }) {
+  async createVideo({ data }: { data: any }) {
     const token = localStorage.getItem("accessToken");
-    
+
     const response = await axios.post<ApiResponse<VideoData>>(
-      `${API_ENDPOINTS.CREATE_VIDEO}?audioModelName=${encodeURIComponent(audioModelName)}&imageModelName=${encodeURIComponent(imageModelName)}`,
-      data,  // audioModelName과 imageModelName이 포함되지 않은 순수 데이터
+      API_ENDPOINTS.CREATE_VIDEO,
+      data,
       getAuthConfig(token)
     );
     return response.data;
@@ -170,20 +179,13 @@ export const apiService = {
     return response.data;
   },
 
-  // 유튜브 업로드 API
-  async uploadVideoToYoutube(videoURL: string, title: string, description: string) {
-    const token = localStorage.getItem("accessToken");
+
+  async uploadVideoToYoutube(storyId: string, title: string, description: string) {
     try {
+      const token = localStorage.getItem("accessToken");
       const response = await axios.post(
-        API_ENDPOINTS.YOUTUBE_UPLOAD,
-        {
-          videoURL,
-          title,
-          description,
-          privacyStatus: "public",
-          categoryId: "22",
-          tags: "테스트,youtube,api"
-        },
+        `${API_ENDPOINTS.YOUTUBE_UPLOAD}`,
+        { storyId, title, description },
         getAuthConfig(token)
       );
       return response.data;
@@ -199,11 +201,15 @@ export const apiService = {
   },
 
   // YouTube 인증 URL 가져오기
-  async getYoutubeAuthUrl() {
+  async getYoutubeAuthUrl(storyId?: string) {
     const token = localStorage.getItem("accessToken");
     try {
+      const url = storyId
+        ? `${API_ENDPOINTS.YOUTUBE_AUTH}?storyId=${storyId}`
+        : API_ENDPOINTS.YOUTUBE_AUTH;
+
       const response = await axios.get<{ authUrl: string }>(
-        API_ENDPOINTS.YOUTUBE_AUTH,
+        url,
         getAuthConfig(token)
       );
       return response.data.authUrl;
@@ -211,6 +217,70 @@ export const apiService = {
       console.error("YouTube 인증 URL 가져오기 실패:", error);
       throw error;
     }
+  },
+
+  // 비디오 상태 조회
+  async getVideoStatus(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const response = await axios.get<VideoData>(
+        `${API_ENDPOINTS.GET_VIDEO_STATUS}/${storyId}`,
+        getAuthConfig(token)
+      );
+      return response.data;
+    } catch (error) {
+      console.error("비디오 상태 조회 실패:", error);
+      throw error;
+    }
+  },
+  async getVideoStatusSSE(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      throw new Error("인증 토큰이 없습니다.");
+    }
+    
+    const response = await fetch(`${API_ENDPOINTS.YOUTUBE_SSE_STATUS}/${storyId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'text/event-stream',
+      },
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response;
+  },
+  // 유저 데이터 관련 API
+  async getUserData() {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.get<ApiResponse<IUserData>>(
+      API_ENDPOINTS.USER_DATA,
+      getAuthConfig(token)
+    );
+    return response.data;
+  },
+
+  async getSpeakerLibrary() {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.get<ApiResponse<ISpeakerInfoGet[]>>(
+      API_ENDPOINTS.GET_SPEAKER_LIBRARY,
+      getAuthConfig(token)
+    );
+    return response.data;
+  },
+
+  async uploadSpeaker(speakerInfo: ISpeakerInfo) {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.post<ApiResponse<ISpeakerInfo>>(
+      API_ENDPOINTS.UPLOAD_SPEAKER,
+      speakerInfo,
+      getAuthConfig(token)
+    );
+    return response.data;
   },
 };
 
@@ -230,7 +300,12 @@ axios.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // 이미 재시도한 요청이거나 특정 엔드포인트는 제외
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      originalRequest.url !== API_ENDPOINTS.AUTH.REFRESH
+    ) {
       originalRequest._retry = true;
       try {
         const newToken = await apiService.refreshToken();
