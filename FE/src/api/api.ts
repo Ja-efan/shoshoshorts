@@ -4,7 +4,7 @@ import { SocialProvider } from "@/types/auth";
 import { store } from "@/store/store";
 import { setToken, clearToken } from "@/store/authSlice";
 import { IUserData } from "@/types/user";
-import { ISpeakerInfo } from "@/types/speakerInfo";
+import { ISpeakerInfo, ISpeakerInfoGet } from "@/types/speakerInfo";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || "/api";
 
@@ -266,7 +266,7 @@ export const apiService = {
 
   async getSpeakerLibrary() {
     const token = localStorage.getItem("accessToken");
-    const response = await axios.get<ApiResponse<ISpeakerInfo[]>>(
+    const response = await axios.get<ApiResponse<ISpeakerInfoGet[]>>(
       API_ENDPOINTS.GET_SPEAKER_LIBRARY,
       getAuthConfig(token)
     );
