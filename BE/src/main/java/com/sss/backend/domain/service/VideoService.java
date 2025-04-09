@@ -27,6 +27,7 @@ import com.sss.backend.domain.service.VideoProcessingStatusService;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
+import com.sss.backend.domain.service.VideoStatusSseService;
 
 import java.io.File;
 import java.io.IOException;
@@ -63,6 +64,7 @@ public class VideoService {
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
     private final VideoProcessingStatusService videoProcessingStatusService;
+    private final VideoStatusSseService videoStatusSseService;
 
     private final ResourcePatternResolver resourcePatternResolver = new PathMatchingResourcePatternResolver();
 
@@ -664,9 +666,6 @@ public class VideoService {
     public void updateVideoCompleted(String storyId, String videoUrl) {
         // 상태 업데이트: 완료
         updateVideoStatus(storyId, VideoStatus.COMPLETED, videoUrl);
-
-        // 처리 단계 정보 삭제 (완료되었으므로)
-        videoProcessingStatusService.deleteProcessingStep(storyId);
     }
 
     /**
@@ -675,9 +674,6 @@ public class VideoService {
     public void updateVideoFailed(String storyId, String errorMessage) {
         // 상태 업데이트: 실패
         updateVideoStatus(storyId, VideoStatus.FAILED, errorMessage);
-
-        // 처리 단계 정보 삭제
-        videoProcessingStatusService.deleteProcessingStep(storyId);
     }
 
     /**
@@ -755,7 +751,16 @@ public class VideoService {
             video.setErrorMessage(message);
         }
         
+        // DB에 상태 저장
         videoRepository.save(video);
+        
+        // Redis에도 상태 저장 (SSE에서 DB 조회 없이 사용하기 위함)
+        videoStatusSseService.saveVideoStatus(storyId, status);
+        
+        // 상태가 완료나 실패이면 Redis에서 처리 단계 정보 삭제
+        if (status == VideoStatus.COMPLETED || status == VideoStatus.FAILED) {
+            videoProcessingStatusService.deleteProcessingStep(storyId);
+        }
     }
     
     // 비디오 상태 조회
