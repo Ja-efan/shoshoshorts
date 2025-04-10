@@ -39,7 +39,7 @@ class KlingAIConfig:
     NUM_OF_IMAGES = int(os.getenv("NUM_OF_IMAGES", 1))
     IMAGE_REFERENCE = os.getenv("IMAGE_REFERENCE", "subject")  # "subject" or "face"
     IMAGE_FIDELITY = float(os.getenv("IMAGE_FIDELITY", 0.1))  # 참조 이미지 참조 정도 (0 ~ 1 소수)
-    DEFAULT_IMAGE_STYLE = os.getenv("DEFAULT_IMAGE_STYLE", "DISNEY-PIXAR")
+    DEFAULT_IMAGE_STYLE = os.getenv("DEFAULT_IMAGE_STYLE", "illustrate")
     MAX_ATTEMPTS = int(os.getenv("MAX_ATTEMPTS", 50))  # 최대 시도 횟수
     DELAY = int(os.getenv("DELAY", 3))  # 시도 간격 (초)
 
@@ -116,7 +116,7 @@ class OpenAIConfig:
         },
         "illustrate": {
             "prompt": os.path.join(
-                SYSTEM_PROMPT_DIR, "image_prompts", os.getenv("ILLUSTRATE_STYLE_PROMPT", "illustrate/Illustrate_v01.txt")
+                SYSTEM_PROMPT_DIR, "image_prompts", os.getenv("ILLUSTRATE_STYLE_PROMPT", "illustrate/illustrate_v01.txt")
             ),
             "reference_image": os.getenv("ILLUSTRATE_STYLE_REFERENCE_IMAGE", "illustrate/illustrate-reference.png")
         }
