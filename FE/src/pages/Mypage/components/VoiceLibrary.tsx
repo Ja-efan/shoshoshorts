@@ -120,6 +120,12 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
   };
 
   const handleDelete = async (speakerId: string) => {
+    // 음수 ID는 삭제 불가능하도록 처리
+    if (Number(speakerId) < 0) {
+      toast.error("이 목소리는 삭제할 수 없습니다!");
+      return;
+    }
+
     try {
       await apiService.deleteSpeaker(speakerId);
       toast.success("목소리가 성공적으로 삭제되었습니다!");
@@ -285,12 +291,15 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
                       {new Date(speaker.createdAt).toLocaleDateString()}
                     </div>
                   </div>
-                  <button
-                    className="absolute top-2 right-2 text-red-500 text-sm p-1 cursor-pointer"
-                    onClick={() => setDeleteSpeakerId(String(speaker.id))}
-                  >
-                    삭제
-                  </button>
+                  {/* 음수 ID가 아닐 때만 삭제 버튼 표시 */}
+                  {Number(speaker.id) >= 0 && (
+                    <button
+                      className="absolute top-2 right-2 text-red-500 text-sm p-1 cursor-pointer"
+                      onClick={() => setDeleteSpeakerId(String(speaker.id))}
+                    >
+                      삭제
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
