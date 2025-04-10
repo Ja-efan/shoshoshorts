@@ -18,10 +18,7 @@ export default function DashboardPage() {
   const [videos, setVideos] = useState<VideoData[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // 비디오 상태 변경을 감지하기 위한 상태
-  const [statusUpdateTrigger, setStatusUpdateTrigger] = useState(0)
-
-  const handleVideoStatusChange = async (storyId: string, newStatus: string) => {
+  const handleVideoStatusChange = async () => {
     try {
       const response = await apiService.getVideos()
       setVideos(response.data)
@@ -43,15 +40,6 @@ export default function DashboardPage() {
     }
 
     fetchVideos()
-  }, [])
-
-  // 30초마다 상태 업데이트를 트리거
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStatusUpdateTrigger(prev => prev + 1)
-    }, 30000)
-
-    return () => clearInterval(interval)
   }, [])
 
   // Filter videos based on search query
