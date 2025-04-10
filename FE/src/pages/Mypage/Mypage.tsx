@@ -40,7 +40,7 @@ function Mypage() {
 
     setIsUpdating(true);
     try {
-      await apiService.updateUserData({ name: newName });
+      await apiService.updateUserData({ nickname: newName });
       fetchUserProfile();
       setNameModalOpen(false);
     } catch (error) {

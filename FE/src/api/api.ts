@@ -5,6 +5,8 @@ import { store } from "@/store/store";
 import { setToken, clearToken } from "@/store/authSlice";
 import { IUserData, IUserDataUpdate } from "@/types/user";
 import { ISpeakerInfo, ISpeakerInfoGet } from "@/types/speakerInfo";
+import zonosMale from "@/assets/voices/zonos/male/zonos_male_sample.mp3";
+import zonosFemale from "@/assets/voices/zonos/female/zonos_female_sample.mp3";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || "/api";
 
@@ -292,14 +294,43 @@ export const apiService = {
   // 유저 데이터 관련 API
   async getUserData() {
     const token = localStorage.getItem("accessToken");
+    const sampleArr = [
+      {
+        id: -1,
+        title: "기본 남성 아나운서",
+        description: "기본으로 제공되는 남성 아나운서 목소리입니다.",
+        voiceSampleUrl: zonosMale,
+        createdAt: "2000-01-01T00:00:00.000Z",
+        updatedAt: "2000-01-01T00:00:00.000Z",
+      },
+      {
+        id: -2,
+        title: "기본 여성 아나운서",
+        description: "기본으로 제공되는 여성 아나운서 목소리입니다.",
+        voiceSampleUrl: zonosFemale,
+        createdAt: "2000-01-01T14:00:00.000Z",
+        updatedAt: "2000-01-01T14:00:00.000Z",
+      },
+    ];
     const response = await axios.get<ApiResponse<IUserData>>(
       API_ENDPOINTS.USER_DATA,
       getAuthConfig(token)
     );
+
+    // sampleArr를 response.data.data.speakerLibrary 배열 앞에 추가
+    if (response.data.data.speakerLibrary) {
+      response.data.data.speakerLibrary = [
+        ...sampleArr,
+        ...response.data.data.speakerLibrary,
+      ];
+    } else {
+      response.data.data.speakerLibrary = [...sampleArr];
+    }
+
     return response.data;
   },
 
-  //프로필 수정정
+  //프로필 수정
   async updateUserData(data: IUserDataUpdate) {
     const token = localStorage.getItem("accessToken");
     const response = await axios.post(
@@ -312,10 +343,32 @@ export const apiService = {
 
   async getSpeakerLibrary() {
     const token = localStorage.getItem("accessToken");
+    const sampleArr = [
+      {
+        id: -1,
+        title: "기본 남성 아나운서",
+        description: "기본으로 제공되는 남성 아나운서 목소리입니다.",
+        voiceSampleUrl: zonosMale,
+        createdAt: "2000-01-01T00:00:00.000Z",
+        updatedAt: "2000-01-01T00:00:00.000Z",
+      },
+      {
+        id: -2,
+        title: "기본 여성 아나운서",
+        description: "기본으로 제공되는 여성 아나운서 목소리입니다.",
+        voiceSampleUrl: zonosFemale,
+        createdAt: "2000-01-01T14:00:00.000Z",
+        updatedAt: "2000-01-01T14:00:00.000Z",
+      },
+    ];
     const response = await axios.get<ApiResponse<ISpeakerInfoGet[]>>(
       API_ENDPOINTS.GET_SPEAKER_LIBRARY,
       getAuthConfig(token)
     );
+
+    // sampleArr를 response.data.data 배열 앞에 추가
+    response.data.data = [...sampleArr, ...response.data.data];
+
     return response.data;
   },
 
