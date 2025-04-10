@@ -172,5 +172,34 @@ public class VoiceService {
                 "status",200,
                 "data",response));
     }
+
+    public ResponseEntity<?> deleteMyVoice(HttpServletRequest request, String voiceId) {
+
+        String token = jwtUtil.extractTokenFromRequest(request);
+        String email = jwtUtil.getEmail(token);
+
+        Users user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("유저 정보를 찾을 수 없습니다"));
+
+        Long id = Long.parseLong(voiceId);
+        Voice voice = voiceRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("voiceId"+voiceId+" 에 해당하는 Voice 정보가 없습니다"));
+
+        Long compUserId = voice.getUser().getId();
+        log.info("compUserId : {}",compUserId);
+        log.info("userId : {}",user.getId());
+
+        if (!compUserId.equals(user.getId())) {
+            return ResponseEntity
+                    .status(403)
+                    .body("해당 Voice에 대한 삭제 권한이 없습니다.");
+        }
+
+        // 삭제 처리
+        voiceRepository.delete(voice);
+
+        return ResponseEntity.ok("Voice가 정상적으로 삭제되었습니다.");
+
+    }
 }
 
