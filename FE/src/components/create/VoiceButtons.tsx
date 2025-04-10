@@ -18,6 +18,20 @@ export function VoiceButtons({
     ? ["male1", "male2", "male3", "male4"]
     : ["female1", "female2", "female3", "female4"]
 
+  const getVoiceDisplayName = (voiceOption: string) => {
+    const voiceNames = {
+      male1: "젊은 남성",
+      male2: "나이든 남성",
+      male3: "진지한 남성",
+      male4: "평범한 남성",
+      female1: "젊은 여성",
+      female2: "귀여운 여성",
+      female3: "진지한 여성",
+      female4: "조용한 여성"
+    }
+    return voiceNames[voiceOption as keyof typeof voiceNames] || voiceOption
+  }
+
   const handleVoiceSelect = (voiceOption: string) => {
     updateCharacter(character.id, "voice", voiceOption)
   }
@@ -110,7 +124,7 @@ export function VoiceButtons({
             onClick={() => handleVoiceSelect(voiceOption)}
             className="flex-1 text-sm"
           >
-            {voiceOption.charAt(0).toUpperCase() + voiceOption.slice(1)}
+            {getVoiceDisplayName(voiceOption)}
           </Button>
           <Button
             type="button"

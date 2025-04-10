@@ -134,7 +134,7 @@ export default function CreateVideoPage() {
 
   const handleStoryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
-    if (value.length <= 500) {
+    if (value.length <= 1000) {
       setStory(value);
     }
   };
@@ -142,7 +142,7 @@ export default function CreateVideoPage() {
   const validateForm = () => {
     const errors = {
       title: title.trim() === "" || title.length > 20,
-      story: story.trim() === "" || story.length > 500,
+      story: story.trim() === "" || story.length > 1000,
       characters: characters.length > 0 && !validateCharacters(),
     };
     setValidationErrors(errors);
@@ -260,8 +260,7 @@ export default function CreateVideoPage() {
       case "story":
         newHeaderText = {
           title: "3단계: 스토리 작성",
-          description:
-            "비디오에 담길 스토리를 800자 이내로 작성해주세요. 영상의 음성 대본이 됩니다.",
+          description: "비디오에 담길 스토리를 1000자 이내로 작성해주세요",
         };
         break;
       case "narrator":
@@ -424,10 +423,10 @@ export default function CreateVideoPage() {
                       />
                       <span
                         className={`absolute right-2 bottom-2 text-sm ${
-                          story.length > 500 ? "text-red-500" : "text-gray-500"
+                          story.length > 1000 ? "text-red-500" : "text-gray-500"
                         }`}
                       >
-                        {story.length}/500
+                        {story.length}/1000
                       </span>
                     </div>
                   </div>
