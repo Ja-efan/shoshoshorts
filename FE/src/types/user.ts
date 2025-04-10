@@ -9,6 +9,6 @@ export interface IUserData {
 }
 
 export interface IUserDataUpdate {
-  name: string;
+  nickname: string;
   imgUrl?: string;
 }
