@@ -95,7 +95,7 @@ export function NarratorSettingsZonos({
   }, []);
 
   return (
-    <div className="border-t pt-6">
+    <div>
       <h2 className="text-xl font-semibold mb-4">내레이터 설정 (Zonos)</h2>
       <div className="space-y-4">
         {zonosLoading ? (

@@ -4,7 +4,6 @@ import com.sss.backend.api.dto.VideoMetadata;
 import com.sss.backend.api.dto.VideoUploadDTO;
 import com.sss.backend.api.dto.VideoUploadResponse;
 import com.sss.backend.domain.entity.Users;
-import com.sss.backend.domain.repository.StoryRepository;
 import com.sss.backend.domain.repository.UserRepository;
 import com.sss.backend.domain.service.YoutubeAuthService;
 import com.sss.backend.domain.service.YoutubeService;
@@ -14,9 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,7 +21,6 @@ import java.util.Map;
 @RequestMapping("/api/youtube")
 @Slf4j
 public class YoutubeController {
-
 
     private final YoutubeService youtubeService;
     private final YoutubeAuthService youtubeAuthService;

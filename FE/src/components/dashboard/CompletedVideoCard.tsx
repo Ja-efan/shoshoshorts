@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { MoreVertical, Play, Download, Share2, Trash2, Check, X } from "lucide-react"
+import { MoreVertical, Play, Download, Share2, Trash2, Check, X, CheckCircle } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -26,6 +26,7 @@ interface CompletedVideoCardProps {
 export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [title, setTitle] = useState(video.title)
   const [description, setDescription] = useState("")
   const [isUploading, setIsUploading] = useState(false)
@@ -81,9 +82,20 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
     }
   }
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    toast.success("삭제 기능은 현재 개발 중입니다")
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    try {
+      await apiService.deleteVideo(video.story_id)
+      toast.success("영상이 삭제되었습니다")
+      window.location.reload()
+    } catch (error) {
+      toast.error("영상 삭제 중 오류가 발생했습니다")
+      console.error(error)
+    }
   }
 
   const handleUploadToYoutube = async () => {
@@ -111,11 +123,11 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
   return (
     <>
       <Card 
-        className="group relative overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300"
+        className="group relative overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300 border border-gray-200"
         onClick={() => setIsModalOpen(true)}
       >
         <CardHeader className="p-0">
-          <div className="relative aspect-square">
+          <div className="relative aspect-square bg-gray-100">
             <img
               src={video.thumbnail_url || ""}
               alt={video.title}
@@ -132,32 +144,33 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
           </div>
         </CardHeader>
         <CardContent className="p-4 space-y-2">
-          <h3 className="font-semibold line-clamp-2 text-lg">{video.title}</h3>
-          <p className="text-sm text-gray-500">
-            완료됨 • {formatDate(video.completed_at)} {getGMTString()}
+          <h3 className="font-semibold line-clamp-2 text-lg text-gray-800">{video.title}</h3>
+          <p className="text-sm text-gray-500 flex items-center">
+            <CheckCircle className="w-3.5 h-3.5 mr-1.5 text-green-500" />
+            <span>완료됨 • {formatDate(video.completed_at)} {getGMTString()}</span>
           </p>
         </CardContent>
         <CardFooter className="p-4 pt-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon" className="ml-auto">
+              <Button variant="ghost" size="icon" className="ml-auto hover:bg-gray-100">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleDownload}>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={handleDownload} className="cursor-pointer">
                 <Download className="mr-2 h-4 w-4" />
                 다운로드
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={handleShare}
-                className={video.is_uploaded ? "opacity-50 cursor-not-allowed" : ""}
+                className={video.is_uploaded ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
                 disabled={video.is_uploaded}
               >
                 <Share2 className="mr-2 h-4 w-4" />
                 {video.is_uploaded ? "이미 공유됨" : "유튜브에 공유"}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+              <DropdownMenuItem onClick={handleDelete} className="text-red-600 cursor-pointer">
                 <Trash2 className="mr-2 h-4 w-4" />
                 삭제
               </DropdownMenuItem>
@@ -167,24 +180,21 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
       </Card>
 
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>{video.title}</DialogTitle>
-            <DialogDescription>
-              동영상을 시청하고 관리할 수 있습니다.
-            </DialogDescription>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black">
+          <div className="relative">
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+              className="absolute right-2 top-2 z-10 rounded-full bg-black/60 p-1 text-white hover:bg-black/80 focus:outline-none"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
               <span className="sr-only">닫기</span>
             </button>
-          </DialogHeader>
+          </div>
           <div className="aspect-video w-full">
             <video
               src={video.video_url || ""}
               controls
+              autoPlay
               className="w-full h-full"
               title={video.title}
             />
@@ -231,6 +241,25 @@ export function CompletedVideoCard({ video, onUploadComplete }: CompletedVideoCa
             </Button>
             <Button onClick={handleUploadToYoutube} disabled={isUploading}>
               {isUploading ? "업로드 중..." : "유튜브에 업로드"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>영상 삭제</DialogTitle>
+            <DialogDescription>
+              정말로 이 영상을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
+              취소
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              삭제
             </Button>
           </DialogFooter>
         </DialogContent>
