@@ -41,6 +41,7 @@ export const API_ENDPOINTS = {
   YOUTUBE_AUTH: `${API_BASE_URL}/youtube/auth`,
   DOWNLOAD_VIDEO: `${API_BASE_URL}/videos/download`,
   YOUTUBE_SSE_STATUS: `${API_BASE_URL}/video/status/sse`,
+  SSE_CLOSE: `${API_BASE_URL}/video/status/sse`,
   AUTH: {
     OAUTH: `${API_BASE_URL}/auth/oauth`,
     REFRESH: `${API_BASE_URL}/auth/refresh`,
@@ -288,6 +289,24 @@ export const apiService = {
     }
 
     return response;
+  },
+  
+  async closeVideoStatusSSE(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    if (!token) {
+      throw new Error("인증 토큰이 없습니다.");
+    }
+
+    try {
+      const response = await axios.delete(
+        `${API_ENDPOINTS.SSE_CLOSE}/${storyId}`,
+        getAuthConfig(token)
+      );
+      return response.data;
+    } catch (error) {
+      console.error("SSE 연결 종료 실패:", error);
+      throw error;
+    }
   },
   // 유저 데이터 관련 API
   async getUserData() {
