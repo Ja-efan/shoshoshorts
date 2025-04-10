@@ -4,25 +4,51 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import VoiceLibrary from "./components/VoiceLibrary";
 import { IUserData } from "@/types/user";
 import { Navbar } from "@/components/common/Navbar";
+import { Button } from "../../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
 
 function Mypage() {
   const [userProfile, setUserProfile] = useState<IUserData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [nameModalOpen, setNameModalOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
 
+  const fetchUserProfile = async () => {
+    try {
+      const response = await apiService.getUserData();
+      setUserProfile(response.data);
+    } catch (error) {
+      console.error("사용자 정보를 가져오는 중 오류가 발생했습니다:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const response = await apiService.getUserData();
-        setUserProfile(response.data);
-      } catch (error) {
-        console.error("사용자 정보를 가져오는 중 오류가 발생했습니다:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchUserProfile();
   }, []);
+
+  const handleUpdateName = async () => {
+    if (!newName.trim()) return;
+
+    setIsUpdating(true);
+    try {
+      await apiService.updateUserData({ name: newName });
+      fetchUserProfile();
+      setNameModalOpen(false);
+    } catch (error) {
+      console.error("이름 업데이트 실패:", error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -61,11 +87,24 @@ function Mypage() {
                   </div>
                 )}
                 <div className="ml-6">
-                  <div className="space-y-1 mb-2">
-                    <p className="font-semibold">이름</p>
-                    <p className="text-muted-foreground">
-                      {userProfile?.name || "이름 정보 없음"}
-                    </p>
+                  <div className="space-y-1 mb-2 flex justify-between items-center">
+                    <div>
+                      <p className="font-semibold">
+                        이름{" "}
+                        <button
+                          className="font-normal text-xs border border-gray-300 rounded-md px-1 py-0.5 hover:bg-gray-100 cursor-pointer"
+                          onClick={() => {
+                            setNewName(userProfile?.name || "");
+                            setNameModalOpen(true);
+                          }}
+                        >
+                          수정
+                        </button>
+                      </p>
+                      <p className="text-muted-foreground">
+                        {userProfile?.name || "이름 정보 없음"}
+                      </p>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <p className="font-semibold">이메일</p>
@@ -146,6 +185,41 @@ function Mypage() {
           <VoiceLibrary speakerLibrary={userProfile?.speakerLibrary} />
         </div>
       </div>
+
+      {/* 이름 수정 모달 */}
+      <Dialog open={nameModalOpen} onOpenChange={setNameModalOpen}>
+        <DialogContent className="w-[400px]">
+          <DialogHeader>
+            <DialogTitle>이름 수정</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid grid-cols-3 items-center gap-4">
+              <Input
+                id="name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setNameModalOpen(false)}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              onClick={handleUpdateName}
+              disabled={isUpdating || !newName.trim()}
+            >
+              {isUpdating ? "저장 중..." : "저장"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

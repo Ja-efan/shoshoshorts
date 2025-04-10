@@ -3,12 +3,8 @@ import { VideoData } from "@/types/video";
 import { SocialProvider } from "@/types/auth";
 import { store } from "@/store/store";
 import { setToken, clearToken } from "@/store/authSlice";
-import { IUserData } from "@/types/user";
-import {
-  ISpeakerInfo,
-  ISpeakerInfoDelete,
-  ISpeakerInfoGet,
-} from "@/types/speakerInfo";
+import { IUserData, IUserDataUpdate } from "@/types/user";
+import { ISpeakerInfo, ISpeakerInfoGet } from "@/types/speakerInfo";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || "/api";
 
@@ -50,6 +46,7 @@ export const API_ENDPOINTS = {
     REFRESH: `${API_BASE_URL}/auth/refresh`,
     LOGOUT: `${API_BASE_URL}/auth/logout`,
     VALIDATE: `${API_BASE_URL}/auth/check`,
+    UPDATE: `${API_BASE_URL}/auth/update`,
   },
   USER_DATA: `${API_BASE_URL}/auth/userdata`,
   GET_SPEAKER_LIBRARY: `${API_BASE_URL}/speaker/library`,
@@ -302,6 +299,17 @@ export const apiService = {
     return response.data;
   },
 
+  //프로필 수정정
+  async updateUserData(data: IUserDataUpdate) {
+    const token = localStorage.getItem("accessToken");
+    const response = await axios.post(
+      API_ENDPOINTS.AUTH.UPDATE,
+      data,
+      getAuthConfig(token)
+    );
+    return response.data;
+  },
+
   async getSpeakerLibrary() {
     const token = localStorage.getItem("accessToken");
     const response = await axios.get<ApiResponse<ISpeakerInfoGet[]>>(
@@ -323,9 +331,8 @@ export const apiService = {
 
   async deleteSpeaker(speakerId: string) {
     const token = localStorage.getItem("accessToken");
-    const response = await axios.post<ApiResponse<ISpeakerInfoDelete>>(
-      API_ENDPOINTS.DELETE_SPEAKER,
-      speakerId,
+    const response = await axios.delete(
+      `${API_ENDPOINTS.DELETE_SPEAKER}/${speakerId}`,
       getAuthConfig(token)
     );
     return response.data;
