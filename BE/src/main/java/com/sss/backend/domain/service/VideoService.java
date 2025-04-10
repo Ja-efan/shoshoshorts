@@ -946,7 +946,12 @@ public class VideoService {
         return dto;
     }
 
-
+    /**
+     * 스토리 ID로 비디오 엔티티 조회
+     */
+    public Optional<Video> findVideoByStoryId(Long storyId) {
+        return videoRepository.findByStoryId(storyId);
+    }
 
     //이미지 presigned URL 생성 메소드
     public String getFirstImageURL(String storyId) {
@@ -1239,5 +1244,12 @@ public class VideoService {
 
         // 4. S3 삭제(?)
         return true;
+    }
+
+    /**
+     * 스토리 ID로 비디오 URL 조회
+     */
+    public String findVideoUrlByStoryId(Long storyId) {
+        return videoRepository.findVideoUrlByStoryId(storyId);
     }
 }
