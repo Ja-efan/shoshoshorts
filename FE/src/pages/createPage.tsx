@@ -127,7 +127,7 @@ export default function CreateVideoPage() {
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (value.length <= 20) {
+    if (value.length <= 15) {
       setTitle(value);
     }
   };
@@ -141,7 +141,7 @@ export default function CreateVideoPage() {
 
   const validateForm = () => {
     const errors = {
-      title: title.trim() === "" || title.length > 20,
+      title: title.trim() === "" || title.length > 15,
       story: story.trim() === "" || story.length > 1000,
       characters: characters.length > 0 && !validateCharacters(),
     };
@@ -192,7 +192,7 @@ export default function CreateVideoPage() {
           properties: character.description || "이미지 생성을 위한 설명...",
           // Zonos가 선택된 경우 캐릭터의 Zonos 음성 ID 사용, 아니면 기존 방식 사용
           voiceCode: isZonosSelected
-            ? String(character.voice) || null // Zonos ID 사용
+            ? String(character.voice === "male1" ? -1 : character.voice) || null // Zonos ID 사용
             : character.voice && character.gender
             ? voiceCodes[finalAudioModel][character.gender][
                 parseInt(character.voice.slice(-1)) - 1
@@ -390,7 +390,7 @@ export default function CreateVideoPage() {
                           title.length > 20 ? "text-red-500" : "text-gray-500"
                         }`}
                       >
-                        {title.length}/20
+                        {title.length}/15
                       </span>
                     </div>
                   </div>

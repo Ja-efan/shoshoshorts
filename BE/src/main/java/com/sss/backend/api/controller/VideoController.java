@@ -332,9 +332,8 @@ public class VideoController {
                     // 상태 업데이트: 처리 중 (비디오 서비스에서 처리)
                     videoService.updateVideoStatus(storyId.toString(), VideoStatus.PROCESSING, null);
 
-                    // // 미디어 생성 처리
-                    // CompletableFuture<Void> future = mediaService.processAllScenes(storyId.toString());
-                    // future.get(30, TimeUnit.MINUTES);
+                    log.info("재생성 작업: 기존 생성된 오디오/이미지 파일이 있으면 재사용합니다");
+                    
                     // 미디어 생성 처리 - 실패 시 즉시 예외 전파
                     try {
                         // 미디어 서비스에서 오디오/이미지 생성 및 상태 업데이트
