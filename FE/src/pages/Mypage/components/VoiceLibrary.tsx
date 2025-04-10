@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ISpeakerInfoGet } from "@/types/speakerInfo";
@@ -38,6 +39,7 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [speakerArr, setSpeakerArr] = useState<ISpeakerInfoGet[]>();
+  const [deleteSpeakerId, setDeleteSpeakerId] = useState<string | null>(null);
 
   const {
     register,
@@ -47,7 +49,6 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
 
   useEffect(() => {
     setSpeakerArr(speakerLibrary);
-    debugger;
   }, [speakerLibrary]);
 
   // 목소리 라이브러리 다시 불러오기 함수
@@ -118,14 +119,28 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
     }
   };
 
+  const handleDelete = async (speakerId: string) => {
+    // 음수 ID는 삭제 불가능하도록 처리
+    if (Number(speakerId) < 0) {
+      toast.error("이 목소리는 삭제할 수 없습니다!");
+      return;
+    }
+
+    try {
+      await apiService.deleteSpeaker(speakerId);
+      toast.success("목소리가 성공적으로 삭제되었습니다!");
+      await refreshSpeakerLibrary();
+    } catch (error) {
+      console.error("목소리를 삭제하는 중 오류가 발생했습니다:", error);
+    }
+  };
+
   return (
     <>
       <Card className="md:col-span-12">
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle className="text-2xl">
-              Zonos 모델 보이스 라이브러리
-            </CardTitle>
+            <CardTitle className="text-2xl">캐릭터 목소리 저장소</CardTitle>
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline">목소리 등록하기</Button>
@@ -200,8 +215,8 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
                             // 1MB(= 1 * 1024 * 1024) 초과 시 에러
                             if (files && files.length > 0) {
                               return (
-                                files[0].size <= 1024 * 1024 ||
-                                "파일 용량은 1MB 이하여야 합니다."
+                                files[0].size <= 2 * 1024 * 1024 ||
+                                "파일 용량은 2MB (약 1분) 이하여야 합니다."
                               );
                             }
                             return true;
@@ -261,7 +276,7 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
               {speakerArr.map((speaker) => (
                 <div
                   key={speaker.id}
-                  className="border rounded-lg p-3 shadow-sm"
+                  className="border rounded-lg p-3 shadow-sm relative"
                 >
                   <h3 className="font-medium text-lg mb-2">{speaker.title}</h3>
                   <p className="text-sm text-gray-600 mb-3">
@@ -276,6 +291,15 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
                       {new Date(speaker.createdAt).toLocaleDateString()}
                     </div>
                   </div>
+                  {/* 음수 ID가 아닐 때만 삭제 버튼 표시 */}
+                  {Number(speaker.id) >= 0 && (
+                    <button
+                      className="absolute top-2 right-2 text-red-500 text-sm p-1 cursor-pointer"
+                      onClick={() => setDeleteSpeakerId(String(speaker.id))}
+                    >
+                      삭제
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -286,6 +310,36 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
           )}
         </CardContent>
       </Card>
+
+      {/* 삭제 확인 다이얼로그 */}
+      {deleteSpeakerId && (
+        <Dialog open={true} onOpenChange={() => setDeleteSpeakerId(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>삭제 확인</DialogTitle>
+              <DialogDescription>
+                정말로 이 목소리를 삭제하시겠습니까?
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 mt-2">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteSpeakerId(null)}
+              >
+                취소
+              </Button>
+              <Button
+                onClick={() => {
+                  handleDelete(deleteSpeakerId);
+                  setDeleteSpeakerId(null);
+                }}
+              >
+                삭제
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };

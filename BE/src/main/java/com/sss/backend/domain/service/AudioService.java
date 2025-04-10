@@ -2,7 +2,7 @@ package com.sss.backend.domain.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sss.backend.domain.document.CharacterDocument;
+import com.sss.backend.api.dto.constant.DefaultTensors;
 import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.repository.SceneDocumentRepository;
 import com.sss.backend.config.S3Config;
@@ -90,33 +90,25 @@ public class AudioService {
             // 각 씬의 오디오에 대해 반복 처리
             for (Map<String, Object> audio : audioArr) {
                 int audioId = ((Number) audio.get("audioId")).intValue();
-
-                // 오디오 생성
-//                 try {
-
-// //                    // 각 요청 사이에 500ms 지연
-// //                    Thread.sleep(500);
-
-//                     generateAudio(storyId, sceneId, audioId);
-//                 } catch (Exception e) {
-//                     log.error("오디오 생성 중 오류 발생: storyId={}, sceneId={}, audioId={}, error={}",
-//                             storyId, sceneId, audioId, e.getMessage());
-//                     // 오류가 있어도 다음 오디오 계속 처리
-//                 }
-                // 오류가 발생하면 즉시 전파하도록 수정
+                
+                // 이미 오디오가 생성되어 있는지 확인
+                if (audio.get("audio_url") != null && !((String) audio.get("audio_url")).isEmpty()) {
+                    log.info("오디오가 이미 생성되어 있어 건너뜀: storyId={}, sceneId={}, audioId={}", 
+                            storyId, sceneId, audioId);
+                    continue;
+                }
 
                 if(audioModelName.equals("Zonos")){
-                log.info("사용된 오디오 생성 모델: " + audioModelName + "--------zonos?");
+                    log.info("사용된 오디오 생성 모델: " + audioModelName + "--------zonos?");
 
-                //zonos
-                generateZonosAudio(storyId, sceneId, audioId);
+                    //zonos
+                    generateZonosAudio(storyId, sceneId, audioId);
 
                 }else{
                     log.info("사용된 오디오 생성 모델: " + audioModelName+ "--------elevenlabs?");
                     //elevenlabs
-                generateAudio(storyId, sceneId, audioId);
+                    generateAudio(storyId, sceneId, audioId);
                 }
-
             }
         }
 
@@ -235,8 +227,18 @@ public class AudioService {
 
         //voiceCode(voiceId)에 따른 tensor 값 찾기
         Long voiceId = Long.parseLong(voiceCode);
-        byte[] tensorBytes = voiceRepository.findEmbeddingTensorById(voiceId);
 
+        byte[] tensorBytes = new byte[0];
+
+        if(voiceId == -1){
+            // 남자 아나운서 byte[] 데이터
+            tensorBytes = DefaultTensors.MALE_VOICE_2;
+        }else if(voiceId == -2){
+            // 여자 아나운서 byte[] 데이터
+            tensorBytes = DefaultTensors.FEMALE_VOICE_1;
+        }else{
+            tensorBytes = voiceRepository.findEmbeddingTensorById(voiceId);
+        }
 
         // byte[] -> JSON 형식의 문자열 변환
         String tensorJson = new String(tensorBytes, StandardCharsets.UTF_8);
@@ -336,12 +338,6 @@ public class AudioService {
             throw new RuntimeException("오디오 생성에 실패했습니다: " + e.getMessage(), e);
         }
     }
-
-
-
-
-
-
 
     // 오디오 파일 길이 추출 메서드
     private double extractAudioDuration(String audioUrl) {

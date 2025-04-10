@@ -33,20 +33,32 @@ public class VideoStatusSseController {
         log.info("SSE 연결 요청: storyId={}", storyId);
         
         try {
-            // 비디오 상태 확인
-            var status = videoService.getVideoStatus(storyId);
+            // 먼저 Redis에서 상태를 확인 (DB 접근 없이)
+            VideoStatus status = videoStatusSseService.getVideoStatusFromRedis(storyId);
+            
+            // Redis에 상태가 없는 경우에만 DB 조회
+            if (status == null) {
+                log.info("Redis에 상태 없음. DB에서 비디오 상태 확인: storyId={}", storyId);
+                var dbStatus = videoService.getVideoStatus(storyId);
+                status = dbStatus.getStatus();
+                
+                // Redis에 상태 저장 (향후 DB 조회 없이 사용하기 위함)
+                videoStatusSseService.saveVideoStatus(storyId, status);
+            } else {
+                log.info("Redis에서 상태 조회 성공: storyId={}, status={}", storyId, status);
+            }
             
             // PROCESSING 상태가 아니면 SSE 필요 없음
-            if (status.getStatus() != VideoStatus.PROCESSING && status.getStatus() != VideoStatus.PENDING) {
-                log.info("비디오가 이미 {} 상태입니다. SSE 필요 없음: storyId={}", status.getStatus(), storyId);
+            if (status != VideoStatus.PROCESSING && status != VideoStatus.PENDING) {
+                log.info("비디오가 이미 {} 상태입니다. SSE 필요 없음: storyId={}", status, storyId);
                 // 빈 SseEmitter 반환 후 즉시 완료 처리
                 SseEmitter emitter = new SseEmitter(0L);
                 emitter.complete();
                 return emitter;
             }
             
-            // SseEmitter 생성 및 구독
-            return videoStatusSseService.subscribe(storyId);
+            // SseEmitter 생성 및 구독 (초기 상태 전달)
+            return videoStatusSseService.subscribe(storyId, status);
         } catch (Exception e) {
             log.error("SSE 구독 중 오류 발생: storyId={}, error={}", storyId, e.getMessage(), e);
             // 오류 시 빈 SseEmitter 반환

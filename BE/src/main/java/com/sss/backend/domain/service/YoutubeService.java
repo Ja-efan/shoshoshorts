@@ -154,7 +154,7 @@ public class YoutubeService {
 
             // 개인정보 설정
             VideoStatus status = new VideoStatus();
-            status.setPrivacyStatus(privacyStatus != null ? privacyStatus : "private"); // 기본값 private
+            status.setPrivacyStatus(privacyStatus != null ? privacyStatus : "public"); // 기본값 public
 
             videoMetadata.setSnippet(snippet);
             videoMetadata.setStatus(status);
@@ -227,7 +227,7 @@ public class YoutubeService {
 
         // 개인정보 설정
         if (metadata.getPrivacyStatus() == null || metadata.getPrivacyStatus().isEmpty()) {
-            metadata.setPrivacyStatus("private");
+            metadata.setPrivacyStatus("public");
         }
 
         // 카테고리 ID

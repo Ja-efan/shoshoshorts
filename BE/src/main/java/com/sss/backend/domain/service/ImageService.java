@@ -1,15 +1,18 @@
 package com.sss.backend.domain.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.client.result.UpdateResult;
 import com.sss.backend.api.dto.SceneImageRequest;
 import com.sss.backend.api.dto.SceneImageResponse;
 import com.sss.backend.config.AppProperties;
+import com.sss.backend.config.S3Config;
 import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.entity.Story;
 import com.sss.backend.domain.repository.SceneDocumentRepository;
 
 import com.sss.backend.domain.repository.StoryRepository;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -20,6 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +33,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.beans.factory.annotation.Value;
+
+import javax.imageio.ImageIO;
 
 @Service
 @Slf4j
@@ -38,10 +46,11 @@ public class ImageService {
     private final ObjectMapper objectMapper; //JSON 데이터 변환에 사용
     private final SceneDocumentRepository sceneDocumentRepository;
     private final StoryRepository storyRepository;
+    private final S3Config s3Config;
 
     @Value("${api.password}")
     private String apiPassword;
-    
+
     @Value("${spring.profiles.active:dev}")
     private String activeProfile;
 
@@ -55,13 +64,15 @@ public class ImageService {
 
     public ImageService(WebClient webClient, AppProperties appProperties,
                         MongoTemplate mongoTemplate, ObjectMapper objectMapper,
-                        SceneDocumentRepository sceneDocumentRepository, StoryRepository storyRepository) {
+                        SceneDocumentRepository sceneDocumentRepository, StoryRepository storyRepository,
+                        S3Config s3Config) {
         this.webClient = webClient;
         this.appProperties = appProperties;
         this.mongoTemplate = mongoTemplate;
         this.objectMapper = objectMapper;
         this.sceneDocumentRepository = sceneDocumentRepository;
         this.storyRepository = storyRepository;
+        this.s3Config = s3Config;
     }
 
 
@@ -206,7 +217,7 @@ public class ImageService {
                             return response.bodyToMono(String.class)
                                     .flatMap(errorBody -> {
                                         log.error("API 오류 응답: 씬 ID={}, 응답={}", sceneRequest.getSceneId(), errorBody);
-                                        return Mono.error(new RuntimeException("이미지 API 요청 실패(씬 ID=" + 
+                                        return Mono.error(new RuntimeException("이미지 API 요청 실패(씬 ID=" +
                                                 sceneRequest.getSceneId() + "): " + errorBody));
                                     });
                         } else {
@@ -238,21 +249,58 @@ public class ImageService {
     //이미지 MongoDB에 저장
     private void saveImageToMongoDB(String storyId, SceneImageResponse response) {
         try {
-            // 씬 ID에 해당하는 씬 찾기
+            log.info("이미지 MongoDB 저장 시작 - 스토리 ID: {}, 씬 ID: {}, 이미지 URL: {}",
+                    storyId, response.getScene_id(), response.getImage_url());
+
             Query query = Query.query(Criteria.where("storyId").is(storyId));
             query.addCriteria(Criteria.where("sceneArr.sceneId").is(response.getScene_id()));
+
+            String newUrl = response.getImage_url();
+
+            // sceneId가 1이면, response에서 url 받아와서 사이즈 줄이고, s3 업로드 후에 해당 url 저장.
+            if ("1".equals(String.valueOf(response.getScene_id()))){
+                // S3 key 추출
+                String s3Key = s3Config.extractS3KeyFromUrl(response.getImage_url());
+                // presignedUrl 생성
+                String presignedURL = s3Config.generatePresignedUrl(s3Key);
+                // 이미지 다운로드
+                BufferedImage originalImage = ImageIO.read(new URL(presignedURL));
+
+                // 임시 파일 경로 지정
+                File compressedImageFile = File.createTempFile("compressed_",".jpg");
+
+                // 4. Thumbnails 사용해 리사이징 or 압축 (품질 낮추기만 함)
+                Thumbnails.of(originalImage)
+                        .scale(1.0) // 사이즈는 그대로
+                        .outputQuality(0.3) // 30% 품질 (용량 1/3 수준)
+                        .outputFormat("jpg")
+                        .toFile(compressedImageFile);
+
+
+                // 5. 다시 S3 업로드 (경로는 기존과 동일하거나 새 키로)
+                String newS3Key = s3Key.replace(".jpg", "_compressed.jpg");
+                s3Config.uploadToS3(compressedImageFile.getAbsolutePath(), newS3Key);
+
+                // 6. 새로운 URL 만들기 (선택)
+                newUrl = "https://" + s3Config.getBucketName() +
+                        ".s3." + s3Config.getRegion() +
+                        ".amazonaws.com/" + newS3Key;
+
+
+            }
 
             // MongoDB에 이미지 정보 저장 (해당 씬에 이미지 정보 추가)
             Update update = new Update(); //특정 필드를 업데이트할 객체 생성
 
             // $를 사용하여 배열 내 조건에 맞는 요소 업데이트
             update.set("sceneArr.$.image_prompt", response.getImage_prompt());
-            update.set("sceneArr.$.image_url", response.getImage_url());
+            update.set("sceneArr.$.image_url", newUrl);
 
             mongoTemplate.updateFirst(query, update, "scenes");
 
-            log.info("이미지 정보 MongoDB 저장 완료 - 스토리 ID: {}, 씬 ID: {}",
-                    storyId, response.getScene_id());
+
+            log.info("이미지 정보 MongoDB 저장 완료 - 스토리 ID: {}, 씬 ID: {}, 저장값 : {}",
+                    storyId, response.getScene_id(), update);
         } catch (Exception e) {
             log.error("이미지 정보 MongoDB 저장 중 오류 발생 - 씬 ID: {}, 오류: {}",
                     response.getScene_id(), e.getMessage(), e);

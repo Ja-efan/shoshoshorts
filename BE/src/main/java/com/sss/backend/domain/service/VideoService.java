@@ -27,6 +27,7 @@ import com.sss.backend.domain.service.VideoProcessingStatusService;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
+import com.sss.backend.domain.service.VideoStatusSseService;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,6 +56,7 @@ public class VideoService {
     private static final String BACKGROUND_MUSIC_PATH = "audios"; // 배경음악 폴더 경로
     private String backgroundImageFilePath;
     private List<String> backgroundMusicFilePaths = new ArrayList<>();
+    private String silentVideoFilePath; // 미리 생성한 무음 비디오 파일 경로
     
     private final SceneDocumentRepository sceneDocumentRepository;
     private final S3Config s3Config;
@@ -63,6 +65,7 @@ public class VideoService {
     private final VideoRepository videoRepository;
     private final UserRepository userRepository;
     private final VideoProcessingStatusService videoProcessingStatusService;
+    private final VideoStatusSseService videoStatusSseService;
 
     private final ResourcePatternResolver resourcePatternResolver = new PathMatchingResourcePatternResolver();
 
@@ -71,6 +74,7 @@ public class VideoService {
         createTempDir();
         copyBackgroundImage();
         copyBackgroundMusic();
+        createAndSaveSilentVideo(); // 무음 비디오 미리 생성
     }
 
     private void createTempDir() {
@@ -301,7 +305,6 @@ public class VideoService {
                     .setInput(presignedImageUrl)
                     .addInput(cleanAudioPath)
                     .addExtraArgs("-y")
-                    .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls")
                     .addOutput(cleanOutputPath)
                     .addExtraArgs("-filter_complex",
                         "[0:v]scale=900:900,pad=1080:1920:90:510:white[v];" +  // 900x900으로 조정 및 흰색 패딩
@@ -361,6 +364,18 @@ public class VideoService {
             // 파일이 하나도 없으면 실패 처리
             if (tempVideoPaths.isEmpty()) {
                 throw new RuntimeException("병합할 유효한 비디오 파일이 없습니다");
+            }
+            
+            // 마지막에 무음 비디오 추가 (silentVideoFilePath에서 직접 복사)
+            if (silentVideoFilePath != null && new File(silentVideoFilePath).exists()) {
+                String tempSilentVideoPath = TEMP_DIR + File.separator + "videos" + File.separator + "silent_" + UUID.randomUUID() + ".mp4";
+                String cleanSilentVideoPath = tempSilentVideoPath.replace("\"", "");
+                
+                Files.copy(Paths.get(silentVideoFilePath), Paths.get(cleanSilentVideoPath), StandardCopyOption.REPLACE_EXISTING);
+                tempVideoPaths.add(cleanSilentVideoPath);
+                logger.info("비디오 병합 단계에서 무음 비디오 추가됨: {}", cleanSilentVideoPath);
+            } else {
+                logger.warn("무음 비디오 파일이 존재하지 않아 추가하지 않습니다.");
             }
 
             // 임시 파일 목록 (나중에 삭제를 위해 추적)
@@ -426,99 +441,7 @@ public class VideoService {
             String currentVideoPath = cleanTempOutputPath;
             tempFilesToDelete.add(currentVideoPath);
             
-            // 2단계: 배경 음악 추가
-            String backgroundMusic = getRandomBackgroundMusic();
-            if (backgroundMusic != null && new File(backgroundMusic).exists()) {
-                logger.info("배경 음악 추가: {}", backgroundMusic);
-                
-                // 영상 길이에 따라 처리 방법 분리
-                if (videoDuration < 3.0) {
-                    logger.info("매우 짧은 영상({}초)에 대한 특수 처리 적용", videoDuration);
-                    
-                    // 짧은 영상에는 단순히 배경 음악만 낮은 볼륨으로 추가하고 원본 오디오 보존
-                    FFmpegBuilder musicBuilder = new FFmpegBuilder()
-                        .setInput(currentVideoPath)
-                        .addInput(backgroundMusic)
-                        .addExtraArgs("-y")
-                        .addOutput(cleanTempWithMusicPath)
-                        .addExtraArgs("-filter_complex", 
-                            "[1:a]volume=0.3,aloop=loop=-1:size=2e+09[a1];" + 
-                            "[0:a][a1]amerge=inputs=2[aout]")  // amix 대신 amerge 사용
-                        .addExtraArgs("-map", "0:v")
-                        .addExtraArgs("-map", "[aout]")
-                        .setVideoCodec("copy")
-                        .setAudioCodec("aac")
-                        .setAudioBitRate(192000)
-                        .setFormat("mp4")
-                        .done();
-                        
-                    executor.createJob(musicBuilder).run();
-                } else {
-                    // 기존 방식대로 처리 (3초 이상 영상)
-                    float dropoutTransition = videoDuration < 10 ? 0.5f : 3.0f;
-                    logger.info("설정된 dropout_transition 값: {}", dropoutTransition);
-                    
-                    FFmpegBuilder musicBuilder = new FFmpegBuilder()
-                        .setInput(currentVideoPath)
-                        .addInput(backgroundMusic)
-                        .addExtraArgs("-y")
-                        .addOutput(cleanTempWithMusicPath)
-                        .addExtraArgs("-filter_complex", 
-                            "[1:a]volume=0.3,aloop=loop=-1:size=2e+09[a1];" + 
-                            "[0:a][a1]amix=inputs=2:duration=first:dropout_transition=" + dropoutTransition + "[aout]")
-                        .addExtraArgs("-map", "0:v")
-                        .addExtraArgs("-map", "[aout]")
-                        .setVideoCodec("copy")
-                        .setAudioCodec("aac")
-                        .setAudioBitRate(192000)
-                        .setFormat("mp4")
-                        .done();
-                        
-                    executor.createJob(musicBuilder).run();
-                }
-                
-                // 배경음악이 추가된 파일 확인
-                File musicAddedFile = new File(cleanTempWithMusicPath);
-                if (musicAddedFile.exists() && musicAddedFile.length() > 0) {
-                    // 배경 음악이 추가된 영상 길이 확인
-                    try {
-                        String[] ffprobeCmd = {
-                            ffmpeg.getPath().replace("ffmpeg", "ffprobe"),
-                            "-v", "error",
-                            "-show_entries", "format=duration",
-                            "-of", "default=noprint_wrappers=1:nokey=1",
-                            cleanTempWithMusicPath
-                        };
-                        Process process = Runtime.getRuntime().exec(ffprobeCmd);
-                        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()));
-                        String duration = reader.readLine();
-                        logger.info("배경 음악 추가 후 영상 길이: {}초", duration);
-                        
-                        // 만약 결과 영상이 원본보다 짧다면 원본을 사용
-                        double newDuration = Double.parseDouble(duration);
-                        if (newDuration < videoDuration * 0.9) {  // 10% 이상 짧아졌다면
-                            logger.warn("배경 음악 추가 후 영상이 짧아짐: {}초 -> {}초, 원본 사용", videoDuration, newDuration);
-                            currentVideoPath = cleanTempOutputPath;  // 원본 비디오 경로 유지
-                        } else {
-                            // 새 파일이 문제없이 생성되었을 때만 경로 업데이트
-                            currentVideoPath = cleanTempWithMusicPath;
-                            tempFilesToDelete.add(currentVideoPath);
-                            logger.info("배경 음악이 추가된 비디오 생성 완료: {} (파일 크기: {}bytes)", cleanTempWithMusicPath, musicAddedFile.length());
-                        }
-                    } catch (Exception e) {
-                        logger.warn("영상 길이 확인 중 오류: {}", e.getMessage());
-                        // 오류 발생 시 원본 사용
-                        currentVideoPath = cleanTempOutputPath;
-                    }
-                } else {
-                    // 배경 음악 추가 실패 시 원래 병합된 비디오 유지
-                    logger.warn("배경 음악 추가 실패, 원본 병합 비디오를 유지합니다");
-                }
-            } else {
-                logger.warn("배경 음악을 찾을 수 없어 생략합니다.");
-            }
-            
-            // 3단계: 병합된 비디오에 자막 추가
+            // 2단계: 병합된 비디오에 자막 추가
             File subtitleFile = null;
             try {
                 subtitleFile = createSubtitleFile(storyId);
@@ -538,20 +461,85 @@ public class VideoService {
                     .done();
                     
                 executor.createJob(subtitleBuilder).run();
+
+                // 3단계: 배경 음악 추가
+                String backgroundMusic = getRandomBackgroundMusic();
+                if (backgroundMusic != null && new File(backgroundMusic).exists()) {
+                    logger.info("배경 음악 추가: {}", backgroundMusic);
+                    
+                    FFmpegBuilder musicBuilder = new FFmpegBuilder()
+                        .setInput(cleanOutputPath)
+                        .addInput(backgroundMusic)
+                        .addExtraArgs("-y")
+                        .addOutput(cleanTempWithMusicPath)
+                        .addExtraArgs("-filter_complex", 
+                            "[1:a]volume=0.15,aloop=loop=-1:size=2e+09[a1];" + 
+                            "[0:a][a1]amerge=inputs=2[aout]")  // amix 대신 amerge 사용
+                        .addExtraArgs("-map", "0:v")
+                        .addExtraArgs("-map", "[aout]")
+                        .setVideoCodec("copy")
+                        .setAudioCodec("aac")
+                        .setAudioBitRate(192000)
+                        .setFormat("mp4")
+                        .done();
+                        
+                    executor.createJob(musicBuilder).run();
+                    
+                    // 배경음악이 추가된 파일 확인
+                    File musicAddedFile = new File(cleanTempWithMusicPath);
+                    if (musicAddedFile.exists() && musicAddedFile.length() > 0) {
+                        // 배경 음악이 추가된 영상 길이 확인
+                        try {
+                            String[] ffprobeCmd = {
+                                ffmpeg.getPath().replace("ffmpeg", "ffprobe"),
+                                "-v", "error",
+                                "-show_entries", "format=duration",
+                                "-of", "default=noprint_wrappers=1:nokey=1",
+                                cleanTempWithMusicPath
+                            };
+                            Process process = Runtime.getRuntime().exec(ffprobeCmd);
+                            java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(process.getInputStream()));
+                            String duration = reader.readLine();
+                            logger.info("배경 음악 추가 후 영상 길이: {}초", duration);
+                            
+                            // 만약 결과 영상이 원본보다 짧다면 원본을 사용
+                            double newDuration = Double.parseDouble(duration);
+                            if (newDuration < videoDuration * 0.9) {  // 10% 이상 짧아졌다면
+                                logger.warn("배경 음악 추가 후 영상이 짧아짐: {}초 -> {}초, 자막만 있는 영상 사용", videoDuration, newDuration);
+                                // 자막만 있는 비디오 경로가 최종 결과
+                            } else {
+                                // 새 파일 문제없이 생성되었을 때는 최종 결과를 배경 음악이 있는 파일로 설정
+                                // cleanOutputPath를 최종 결과로 유지하고, 배경 음악이 있는 파일을 복사
+                                Files.copy(Paths.get(cleanTempWithMusicPath), Paths.get(cleanOutputPath), StandardCopyOption.REPLACE_EXISTING);
+                                logger.info("배경 음악이 추가된 비디오를 최종 결과로 설정: {} (파일 크기: {}bytes)", cleanOutputPath, new File(cleanOutputPath).length());
+                            }
+                        } catch (Exception e) {
+                            logger.warn("영상 길이 확인 중 오류: {}", e.getMessage());
+                            // 오류 발생 시 자막만 있는 영상 사용 (이미 cleanOutputPath에 있음)
+                        }
+                    } else {
+                        // 배경 음악 추가 실패 시 자막만 있는 비디오 유지
+                        logger.warn("배경 음악 추가 실패, 자막만 있는 비디오를 유지합니다");
+                    }
+                } else {
+                    logger.warn("배경 음악을 찾을 수 없어 생략합니다.");
+                }
                 
                 // 최종 결과 확인
                 File resultFile = new File(cleanOutputPath);
                 if (!resultFile.exists() || resultFile.length() == 0) {
-                    // 자막 추가 실패 시 이전 단계 파일을 결과로 사용
-                    logger.warn("자막 추가 실패, 이전 단계 비디오를 복사합니다");
-                    Files.copy(Paths.get(currentVideoPath), Paths.get(cleanOutputPath), StandardCopyOption.REPLACE_EXISTING);
-                } else {
-                    logger.info("자막 추가 완료: {}", cleanOutputPath);
+                    // 자막 추가나 배경 음악 추가가 모두 실패한 경우 원본 병합 비디오를 결과로 사용
+                    logger.warn("최종 처리 실패, 원본 병합 비디오를 복사합니다");
+                    Files.copy(Paths.get(cleanTempOutputPath), Paths.get(cleanOutputPath), StandardCopyOption.REPLACE_EXISTING);
                 }
             } catch (Exception e) {
                 logger.error("자막 처리 중 오류 발생: {}", e.getMessage());
                 // 자막 실패 시 현재 비디오를 최종 결과로 사용
-                Files.copy(Paths.get(currentVideoPath), Paths.get(cleanOutputPath), StandardCopyOption.REPLACE_EXISTING);
+                try {
+                    Files.copy(Paths.get(cleanTempOutputPath), Paths.get(cleanOutputPath), StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException copyEx) {
+                    logger.error("원본 비디오 복사 중 오류 발생: {}", copyEx.getMessage());
+                }
             }
             
             // 최종 결과 파일 확인
@@ -576,6 +564,149 @@ public class VideoService {
         }
     }
     
+    /**
+     * 1초 길이의 무음 오디오 파일을 생성한다
+     * @param outputPath 생성할 무음 오디오 파일 경로
+     * @return 생성된 무음 오디오 파일
+     */
+    private File createSilentAudio(String outputPath) {
+        try {
+            String cleanOutputPath = outputPath.replace("\"", "");
+            
+            FFmpegBuilder builder = new FFmpegBuilder()
+                .addExtraArgs("-y")
+                .addExtraArgs("-f", "lavfi")
+                .setInput("anullsrc=r=44100:cl=mono") 
+                .addOutput(cleanOutputPath)
+                .setAudioCodec("libmp3lame")
+                .setAudioBitRate(128000)
+                .addExtraArgs("-t", "1") // 1초 길이
+                .setFormat("mp3")
+                .done();
+                
+            FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
+            executor.createJob(builder).run();
+            
+            File silentFile = new File(cleanOutputPath);
+            if (!silentFile.exists() || silentFile.length() == 0) {
+                throw new RuntimeException("무음 오디오 파일 생성 실패");
+            }
+            
+            return silentFile;
+        } catch (Exception e) {
+            logger.error("무음 오디오 파일 생성 중 오류 발생: {}", e.getMessage(), e);
+            throw new RuntimeException("무음 오디오 파일 생성 중 오류: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 배경 이미지를 사용하여 1초짜리 무음 비디오 생성
+     * @param outputPath 생성할 비디오 파일 경로
+     * @return 생성된 비디오 파일
+     */
+    public File createSilentVideo(String outputPath) {
+        try {
+            createTempDir();
+            String cleanOutputPath = outputPath.replace("\"", "");
+            
+            // 무음 오디오 파일 먼저 생성
+            String silentAudioPath = TEMP_DIR + File.separator + "audios" + File.separator + "silent_" + UUID.randomUUID() + ".mp3";
+            File silentAudioFile = createSilentAudio(silentAudioPath);
+            
+            // 배경 이미지 확인
+            if (backgroundImageFilePath == null || !new File(backgroundImageFilePath).exists()) {
+                logger.warn("배경 이미지 파일이 없어서 다시 복사를 시도합니다.");
+                copyBackgroundImage();
+                
+                if (backgroundImageFilePath == null) {
+                    throw new RuntimeException("배경 이미지 파일을 찾을 수 없습니다.");
+                }
+            }
+            
+            FFmpegBuilder builder = new FFmpegBuilder()
+                .addInput(backgroundImageFilePath)
+                .addInput(silentAudioPath)
+                .addExtraArgs("-y")
+                .addOutput(cleanOutputPath)
+                .setVideoCodec("libx264")
+                .setConstantRateFactor(23)
+                .setVideoPixelFormat("yuv420p")
+                .setAudioCodec("aac")
+                .setAudioBitRate(128000)
+                .setFormat("mp4")
+                .addExtraArgs("-shortest") // 가장 짧은 스트림 길이에 맞춤 (오디오가 1초이므로 비디오도 1초)
+                .done();
+                
+            FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
+            executor.createJob(builder).run();
+            
+            // 임시 오디오 파일 삭제
+            silentAudioFile.delete();
+            
+            File resultFile = new File(cleanOutputPath);
+            if (!resultFile.exists() || resultFile.length() == 0) {
+                throw new RuntimeException("무음 비디오 생성 실패");
+            }
+            
+            return resultFile;
+        } catch (Exception e) {
+            logger.error("무음 비디오 생성 중 오류 발생: {}", e.getMessage(), e);
+            throw new RuntimeException("무음 비디오 생성 중 오류: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 서버 시작 시 1초 길이의 무음 비디오를 미리 생성하여 저장한다
+     */
+    private void createAndSaveSilentVideo() {
+        try {
+            // 무음 오디오 파일 먼저 생성
+            String silentAudioPath = TEMP_DIR + File.separator + "audios" + File.separator + "silent.mp3";
+            createSilentAudio(silentAudioPath);
+            
+            // 무음 비디오 생성 및 저장
+            String silentVideoPath = TEMP_DIR + File.separator + "videos" + File.separator + "silent.mp4";
+            
+            // 배경 이미지 확인
+            if (backgroundImageFilePath == null || !new File(backgroundImageFilePath).exists()) {
+                logger.warn("배경 이미지 파일이 없어서 다시 복사를 시도합니다.");
+                copyBackgroundImage();
+                
+                if (backgroundImageFilePath == null) {
+                    logger.error("배경 이미지 파일을 찾을 수 없어 무음 비디오를 생성할 수 없습니다.");
+                    return;
+                }
+            }
+            
+            FFmpegBuilder builder = new FFmpegBuilder()
+                .addInput(backgroundImageFilePath)
+                .addInput(silentAudioPath)
+                .addExtraArgs("-y")
+                .addOutput(silentVideoPath)
+                .setVideoCodec("libx264")
+                .setConstantRateFactor(23)
+                .setVideoPixelFormat("yuv420p")
+                .setAudioCodec("aac")
+                .setAudioBitRate(128000)
+                .setFormat("mp4")
+                .addExtraArgs("-shortest") // 가장 짧은 스트림 길이에 맞춤 (오디오가 1초이므로 비디오도 1초)
+                .done();
+                
+            FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
+            executor.createJob(builder).run();
+            
+            File resultFile = new File(silentVideoPath);
+            if (resultFile.exists() && resultFile.length() > 0) {
+                this.silentVideoFilePath = silentVideoPath;
+                logger.info("1초짜리 무음 비디오 파일 생성 완료: {}", silentVideoFilePath);
+            } else {
+                logger.error("무음 비디오 생성 실패");
+            }
+        } catch (Exception e) {
+            logger.error("무음 비디오 생성 중 오류 발생: {}", e.getMessage(), e);
+        }
+    }
+
     public File createFinalVideo(String storyId, String outputPath) {
         try {
             String cleanOutputPath = outputPath.replace("\"", "");
@@ -595,7 +726,14 @@ public class VideoService {
             }
 
             List<String> sceneVideoPaths = new ArrayList<>();
-            
+
+            // 디버깅용 코드 추가
+            Map<String, Object> scene0 = scenes.get(0);
+            logger.info("씬 0 데이터: {}", scene0);
+            logger.info("씬 0 이미지 URL: {}", scene0.get("image_url"));
+            logger.info("씬 0 오디오 배열: {}", scene0.get("audioArr"));
+
+
             // 각 Scene별로 처리
             for (int i = 0; i < scenes.size(); i++) {
                 Map<String, Object> scene = scenes.get(i);
@@ -605,7 +743,21 @@ public class VideoService {
                 if (scene.get("image_url") == null || scene.get("audioArr") == null) {
                     throw new RuntimeException("씬 " + i + "의 데이터가 유효하지 않음");
                 }
-                
+
+//                // 씬 데이터 유효성 검사
+//                if (scene.get("audioArr") == null) {
+//                    throw new RuntimeException("씬 " + i + "의 오디오 데이터가 없음");
+//                }
+//
+//                // 이미지가 없는 경우 기본 이미지나 배경 이미지를 사용
+//                if (scene.get("image_url") == null) {
+//                    logger.warn("씬 {}의 이미지 URL이 누락되었습니다. 기본 배경 이미지를 사용합니다.", i);
+//                    // 기본 이미지나 이전 씬의 이미지를 사용하는 로직 추가
+//                    if (i > 0 && scenes.get(i-1).get("image_url") != null) {
+//                        scene.put("image_url", scenes.get(i-1).get("image_url"));
+//                        logger.info("씬 {}에 이전 씬의 이미지를 사용합니다.", i);
+//                    }
+//                }
                 // 임시 파일 경로 생성
                 String tempSceneDir = TEMP_DIR + File.separator + "videos" + File.separator + "scene_" + i + "_" + UUID.randomUUID();
                 
@@ -647,7 +799,10 @@ public class VideoService {
             for (String path : sceneVideoPaths) {
                 new File(path).delete();
                 // 부모 디렉토리도 삭제
-                new File(new File(path).getParent()).delete();
+                File parent = new File(path).getParentFile();
+                if (parent != null && parent.exists() && !parent.getAbsolutePath().equals(new File(silentVideoFilePath).getParentFile().getAbsolutePath())) {
+                    parent.delete();
+                }
             }
 
             return finalVideo;
@@ -664,9 +819,6 @@ public class VideoService {
     public void updateVideoCompleted(String storyId, String videoUrl) {
         // 상태 업데이트: 완료
         updateVideoStatus(storyId, VideoStatus.COMPLETED, videoUrl);
-
-        // 처리 단계 정보 삭제 (완료되었으므로)
-        videoProcessingStatusService.deleteProcessingStep(storyId);
     }
 
     /**
@@ -675,9 +827,6 @@ public class VideoService {
     public void updateVideoFailed(String storyId, String errorMessage) {
         // 상태 업데이트: 실패
         updateVideoStatus(storyId, VideoStatus.FAILED, errorMessage);
-
-        // 처리 단계 정보 삭제
-        videoProcessingStatusService.deleteProcessingStep(storyId);
     }
 
     /**
@@ -755,7 +904,16 @@ public class VideoService {
             video.setErrorMessage(message);
         }
         
+        // DB에 상태 저장
         videoRepository.save(video);
+        
+        // Redis에도 상태 저장 (SSE에서 DB 조회 없이 사용하기 위함)
+        videoStatusSseService.saveVideoStatus(storyId, status);
+        
+        // 상태가 완료나 실패이면 Redis에서 처리 단계 정보 삭제
+        if (status == VideoStatus.COMPLETED || status == VideoStatus.FAILED) {
+            videoProcessingStatusService.deleteProcessingStep(storyId);
+        }
     }
     
     // 비디오 상태 조회
