@@ -2,7 +2,7 @@ package com.sss.backend.domain.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sss.backend.domain.document.CharacterDocument;
+import com.sss.backend.api.dto.constant.DefaultTensors;
 import com.sss.backend.domain.document.SceneDocument;
 import com.sss.backend.domain.repository.SceneDocumentRepository;
 import com.sss.backend.config.S3Config;
@@ -235,8 +235,18 @@ public class AudioService {
 
         //voiceCode(voiceId)에 따른 tensor 값 찾기
         Long voiceId = Long.parseLong(voiceCode);
-        byte[] tensorBytes = voiceRepository.findEmbeddingTensorById(voiceId);
 
+        byte[] tensorBytes = new byte[0];
+
+        if(voiceId == -1){
+            // 남자 아나운서 byte[] 데이터
+            tensorBytes = DefaultTensors.MALE_VOICE_2;
+        }else if(voiceId == -2){
+            // 여자 아나운서 byte[] 데이터
+            tensorBytes = DefaultTensors.FEMALE_VOICE_1;
+        }else{
+            tensorBytes = voiceRepository.findEmbeddingTensorById(voiceId);
+        }
 
         // byte[] -> JSON 형식의 문자열 변환
         String tensorJson = new String(tensorBytes, StandardCharsets.UTF_8);
@@ -336,12 +346,6 @@ public class AudioService {
             throw new RuntimeException("오디오 생성에 실패했습니다: " + e.getMessage(), e);
         }
     }
-
-
-
-
-
-
 
     // 오디오 파일 길이 추출 메서드
     private double extractAudioDuration(String audioUrl) {
