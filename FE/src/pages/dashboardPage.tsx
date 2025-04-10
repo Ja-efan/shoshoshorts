@@ -57,10 +57,10 @@ export default function DashboardPage() {
   }, [fetchVideos]);
 
   // 30초마다 데이터 새로고침
-  useEffect(() => {
-    const interval = setInterval(fetchVideos, 30000);
-    return () => clearInterval(interval);
-  }, [fetchVideos]);
+  // useEffect(() => {
+  //   const interval = setInterval(fetchVideos, 30000);
+  //   return () => clearInterval(interval);
+  // }, [fetchVideos]);
 
   // 비디오 필터링 로직을 메모이제이션
   const { inProgressVideos, completedVideos, failedVideos } = useMemo(() => {
