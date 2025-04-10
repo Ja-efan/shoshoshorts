@@ -551,6 +551,97 @@ public class VideoService {
         }
     }
     
+    /**
+     * 1초 길이의 무음 오디오 파일을 생성한다
+     * @param outputPath 생성할 무음 오디오 파일 경로
+     * @return 생성된 무음 오디오 파일
+     */
+    private File createSilentAudio(String outputPath) {
+        try {
+            String cleanOutputPath = outputPath.replace("\"", "");
+            
+            FFmpegBuilder builder = new FFmpegBuilder()
+                .addExtraArgs("-y")
+                .addExtraArgs("-f", "lavfi")
+                .setInput("anullsrc=r=44100:cl=mono") 
+                .addOutput(cleanOutputPath)
+                .setAudioCodec("libmp3lame")
+                .setAudioBitRate(128000)
+                .addExtraArgs("-t", "1") // 1초 길이
+                .setFormat("mp3")
+                .done();
+                
+            FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
+            executor.createJob(builder).run();
+            
+            File silentFile = new File(cleanOutputPath);
+            if (!silentFile.exists() || silentFile.length() == 0) {
+                throw new RuntimeException("무음 오디오 파일 생성 실패");
+            }
+            
+            return silentFile;
+        } catch (Exception e) {
+            logger.error("무음 오디오 파일 생성 중 오류 발생: {}", e.getMessage(), e);
+            throw new RuntimeException("무음 오디오 파일 생성 중 오류: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * 배경 이미지를 사용하여 1초짜리 무음 비디오 생성
+     * @param outputPath 생성할 비디오 파일 경로
+     * @return 생성된 비디오 파일
+     */
+    public File createSilentVideo(String outputPath) {
+        try {
+            createTempDir();
+            String cleanOutputPath = outputPath.replace("\"", "");
+            
+            // 무음 오디오 파일 먼저 생성
+            String silentAudioPath = TEMP_DIR + File.separator + "audios" + File.separator + "silent_" + UUID.randomUUID() + ".mp3";
+            File silentAudioFile = createSilentAudio(silentAudioPath);
+            
+            // 배경 이미지 확인
+            if (backgroundImageFilePath == null || !new File(backgroundImageFilePath).exists()) {
+                logger.warn("배경 이미지 파일이 없어서 다시 복사를 시도합니다.");
+                copyBackgroundImage();
+                
+                if (backgroundImageFilePath == null) {
+                    throw new RuntimeException("배경 이미지 파일을 찾을 수 없습니다.");
+                }
+            }
+            
+            FFmpegBuilder builder = new FFmpegBuilder()
+                .addInput(backgroundImageFilePath)
+                .addInput(silentAudioPath)
+                .addExtraArgs("-y")
+                .addOutput(cleanOutputPath)
+                .setVideoCodec("libx264")
+                .setConstantRateFactor(23)
+                .setVideoPixelFormat("yuv420p")
+                .setAudioCodec("aac")
+                .setAudioBitRate(128000)
+                .setFormat("mp4")
+                .addExtraArgs("-shortest") // 가장 짧은 스트림 길이에 맞춤 (오디오가 1초이므로 비디오도 1초)
+                .done();
+                
+            FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
+            executor.createJob(builder).run();
+            
+            // 임시 오디오 파일 삭제
+            silentAudioFile.delete();
+            
+            File resultFile = new File(cleanOutputPath);
+            if (!resultFile.exists() || resultFile.length() == 0) {
+                throw new RuntimeException("무음 비디오 생성 실패");
+            }
+            
+            return resultFile;
+        } catch (Exception e) {
+            logger.error("무음 비디오 생성 중 오류 발생: {}", e.getMessage(), e);
+            throw new RuntimeException("무음 비디오 생성 중 오류: " + e.getMessage(), e);
+        }
+    }
+
     public File createFinalVideo(String storyId, String outputPath) {
         try {
             String cleanOutputPath = outputPath.replace("\"", "");
@@ -635,6 +726,12 @@ public class VideoService {
                 // 중간 파일 삭제
                 new File(mergedAudioPath).delete();
             }
+            
+            // 마지막에 1초짜리 무음 비디오 추가
+            String silentVideoPath = TEMP_DIR + File.separator + "videos" + File.separator + "final_silent_" + UUID.randomUUID() + ".mp4";
+            File silentVideo = createSilentVideo(silentVideoPath);
+            sceneVideoPaths.add(silentVideoPath);
+            logger.info("마지막에 1초짜리 무음 비디오 추가됨");
             
             // 모든 씬 비디오 병합하여 최종 비디오 생성
             File finalVideo = mergeVideos(sceneVideoPaths, cleanOutputPath, storyId);
