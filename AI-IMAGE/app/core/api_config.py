@@ -17,7 +17,10 @@ def encode_jwt_token(ak, sk):
     payload = {"iss": ak, "exp": int(time.time()) + 1800, "nbf": int(time.time()) - 5}
     return jwt.encode(payload, sk, headers=headers)
 
-
+def parse_bool_env(value, default=False):
+        if isinstance(value, str):
+            return value.lower() in ('true', 't', 'yes', 'y', '1')
+        return bool(value) if value is not None else default
 class KlingAIConfig:
     """Kling AI API 관련 설정"""
 
@@ -30,13 +33,16 @@ class KlingAIConfig:
     # 모델 및 이미지 생성 설정
     MODEL_V1 = "kling-v1"  # 참조 이미지 사용하기 위해서는 kling-v1 사용
     MODEL_V1_5 = "kling-v1-5"
-    ASPECT_RATIO = "1:1"
-    USE_REFERENCE_IMAGE = False
-    USE_PREVIOUS_SCENE_DATA = True
-    NUM_OF_IMAGES = 1
-    IMAGE_REFERENCE = "subject"  # "subject" or "face"
-    IMAGE_FIDELITY = 0.1  # 참조 이미지 참조 정도 (0 ~ 1 소수)
-    DEFAULT_IMAGE_STYLE: str = "DISNEY-PIXAR"
+    ASPECT_RATIO = os.getenv("ASPECT_RATIO", "1:1")
+    USE_REFERENCE_IMAGE = parse_bool_env(os.getenv("USE_REFERENCE_IMAGE"), False)  # default: False
+    USE_PREVIOUS_SCENE_DATA = parse_bool_env(os.getenv("USE_PREVIOUS_SCENE_DATA"), True)  # default: True
+    NUM_OF_IMAGES = int(os.getenv("NUM_OF_IMAGES", 1))
+    IMAGE_REFERENCE = os.getenv("IMAGE_REFERENCE", "subject")  # "subject" or "face"
+    IMAGE_FIDELITY = float(os.getenv("IMAGE_FIDELITY", 0.1))  # 참조 이미지 참조 정도 (0 ~ 1 소수)
+    DEFAULT_IMAGE_STYLE = os.getenv("DEFAULT_IMAGE_STYLE", "illustrate")
+    MAX_ATTEMPTS = int(os.getenv("MAX_ATTEMPTS", 50))  # 최대 시도 횟수
+    DELAY = int(os.getenv("DELAY", 3))  # 시도 간격 (초)
+
 
     # 응답 코드 매핑
     KLING_TO_HTTP = {
@@ -80,20 +86,49 @@ class OpenAIConfig:
     # API 인증 설정
     API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
-    # 모델 및 요청 설정
-    MODEL = "gpt-4o"  # "gpt-4o-mini"
-    MAX_TOKENS = 500
-    TEMPERATURE = 0.5
+    # 이미지 프롬프트 설정 
+    IMAGE_PROMPT_GENERATION_MODEL = os.getenv("IMAGE_PROMPT_GENERATION_MODEL", "gpt-4o")
+    IMAGE_PROMPT_MAX_TOKENS = int(os.getenv("IMAGE_PROMPT_MAX_TOKENS", 500))
+    IMAGE_PROMPT_TEMPERATURE = float(os.getenv("IMAGE_PROMPT_TEMPERATURE", 0.3))
+    
+    # 장면 정보 설정 
+    SCENE_INFO_GENERATION_MODEL = os.getenv("SCENE_INFO_GENERATION_MODEL", "gpt-4o-mini")
+    SCENE_INFO_MAX_TOKENS = int(os.getenv("SCENE_INFO_MAX_TOKENS", 500))
+    SCENE_INFO_TEMPERATURE = float(os.getenv("SCENE_INFO_TEMPERATURE", 0.3))
 
     # Prompt 파일 경로
     PROMPT_DIR: str = "app/prompts"
     SYSTEM_PROMPT_DIR: str = os.path.join(PROMPT_DIR, "system-prompts")
+    
+    # 스타일별 시스템 프롬프트 및 참고 이미지 설정
+    IMAGE_STYLES = {
+        "disney": {
+            "prompt": os.path.join(
+                SYSTEM_PROMPT_DIR, "image_prompts", os.getenv("DISNEY_STYLE_PROMPT", "disney/disney_v01.txt")
+            ),
+            "reference_image": os.getenv("DISNEY_STYLE_REFERENCE_IMAGE", "disney/disney-reference.png")
+        },
+        "pixar": {
+            "prompt": os.path.join(
+                SYSTEM_PROMPT_DIR, "image_prompts", os.getenv("PIXAR_STYLE_PROMPT", "pixar/pixar_v01.txt")
+            ),
+            "reference_image": os.getenv("PIXAR_STYLE_REFERENCE_IMAGE", "pixar/pixar-reference.png")
+        },
+        "illustrate": {
+            "prompt": os.path.join(
+                SYSTEM_PROMPT_DIR, "image_prompts", os.getenv("ILLUSTRATE_STYLE_PROMPT", "illustrate/illustrate_v01.txt")
+            ),
+            "reference_image": os.getenv("ILLUSTRATE_STYLE_REFERENCE_IMAGE", "illustrate/illustrate-reference.png")
+        }
+    }
+    
+    # 기본 시스템 프롬프트 설정 (스타일별 설정이 없는 경우 사용)
     SYSTEM_PROMPT = {
         "image_prompt": os.path.join(
-            SYSTEM_PROMPT_DIR, "image_prompts", "disney-pixar_style_v01.txt"
+            SYSTEM_PROMPT_DIR, "image_prompts", os.getenv("SYSTEM_PROMPT_FOR_IMAGE_PROMPT")
         ),
         "scene_info": os.path.join(
-            SYSTEM_PROMPT_DIR, "sceneinfo_prompts", "sceneinfo_v02.txt"
+            SYSTEM_PROMPT_DIR, "sceneinfo_prompts", os.getenv("SYSTEM_PROMPT_FOR_SCENE_INFO")
         ),
     }
 
