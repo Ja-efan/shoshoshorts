@@ -127,7 +127,7 @@ export default function CreateVideoPage() {
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (value.length <= 20) {
+    if (value.length <= 15) {
       setTitle(value);
     }
   };
@@ -141,7 +141,7 @@ export default function CreateVideoPage() {
 
   const validateForm = () => {
     const errors = {
-      title: title.trim() === "" || title.length > 20,
+      title: title.trim() === "" || title.length > 15,
       story: story.trim() === "" || story.length > 1000,
       characters: characters.length > 0 && !validateCharacters(),
     };
@@ -390,7 +390,7 @@ export default function CreateVideoPage() {
                           title.length > 20 ? "text-red-500" : "text-gray-500"
                         }`}
                       >
-                        {title.length}/20
+                        {title.length}/15
                       </span>
                     </div>
                   </div>
