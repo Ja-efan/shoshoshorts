@@ -67,22 +67,33 @@ class DownloadService:
             filename = f"{formatted_scene_id}_{timestamp}.jpg"
             save_path = os.path.join(images_dir, filename)
 
-            # 이미지 다운로드 - SSL 검증 비활성화
-            connector = aiohttp.TCPConnector(verify_ssl=False)
-            async with aiohttp.ClientSession(connector=connector) as session:
-                app_logger.info(f"Try to download image...")
-                async with session.get(image_url) as response:
-                    if response.status != 200:
-                        app_logger.error(
-                            f"Failed to download image: status code {response.status}"
-                        )
-                        return None
+            # 이미지 다운로드 - SSL 검증 비활성화 및 타임아웃 설정
+            timeout = aiohttp.ClientTimeout(total=60)  # 전체 요청에 60초 타임아웃 설정
+            connector = aiohttp.TCPConnector(verify_ssl=False, force_close=True)
+            
+            async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+                app_logger.info(f"Try to download image from {image_url}...")
+                
+                try:
+                    async with session.get(image_url) as response:
+                        if response.status != 200:
+                            app_logger.error(
+                                f"Failed to download image: status code {response.status}"
+                            )
+                            return None
 
-                    # 이미지를 파일로 저장
-                    async with aiofiles.open(save_path, "wb") as f:
-                        await f.write(await response.read())
+                        # 이미지 데이터를 메모리에 먼저 읽어옴
+                        image_data = await response.read()
+                        
+                        # 이미지를 파일로 저장
+                        async with aiofiles.open(save_path, "wb") as f:
+                            await f.write(image_data)
+                            
+                except aiohttp.ClientError as client_err:
+                    app_logger.error(f"HTTP request failed: {str(client_err)}")
+                    return None
 
-            app_logger.info(f"Image saved: {save_path}")
+            app_logger.info(f"Image successfully saved to: {save_path}")
             return save_path
 
         except Exception as e:
