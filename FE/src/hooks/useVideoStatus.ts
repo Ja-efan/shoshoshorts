@@ -1,7 +1,40 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiService } from '@/api/api';
 import { useNavigate } from 'react-router-dom';
 import { VideoStatus, VideoStatusResponse } from '@/types/video';
+
+// SSE 연결을 관리하는 전역 상태
+const activeConnections = new Map<string, {
+  controller: AbortController;
+  count: number;
+  disconnectTimeout?: NodeJS.Timeout;
+}>();
+
+// 연결 해제 요청을 일괄 처리하기 위한 큐
+const disconnectQueue = new Set<string>();
+let disconnectTimeout: NodeJS.Timeout | null = null;
+
+// 일괄 연결 해제 함수
+const batchDisconnect = () => {
+  if (disconnectQueue.size === 0) return;
+
+  const token = localStorage.getItem('accessToken');
+  if (!token) return;
+
+  // 모든 연결 해제 요청을 하나의 요청으로 처리
+  fetch('/api/video/status/sse/batch-disconnect', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ storyIds: Array.from(disconnectQueue) }),
+    credentials: 'include'
+  }).catch(err => console.error('일괄 연결 해제 요청 실패:', err));
+
+  disconnectQueue.clear();
+  disconnectTimeout = null;
+};
 
 interface VideoStatusEvent {
   storyId: string;
@@ -14,12 +47,68 @@ export const useVideoStatus = (storyId: string) => {
   const [videoStatus, setVideoStatus] = useState<VideoStatusEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
   const navigate = useNavigate();
+  const isUnmounting = useRef(false);
+
+  // SSE 연결 해제 함수
+  const disconnectSSE = async (immediate = false) => {
+    const existingConnection = activeConnections.get(storyId);
+    if (existingConnection) {
+      existingConnection.count -= 1;
+      
+      // 마지막 컴포넌트가 연결을 해제하는 경우에만 실제로 연결을 종료
+      if (existingConnection.count <= 0) {
+        existingConnection.controller.abort();
+        activeConnections.delete(storyId);
+        
+        // 즉시 해제가 필요한 경우 (COMPLETED/FAILED 상태)
+        if (immediate) {
+          const token = localStorage.getItem('accessToken');
+          if (token) {
+            try {
+              await fetch(`/api/video/status/sse/${storyId}`, {
+                method: 'DELETE',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+                credentials: 'include'
+              });
+            } catch (err) {
+              console.error('SSE 연결 종료 요청 실패:', err);
+            }
+          }
+        } else {
+          // 일괄 처리 큐에 추가
+          disconnectQueue.add(storyId);
+          
+          // 1초 후에 일괄 처리 실행
+          if (!disconnectTimeout) {
+            disconnectTimeout = setTimeout(batchDisconnect, 1000);
+          }
+        }
+      }
+    }
+    
+    setIsConnected(false);
+  };
 
   useEffect(() => {
+    isUnmounting.current = false;
+    
+    const existingConnection = activeConnections.get(storyId);
+    
+    if (existingConnection) {
+      // 이미 연결이 있는 경우 카운트만 증가
+      existingConnection.count += 1;
+      setIsConnected(true);
+      return;
+    }
+
     const controller = new AbortController();
-    setAbortController(controller);
+    activeConnections.set(storyId, {
+      controller,
+      count: 1
+    });
 
     const connectSSE = async () => {
       try {
@@ -34,6 +123,8 @@ export const useVideoStatus = (storyId: string) => {
         let buffer = '';
         
         const processChunk = (chunk: string) => {
+          if (isUnmounting.current) return;
+          
           buffer += chunk;
           const lines = buffer.split('\n\n');
           buffer = lines.pop() || '';
@@ -54,19 +145,15 @@ export const useVideoStatus = (storyId: string) => {
             
             if (eventData.data) {
               try {
-                // 연결 메시지는 JSON 파싱하지 않음
                 if (eventData.event === "connect") {
                   console.log('SSE 연결됨:', eventData.data);
                   continue;
                 }
                 
-                // 상태 업데이트 메시지만 JSON 파싱
                 const data = JSON.parse(eventData.data) as VideoStatusResponse;
                 console.log('SSE 데이터 수신:', data);
                 
-                // 데이터 형식 확인 및 변환
                 if (data && typeof data === 'object') {
-                  // 필요한 필드가 있는지 확인하고 없으면 기본값 설정
                   const statusEvent: VideoStatusEvent = {
                     storyId: data.storyId || storyId,
                     status: data.status || 'PROCESSING',
@@ -77,27 +164,9 @@ export const useVideoStatus = (storyId: string) => {
                   console.log('변환된 상태 이벤트:', statusEvent);
                   setVideoStatus(statusEvent);
                   
-                  // 상태가 COMPLETED나 FAILED가 되면 SSE 연결 종료하고 대시보드로 이동
                   if (statusEvent.status === 'COMPLETED' || statusEvent.status === 'FAILED') {
                     console.log(`비디오 상태가 ${statusEvent.status}로 변경되어 SSE 연결을 종료합니다.`);
-                    
-                    // 백엔드에 SSE 연결 종료 요청
-                    const token = localStorage.getItem('accessToken');
-                    if (token) {
-                      fetch(`/api/video/status/sse/${storyId}`, {
-                        method: 'DELETE',
-                        headers: {
-                          'Authorization': `Bearer ${token}`,
-                        },
-                        credentials: 'include'
-                      }).catch(err => console.error('SSE 연결 종료 요청 실패:', err));
-                    }
-                    
-                    // 리더 종료
-                    reader.cancel();
-                    setIsConnected(false);
-                    
-                    // 대시보드로 이동
+                    disconnectSSE(true); // 즉시 해제
                     navigate('/dashboard');
                   }
                 } else {
@@ -111,6 +180,8 @@ export const useVideoStatus = (storyId: string) => {
         };
 
         while (true) {
+          if (isUnmounting.current) break;
+          
           const { done, value } = await reader.read();
           if (done) break;
           
@@ -128,13 +199,22 @@ export const useVideoStatus = (storyId: string) => {
       }
     };
 
+    // 페이지 언로드 시 SSE 연결 해제
+    const handleBeforeUnload = () => {
+      isUnmounting.current = true;
+      disconnectSSE();
+    };
+
+    // 컴포넌트 마운트 시 SSE 연결
     connectSSE();
 
+    // 이벤트 리스너 등록
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
-      if (abortController) {
-        abortController.abort();
-      }
-      setAbortController(null);
+      isUnmounting.current = true;
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      disconnectSSE();
     };
   }, [storyId, navigate]);
 

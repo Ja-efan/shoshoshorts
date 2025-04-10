@@ -39,6 +39,8 @@ export const API_ENDPOINTS = {
   CREATE_VIDEO: `${API_BASE_URL}/videos/generate`,
   GET_VIDEOS: `${API_BASE_URL}/videos/status/allstory`,
   GET_VIDEO_STATUS: `${API_BASE_URL}/videos/status`,
+  DELETE_VIDEO: `${API_BASE_URL}/videos`,
+  RETRY_VIDEO: `${API_BASE_URL}/videos/retry`,
   YOUTUBE_UPLOAD: `${API_BASE_URL}/youtube/upload`,
   YOUTUBE_AUTH: `${API_BASE_URL}/youtube/auth`,
   DOWNLOAD_VIDEO: `${API_BASE_URL}/videos/download`,
@@ -165,14 +167,39 @@ export const apiService = {
 
   // 비디오 관련 API
   async createVideo({ data }: { data: any }) {
-    const token = localStorage.getItem("accessToken");
+    let token = localStorage.getItem("accessToken");
+    let retryCount = 0;
+    const MAX_RETRIES = 1; // 토큰 갱신 후 1번만 재시도
 
-    const response = await axios.post<ApiResponse<VideoData>>(
-      API_ENDPOINTS.CREATE_VIDEO,
-      data,
-      getAuthConfig(token)
-    );
-    return response.data;
+    while (retryCount <= MAX_RETRIES) {
+      try {
+        const response = await axios.post<ApiResponse<VideoData>>(
+          API_ENDPOINTS.CREATE_VIDEO,
+          data,
+          getAuthConfig(token)
+        );
+        return response.data;
+      } catch (error) {
+        if (
+          axios.isAxiosError(error) &&
+          error.response?.status === 401 &&
+          retryCount < MAX_RETRIES
+        ) {
+          // 토큰 만료 시 갱신 시도
+          try {
+            const newToken = await this.refreshToken();
+            token = newToken; // 갱신된 토큰으로 업데이트
+            retryCount++;
+            continue; // 갱신된 토큰으로 재시도
+          } catch (refreshError) {
+            console.error("토큰 갱신 실패:", refreshError);
+            throw new Error("토큰 갱신에 실패했습니다. 다시 로그인해주세요.");
+          }
+        }
+        // 다른 오류이거나 최대 재시도 횟수를 초과한 경우
+        throw error;
+      }
+    }
   },
 
   async getVideos() {
@@ -302,6 +329,35 @@ export const apiService = {
       getAuthConfig(token)
     );
     return response.data;
+  },
+
+  async deleteVideo(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const response = await axios.delete(
+        `${API_ENDPOINTS.DELETE_VIDEO}/${storyId}`,
+        getAuthConfig(token)
+      );
+      return response.data;
+    } catch (error) {
+      console.error("비디오 삭제 실패:", error);
+      throw error;
+    }
+  },
+
+  async retryVideo(storyId: string) {
+    const token = localStorage.getItem("accessToken");
+    try {
+      const response = await axios.post(
+        API_ENDPOINTS.RETRY_VIDEO,
+        { storyId },
+        getAuthConfig(token)
+      );
+      return response.data;
+    } catch (error) {
+      console.error("비디오 재시도 실패:", error);
+      throw error;
+    }
   },
 };
 
