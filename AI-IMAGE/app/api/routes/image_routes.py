@@ -3,7 +3,6 @@
 """
 
 import time
-import random
 from fastapi import APIRouter, HTTPException
 from app.schemas.models import Scene, ImageGenerationResponse
 from app.services.openai_service import openai_service
@@ -13,13 +12,13 @@ from app.services.s3_service import s3_service
 from app.services.utils import check_scene
 from app.core.logger import app_logger
 from app.core.config import settings
-
+from app.core.api_config import klingai_config
 # 라우터 생성
 router = APIRouter(prefix="/images", tags=["images"])
 
 
 @router.post("/generations/external", response_model=ImageGenerationResponse)
-async def generate_scene_image(scene: Scene, style: str = 'pixar'):
+async def generate_scene_image(scene: Scene, style: str | None = None):
     """
     장면 정보를 기반으로 이미지를 생성합니다.
 
@@ -33,7 +32,7 @@ async def generate_scene_image(scene: Scene, style: str = 'pixar'):
     
     Args:
         scene (Scene): 장면 정보
-        style (str): 이미지 생성 스타일 (기본값: disney)
+        style (str): 이미지 생성 스타일 (기본값: 환경변수 DEFAULT_IMAGE_STYLE)
             - disney: 디즈니 애니메이션 스튜디오 스타일
             - pixar: 픽사 3D 스타일
             - illustrate: 일러스트레이트 스타일
@@ -41,6 +40,9 @@ async def generate_scene_image(scene: Scene, style: str = 'pixar'):
 
     start_time = time.time()
     app_logger.info("Received request for image generation...")
+
+    if style is None:
+        style = klingai_config.DEFAULT_IMAGE_STYLE
 
     app_logger.info(
         f"Story ID: {scene.story_metadata.story_id}, Scene ID: {scene.scene_id}, Style: {style}"
