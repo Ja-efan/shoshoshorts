@@ -10,7 +10,7 @@ class Character(BaseModel):
     """등장 인물 모델"""
 
     name: str
-    gender: int  # 0: 남자, 1: 여자
+    gender: int | str  # 0: 남자, 1: 여자
     description: str
 
 
@@ -77,3 +77,17 @@ class ImagePromptRequest(BaseModel):
     prompt: str
     negative_prompt: Optional[str] = None
     style: str = "DISNEY"
+
+
+class CharacterNSceneSummary(BaseModel):
+    """캐릭터 및 장면 요약 모델"""
+
+    characters: List[Character]
+    scene_summary: str
+
+
+class PreviousSceneData(BaseModel):
+    """이전 씬 데이터 모델"""
+
+    scene_info: SceneInfo
+    image_prompt: dict

@@ -13,6 +13,7 @@ from openai import OpenAI
 from app.schemas.models import Scene, ImagePromptRequest, SceneInfo
 from app.services.openai_service import OpenAIService
 from app.services.utils import encode_image_to_base64
+from app.services.klingai_service import KlingAIService
 from app.core.logger import app_logger
 from app.core.config import settings
 from app.core.api_config import klingai_config, openai_config
@@ -34,32 +35,22 @@ async def test_generate_scene_info(scene: Scene):
     app_logger.info(
         f"장면 정보 생성 테스트 시작: \n{json.dumps(scene.model_dump(), ensure_ascii=False, indent=2)}"
     )
-    response = await OpenAIService.generate_scene_info(scene)
-    app_logger.info(
-        f"장면 정보 생성 테스트 완료: \n{json.dumps(response.model_dump(), ensure_ascii=False, indent=2)}"
+    system_prompt = open(
+        "app/prompts/system-prompts/sceneinfo_prompts/sceneinfo_v03.txt", "r"
+    ).read()
+
+    response = await OpenAIService.generate_scene_info(
+        scene, style="DISNEY_PIXAR", system_prompt=system_prompt
     )
+    app_logger.info(f"장면 정보 생성 테스트 완료: \n{response}")
     return response
 
 
 @router.post("/image_prompt")
 async def test_generate_image_prompt(scene: Scene):
     """이미지 프롬프트 생성 테스트"""
-    app_logger.info(
-        f"이미지 프롬프트 생성 테스트 시작: \n{json.dumps(scene.model_dump(), ensure_ascii=False, indent=2)}"
-    )
-    response = await OpenAIService.generate_image_prompt(scene)
-    prompt = response[0]
-    negative_prompt = response[1]
-    scene_info = response[2]
-
-    app_logger.info(f"이미지 프롬프트 생성 테스트 완료:")
-    app_logger.info(f"이미지 프롬프트: {prompt}")
-    app_logger.info(f"부정 프롬프트: {negative_prompt}")
-    app_logger.info(
-        f"장면 정보: \n{json.dumps(scene_info.model_dump(), ensure_ascii=False, indent=2)}"
-    )
-
-    return prompt, negative_prompt, scene_info
+    response = await OpenAIService.generate_image_prompt(scene, style="DISNEY_PIXAR")
+    return response
 
 
 @router.post("/image_prompt/scene_info")
@@ -73,7 +64,7 @@ async def test_generate_image_prompt_with_scene_info(
         ).read()
     elif style == "DISNEY_PIXAR":
         system_prompt = open(
-            "app/prompts/system-prompt/disney-pixar_style_v01.txt", "r"
+            "app/prompts/system-prompt/disney-pixar_style_v02.txt", "r"
         ).read()
     else:
         system_prompt = open(
@@ -120,16 +111,14 @@ async def test_generate_image_prompt_with_scene_info(
         app_logger.error(f"OpenAI API 오류: {str(e)}")
 
 
-@router.post("/simple_generate_image")
-async def test_generate_image(request: ImagePromptRequest):
+@router.post("/generate_image_with_prompt")
+async def test_generate_image(prompt: str, negative_prompt: str = None):
     """프롬프트만 입력받아 KlingAI API를 직접 호출하여 이미지 생성 테스트"""
-    app_logger.info(
-        f"간단한 이미지 생성 테스트 시작: \n{json.dumps(request.model_dump(), ensure_ascii=False, indent=2)}"
-    )
+    app_logger.info(f"간단한 이미지 생성 테스트 시작: \n{prompt}")
 
     try:
         # API 키 확인
-        if not settings.KLING_ACCESS_KEY or not settings.KLING_SECRET_KEY:
+        if not klingai_config.ACCESS_KEY or not klingai_config.SECRET_KEY:
             app_logger.error("Kling AI API 키가 설정되지 않았습니다.")
             raise HTTPException(
                 status_code=500, detail="Kling AI API 키가 설정되지 않았습니다."
@@ -138,36 +127,36 @@ async def test_generate_image(request: ImagePromptRequest):
         # JWT 토큰이 만료되었는지 확인하고 필요하면 갱신
         try:
             jwt.decode(
-                settings.JWT_TOKEN, settings.KLING_SECRET_KEY, algorithms=["HS256"]
+                klingai_config.JWT_TOKEN,
+                klingai_config.SECRET_KEY,
+                algorithms=["HS256"],
             )
         except (jwt.ExpiredSignatureError, Exception):
             # 토큰이 만료되었거나 다른 오류가 발생하면 새로 생성
             from app.core.config import encode_jwt_token
 
-            settings.JWT_TOKEN = encode_jwt_token(
-                settings.KLING_ACCESS_KEY, settings.KLING_SECRET_KEY
+            klingai_config.JWT_TOKEN = encode_jwt_token(
+                klingai_config.ACCESS_KEY, klingai_config.SECRET_KEY
             )
 
         # API 요청 헤더
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {settings.JWT_TOKEN}",
+            "Authorization": f"Bearer {klingai_config.JWT_TOKEN}",
         }
 
         # API 요청 데이터 (레퍼런스 이미지 없이 직접 API 호출)
         payload = {
-            "model": klingai_config.MODEL_V1,  # 레퍼런스 이미지 없이 V1_5 모델 사용
-            "prompt": request.prompt,
-            "negative_prompt": (
-                request.negative_prompt if request.negative_prompt else ""
-            ),
-            "n": klingai_config.N,
+            "model": klingai_config.MODEL_V1_5,  # 레퍼런스 이미지 없이 V1_5 모델 사용
+            "prompt": prompt,
+            "negative_prompt": negative_prompt if negative_prompt else "",
+            "n": klingai_config.NUM_OF_IMAGES,
             "aspect_ratio": klingai_config.ASPECT_RATIO,
         }
 
         # API 요청 보내기 (이미지 생성 요청)
         response = requests.post(
-            settings.KLING_API_URL, headers=headers, json=payload
+            klingai_config.API_URL, headers=headers, json=payload
         ).json()
 
         response_code = response["code"]
@@ -204,8 +193,7 @@ async def test_generate_image(request: ImagePromptRequest):
                 # 결과 반환
                 result = {
                     "image_url": image_urls[0]["url"],
-                    "prompt": request.prompt,
-                    "style": request.style,
+                    "prompt": prompt,
                 }
 
                 app_logger.info(
@@ -213,9 +201,9 @@ async def test_generate_image(request: ImagePromptRequest):
                 )
                 return result
             else:
-                app_logger.error("이미지 생성 실패: KLINAI image url 없음")
+                app_logger.error("이미지 생성 실패: KlingAI image url 없음")
                 raise HTTPException(
-                    status_code=500, detail="이미지 생성 실패: KLINAI image url 없음"
+                    status_code=500, detail="이미지 생성 실패: KlingAI image url 없음"
                 )
 
     except HTTPException:
@@ -227,10 +215,21 @@ async def test_generate_image(request: ImagePromptRequest):
         )
 
 
+@router.get("/previous_scene_data")
+async def test_get_previous_scene_data(story_id: int, scene_id: int):
+    """TEST: 이전 씬 데이터 가져오기"""
+    app_logger.info(f"TEST: story_id: {story_id}, scene_id: {scene_id}")
+    previous_scene_data = await KlingAIService.get_previous_scene_data(story_id, scene_id)
+    app_logger.info(
+        f"TEST: previous_scene_data: \n{json.dumps(previous_scene_data.model_dump(), ensure_ascii=False, indent=2)}"
+    )
+    return previous_scene_data
+
+
 async def get_task_result(task_id: str, max_attempts: int = 10, delay: int = 3):
     """이미지 생성 태스크의 결과를 가져옵니다."""
-    url = settings.KLING_API_URL
-    headers = {"Authorization": f"Bearer {settings.JWT_TOKEN}"}
+    url = klingai_config.TASK_URL
+    headers = {"Authorization": f"Bearer {klingai_config.JWT_TOKEN}"}
     params = {"pageSize": 500}
 
     for _ in range(max_attempts):
