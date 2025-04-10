@@ -473,7 +473,7 @@ public class VideoService {
                         .addExtraArgs("-y")
                         .addOutput(cleanTempWithMusicPath)
                         .addExtraArgs("-filter_complex", 
-                            "[1:a]volume=0.3,aloop=loop=-1:size=2e+09[a1];" + 
+                            "[1:a]volume=0.15,aloop=loop=-1:size=2e+09[a1];" + 
                             "[0:a][a1]amerge=inputs=2[aout]")  // amix 대신 amerge 사용
                         .addExtraArgs("-map", "0:v")
                         .addExtraArgs("-map", "[aout]")
