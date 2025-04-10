@@ -40,27 +40,30 @@ export function FailedVideoCard({ video }: FailedVideoCardProps) {
 
   return (
     <>
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
         <div className="relative aspect-video w-full">
           <div className="flex h-full w-full items-center justify-center bg-gray-100">
             <AlertCircle className="h-12 w-12 text-red-400" />
           </div>
+          <div className="absolute inset-x-0 bottom-0 h-1 bg-red-200">
+            <div className="h-full w-full bg-red-500"></div>
+          </div>
         </div>
         <div className="p-4">
-          <div className="flex items-start justify-between">
-            <h3 className="font-semibold line-clamp-1" title={video.title}>
+          <div className="flex items-start justify-between mb-4">
+            <h3 className="font-semibold line-clamp-1 text-gray-800" title={video.title}>
               {video.title}
             </h3>
-            <Badge variant="outline" className="flex items-center gap-1 bg-red-50 text-red-700">
+            <Badge variant="outline" className="flex items-center gap-1.5 py-1 bg-red-50 text-red-700 border-red-200">
               <AlertCircle className="h-3 w-3" />
-              실패
+              <span>실패</span>
             </Badge>
           </div>
-          <div className="mt-3 flex gap-2">
+          <div className="flex gap-2">
             <Button 
               variant="outline" 
               size="sm" 
-              className="flex-1" 
+              className="flex-1 border-gray-200 hover:bg-gray-50 hover:text-gray-900" 
               onClick={() => setIsRetryModalOpen(true)}
             >
               다시 시도
@@ -68,7 +71,7 @@ export function FailedVideoCard({ video }: FailedVideoCardProps) {
             <Button 
               variant="outline" 
               size="sm" 
-              className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50" 
+              className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" 
               onClick={() => setIsDeleteModalOpen(true)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
@@ -79,18 +82,18 @@ export function FailedVideoCard({ video }: FailedVideoCardProps) {
       </Card>
 
       <Dialog open={isRetryModalOpen} onOpenChange={setIsRetryModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>영상 생성 재시도</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl font-semibold">영상 생성 재시도</DialogTitle>
+            <DialogDescription className="text-gray-600 mt-2">
               영상 생성을 다시 시도하시겠습니까? 이 작업은 이전 생성 결과를 덮어쓰게 됩니다.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setIsRetryModalOpen(false)}>
               취소
             </Button>
-            <Button onClick={handleRetry}>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleRetry}>
               다시 시도
             </Button>
           </DialogFooter>
@@ -98,14 +101,14 @@ export function FailedVideoCard({ video }: FailedVideoCardProps) {
       </Dialog>
 
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>영상 삭제</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl font-semibold">영상 삭제</DialogTitle>
+            <DialogDescription className="text-gray-600 mt-2">
               정말로 이 영상을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>
               취소
             </Button>
