@@ -570,7 +570,14 @@ public class VideoService {
             }
 
             List<String> sceneVideoPaths = new ArrayList<>();
-            
+
+            // 디버깅용 코드 추가
+            Map<String, Object> scene0 = scenes.get(0);
+            logger.info("씬 0 데이터: {}", scene0);
+            logger.info("씬 0 이미지 URL: {}", scene0.get("image_url"));
+            logger.info("씬 0 오디오 배열: {}", scene0.get("audioArr"));
+
+
             // 각 Scene별로 처리
             for (int i = 0; i < scenes.size(); i++) {
                 Map<String, Object> scene = scenes.get(i);
@@ -580,8 +587,22 @@ public class VideoService {
                 if (scene.get("image_url") == null || scene.get("audioArr") == null) {
                     throw new RuntimeException("씬 " + i + "의 데이터가 유효하지 않음");
                 }
-                
-                // 임시 파일 경로 생성
+
+//                // 씬 데이터 유효성 검사
+//                if (scene.get("audioArr") == null) {
+//                    throw new RuntimeException("씬 " + i + "의 오디오 데이터가 없음");
+//                }
+//
+//                // 이미지가 없는 경우 기본 이미지나 배경 이미지를 사용
+//                if (scene.get("image_url") == null) {
+//                    logger.warn("씬 {}의 이미지 URL이 누락되었습니다. 기본 배경 이미지를 사용합니다.", i);
+//                    // 기본 이미지나 이전 씬의 이미지를 사용하는 로직 추가
+//                    if (i > 0 && scenes.get(i-1).get("image_url") != null) {
+//                        scene.put("image_url", scenes.get(i-1).get("image_url"));
+//                        logger.info("씬 {}에 이전 씬의 이미지를 사용합니다.", i);
+//                    }
+//                }
+                    // 임시 파일 경로 생성
                 String tempSceneDir = TEMP_DIR + File.separator + "videos" + File.separator + "scene_" + i + "_" + UUID.randomUUID();
                 
                 File sceneDir = new File(tempSceneDir);

@@ -1,6 +1,7 @@
 package com.sss.backend.domain.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.client.result.UpdateResult;
 import com.sss.backend.api.dto.SceneImageRequest;
 import com.sss.backend.api.dto.SceneImageResponse;
 import com.sss.backend.config.AppProperties;
@@ -248,7 +249,9 @@ public class ImageService {
     //이미지 MongoDB에 저장
     private void saveImageToMongoDB(String storyId, SceneImageResponse response) {
         try {
-            // 씬 ID에 해당하는 씬 찾기
+            log.info("이미지 MongoDB 저장 시작 - 스토리 ID: {}, 씬 ID: {}, 이미지 URL: {}",
+                    storyId, response.getScene_id(), response.getImage_url());
+
             Query query = Query.query(Criteria.where("storyId").is(storyId));
             query.addCriteria(Criteria.where("sceneArr.sceneId").is(response.getScene_id()));
 
@@ -295,8 +298,9 @@ public class ImageService {
 
             mongoTemplate.updateFirst(query, update, "scenes");
 
-            log.info("이미지 정보 MongoDB 저장 완료 - 스토리 ID: {}, 씬 ID: {}",
-                    storyId, response.getScene_id());
+
+            log.info("이미지 정보 MongoDB 저장 완료 - 스토리 ID: {}, 씬 ID: {}, 저장값 : {}",
+                    storyId, response.getScene_id(), update);
         } catch (Exception e) {
             log.error("이미지 정보 MongoDB 저장 중 오류 발생 - 씬 ID: {}, 오류: {}",
                     response.getScene_id(), e.getMessage(), e);
