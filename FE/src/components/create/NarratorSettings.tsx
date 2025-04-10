@@ -43,6 +43,20 @@ export const NarratorSettings = forwardRef<NarratorRef, NarratorSettingsProps>(
     const [isNarratorPlaying, setIsNarratorPlaying] = useState(false);
     const narratorAudioRef = useRef<HTMLAudioElement | null>(null);
 
+    const getVoiceDisplayName = (voiceOption: string) => {
+      const voiceNames = {
+        male1: "젊은 남성",
+        male2: "나이든 남성",
+        male3: "진지한 남성",
+        male4: "평범한 남성",
+        female1: "젊은 여성",
+        female2: "귀여운 여성",
+        female3: "진지한 여성",
+        female4: "조용한 여성"
+      }
+      return voiceNames[voiceOption as keyof typeof voiceNames] || voiceOption
+    }
+
     const handleNarratorGenderChange = (gender: "male" | "female") => {
       // 기존 나레이터 음성 중지
       stopNarratorAudio();
@@ -150,7 +164,7 @@ export const NarratorSettings = forwardRef<NarratorRef, NarratorSettingsProps>(
                       onClick={() => setNarratorVoice(voice)}
                       className="flex-1 text-sm"
                     >
-                      {voice.charAt(0).toUpperCase() + voice.slice(1)}
+                      {getVoiceDisplayName(voice)}
                     </Button>
                     <Button
                       type="button"
@@ -179,7 +193,7 @@ export const NarratorSettings = forwardRef<NarratorRef, NarratorSettingsProps>(
                       onClick={() => setNarratorVoice(voice)}
                       className="flex-1 text-sm"
                     >
-                      {voice.charAt(0).toUpperCase() + voice.slice(1)}
+                      {getVoiceDisplayName(voice)}
                     </Button>
                     <Button
                       type="button"
