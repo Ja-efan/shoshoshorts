@@ -56,6 +56,7 @@ public class VideoService {
     private static final String BACKGROUND_MUSIC_PATH = "audios"; // 배경음악 폴더 경로
     private String backgroundImageFilePath;
     private List<String> backgroundMusicFilePaths = new ArrayList<>();
+    private String silentVideoFilePath; // 미리 생성한 무음 비디오 파일 경로
     
     private final SceneDocumentRepository sceneDocumentRepository;
     private final S3Config s3Config;
@@ -73,6 +74,7 @@ public class VideoService {
         createTempDir();
         copyBackgroundImage();
         copyBackgroundMusic();
+        createAndSaveSilentVideo(); // 무음 비디오 미리 생성
     }
 
     private void createTempDir() {
@@ -303,7 +305,6 @@ public class VideoService {
                     .setInput(presignedImageUrl)
                     .addInput(cleanAudioPath)
                     .addExtraArgs("-y")
-                    .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls")
                     .addOutput(cleanOutputPath)
                     .addExtraArgs("-filter_complex",
                         "[0:v]scale=900:900,pad=1080:1920:90:510:white[v];" +  // 900x900으로 조정 및 흰색 패딩
@@ -363,6 +364,18 @@ public class VideoService {
             // 파일이 하나도 없으면 실패 처리
             if (tempVideoPaths.isEmpty()) {
                 throw new RuntimeException("병합할 유효한 비디오 파일이 없습니다");
+            }
+            
+            // 마지막에 무음 비디오 추가 (silentVideoFilePath에서 직접 복사)
+            if (silentVideoFilePath != null && new File(silentVideoFilePath).exists()) {
+                String tempSilentVideoPath = TEMP_DIR + File.separator + "videos" + File.separator + "silent_" + UUID.randomUUID() + ".mp4";
+                String cleanSilentVideoPath = tempSilentVideoPath.replace("\"", "");
+                
+                Files.copy(Paths.get(silentVideoFilePath), Paths.get(cleanSilentVideoPath), StandardCopyOption.REPLACE_EXISTING);
+                tempVideoPaths.add(cleanSilentVideoPath);
+                logger.info("비디오 병합 단계에서 무음 비디오 추가됨: {}", cleanSilentVideoPath);
+            } else {
+                logger.warn("무음 비디오 파일이 존재하지 않아 추가하지 않습니다.");
             }
 
             // 임시 파일 목록 (나중에 삭제를 위해 추적)
@@ -642,6 +655,58 @@ public class VideoService {
         }
     }
 
+    /**
+     * 서버 시작 시 1초 길이의 무음 비디오를 미리 생성하여 저장한다
+     */
+    private void createAndSaveSilentVideo() {
+        try {
+            // 무음 오디오 파일 먼저 생성
+            String silentAudioPath = TEMP_DIR + File.separator + "audios" + File.separator + "silent.mp3";
+            createSilentAudio(silentAudioPath);
+            
+            // 무음 비디오 생성 및 저장
+            String silentVideoPath = TEMP_DIR + File.separator + "videos" + File.separator + "silent.mp4";
+            
+            // 배경 이미지 확인
+            if (backgroundImageFilePath == null || !new File(backgroundImageFilePath).exists()) {
+                logger.warn("배경 이미지 파일이 없어서 다시 복사를 시도합니다.");
+                copyBackgroundImage();
+                
+                if (backgroundImageFilePath == null) {
+                    logger.error("배경 이미지 파일을 찾을 수 없어 무음 비디오를 생성할 수 없습니다.");
+                    return;
+                }
+            }
+            
+            FFmpegBuilder builder = new FFmpegBuilder()
+                .addInput(backgroundImageFilePath)
+                .addInput(silentAudioPath)
+                .addExtraArgs("-y")
+                .addOutput(silentVideoPath)
+                .setVideoCodec("libx264")
+                .setConstantRateFactor(23)
+                .setVideoPixelFormat("yuv420p")
+                .setAudioCodec("aac")
+                .setAudioBitRate(128000)
+                .setFormat("mp4")
+                .addExtraArgs("-shortest") // 가장 짧은 스트림 길이에 맞춤 (오디오가 1초이므로 비디오도 1초)
+                .done();
+                
+            FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
+            executor.createJob(builder).run();
+            
+            File resultFile = new File(silentVideoPath);
+            if (resultFile.exists() && resultFile.length() > 0) {
+                this.silentVideoFilePath = silentVideoPath;
+                logger.info("1초짜리 무음 비디오 파일 생성 완료: {}", silentVideoFilePath);
+            } else {
+                logger.error("무음 비디오 생성 실패");
+            }
+        } catch (Exception e) {
+            logger.error("무음 비디오 생성 중 오류 발생: {}", e.getMessage(), e);
+        }
+    }
+
     public File createFinalVideo(String storyId, String outputPath) {
         try {
             String cleanOutputPath = outputPath.replace("\"", "");
@@ -693,7 +758,7 @@ public class VideoService {
 //                        logger.info("씬 {}에 이전 씬의 이미지를 사용합니다.", i);
 //                    }
 //                }
-                    // 임시 파일 경로 생성
+                // 임시 파일 경로 생성
                 String tempSceneDir = TEMP_DIR + File.separator + "videos" + File.separator + "scene_" + i + "_" + UUID.randomUUID();
                 
                 File sceneDir = new File(tempSceneDir);
@@ -727,12 +792,6 @@ public class VideoService {
                 new File(mergedAudioPath).delete();
             }
             
-            // 마지막에 1초짜리 무음 비디오 추가
-            String silentVideoPath = TEMP_DIR + File.separator + "videos" + File.separator + "final_silent_" + UUID.randomUUID() + ".mp4";
-            File silentVideo = createSilentVideo(silentVideoPath);
-            sceneVideoPaths.add(silentVideoPath);
-            logger.info("마지막에 1초짜리 무음 비디오 추가됨");
-            
             // 모든 씬 비디오 병합하여 최종 비디오 생성
             File finalVideo = mergeVideos(sceneVideoPaths, cleanOutputPath, storyId);
             
@@ -740,7 +799,10 @@ public class VideoService {
             for (String path : sceneVideoPaths) {
                 new File(path).delete();
                 // 부모 디렉토리도 삭제
-                new File(new File(path).getParent()).delete();
+                File parent = new File(path).getParentFile();
+                if (parent != null && parent.exists() && !parent.getAbsolutePath().equals(new File(silentVideoFilePath).getParentFile().getAbsolutePath())) {
+                    parent.delete();
+                }
             }
 
             return finalVideo;
