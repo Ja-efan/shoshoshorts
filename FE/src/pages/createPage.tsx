@@ -209,7 +209,10 @@ export default function CreateVideoPage() {
       setShowSuccessModal(true);
     } catch (error) {
       console.error("API Error:", error);
-      if (error instanceof Error && error.message === "토큰 갱신에 실패했습니다. 다시 로그인해주세요.") {
+      if (
+        error instanceof Error &&
+        error.message === "토큰 갱신에 실패했습니다. 다시 로그인해주세요."
+      ) {
         toast.error("세션이 만료되었습니다. 다시 로그인해주세요.");
         navigate("/login");
       } else {
@@ -245,13 +248,13 @@ export default function CreateVideoPage() {
       case "model":
         newHeaderText = {
           title: "1단계: 음성 및 이미지 모델 선택",
-          description: "원하는 음성 및 이미지 생성 모델을 선택하세요",
+          description: "원하는 음성 및 이미지 생성 모델을 선택하세요.",
         };
         break;
       case "title":
         newHeaderText = {
           title: "2단계: 비디오 제목 입력",
-          description: "생성할 비디오의 제목을 20자 이내로 입력해주세요",
+          description: "생성할 비디오의 제목을 15자 이하로 입력해주세요.",
         };
         break;
       case "story":
@@ -264,7 +267,7 @@ export default function CreateVideoPage() {
         newHeaderText = {
           title: "4단계: 내레이터 설정",
           description:
-            "스토리를 읽어줄 내레이터의 목소리를 선택해주세요. 인물의 대사가 아닌 글을 읽어줍니다.",
+            "스토리를 읽어줄 내레이터의 목소리를 선택해주세요. 인물의 대사가 아닌, 지문을 읽어줍니다.",
         };
         break;
       case "character":
