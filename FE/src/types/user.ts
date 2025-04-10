@@ -7,3 +7,8 @@ export interface IUserData {
   token: number;
   speakerLibrary: ISpeakerInfoGet[];
 }
+
+export interface IUserDataUpdate {
+  name: string;
+  imgUrl?: string;
+}
