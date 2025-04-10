@@ -36,7 +36,7 @@ public class TokenService {
                 user.getEmail(),
                 user.getRole(),
                 user.getProvider(),
-                10*60*1000L // 10분.
+                30*60*1000L // 10분.
         );
     }
 
