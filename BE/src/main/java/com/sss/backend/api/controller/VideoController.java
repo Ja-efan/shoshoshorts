@@ -4,6 +4,7 @@ import com.sss.backend.api.dto.*;
 import com.sss.backend.config.S3Config;
 import com.sss.backend.domain.entity.Story;
 import com.sss.backend.domain.entity.Users;
+import com.sss.backend.domain.entity.Video;
 import com.sss.backend.domain.entity.Video.VideoStatus;
 import com.sss.backend.domain.entity.VideoProcessingStep;
 import com.sss.backend.domain.repository.StoryRepository;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.Optional;
 
 //@Async
 @RestController
@@ -346,12 +348,19 @@ public class VideoController {
                         throw e; // 예외를 상위로 전파하여 비디오 생성 중단
                     }
 
-                    // 비디오 생성 및 업로드 - 비디오 서비스에서 상태 업데이트
-                    String outputPath = tempDirectory + "/" + UUID.randomUUID() + "_final.mp4";
-                    String videoUrl = videoService.createAndUploadVideo(storyId.toString(), outputPath);
-
-                    // 상태 업데이트: 완료 (VideoService에서 처리)
-                    videoService.updateVideoCompleted(storyId.toString(), videoUrl);
+                    // 기존 비디오 URL 확인
+                    String existingVideoUrl = videoService.findVideoUrlByStoryId(storyId);
+                    if (existingVideoUrl != null && !existingVideoUrl.isEmpty()) {
+                        log.info("기존 생성된 비디오 URL이 존재하여 재사용합니다: {}", existingVideoUrl);
+                        // 상태 업데이트: 완료 (VideoService에서 처리)
+                        videoService.updateVideoCompleted(storyId.toString(), existingVideoUrl);
+                    } else {
+                        // 비디오 생성 및 업로드 - 비디오 서비스에서 상태 업데이트
+                        String outputPath = tempDirectory + "/" + UUID.randomUUID() + "_final.mp4";
+                        String videoUrl = videoService.createAndUploadVideo(storyId.toString(), outputPath);
+                        // 상태 업데이트: 완료 (VideoService에서 처리)
+                        videoService.updateVideoCompleted(storyId.toString(), videoUrl);
+                    }
 
                 } catch (Exception e) {
                     log.error("비디오 생성 중 오류 발생: {}", e.getMessage(), e);
