@@ -12,7 +12,3 @@ export interface ISpeakerInfoGet {
   createdAt: string;
   updatedAt: string;
 }
-
-export interface ISpeakerInfoDelete {
-  speakerId: string;
-}

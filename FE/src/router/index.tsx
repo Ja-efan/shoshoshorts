@@ -34,6 +34,10 @@ const Router: React.FC = () => {
         </ProtectedRoute>
       ),
     },
+    // {
+    //   path: "/dashboard/debug",
+    //   element: <DashboardPage />,
+    // },
     {
       path: "/dashboard/",
       element: (

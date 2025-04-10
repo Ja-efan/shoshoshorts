@@ -49,7 +49,6 @@ const VoiceLibrary: React.FC<VoiceLibraryProps> = ({ speakerLibrary }) => {
 
   useEffect(() => {
     setSpeakerArr(speakerLibrary);
-    debugger;
   }, [speakerLibrary]);
 
   // 목소리 라이브러리 다시 불러오기 함수
