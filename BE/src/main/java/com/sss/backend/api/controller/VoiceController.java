@@ -40,4 +40,11 @@ public class VoiceController {
         return voiceService.findMyVoices(request);
 
     }
+
+    @DeleteMapping("/delete/{voiceId}")
+    public ResponseEntity<?> DeleteMyVoice(HttpServletRequest request,
+                                           @PathVariable String voiceId){
+        log.info("voiceId : {} - 보이스 삭제 APi 호출 controller ",voiceId);
+        return voiceService.deleteMyVoice(request, voiceId);
+    }
 }
