@@ -283,7 +283,12 @@ export function CharacterFormZonos({
                     ) : zonosList && zonosList.length > 0 ? (
                       <>
                         <Select
-                          value={selectedVoices[character.id]?.toString() || ""}
+                          value={
+                            selectedVoices[character.id]?.toString() ||
+                            (zonosList.length > 0
+                              ? String(zonosList[0].id)
+                              : "")
+                          }
                           onValueChange={(value) =>
                             handleSelectVoice(character.id, value)
                           }
@@ -304,15 +309,18 @@ export function CharacterFormZonos({
                         </Select>
 
                         {/* 선택된 음성 정보 표시 */}
-                        {getSelectedVoice(character.id) && (
+                        {(getSelectedVoice(character.id) ||
+                          (zonosList && zonosList.length > 0)) && (
                           <div className="bg-gray-50 p-3 rounded-md">
                             <div className="flex justify-between items-center">
                               <div>
                                 <h4 className="font-medium text-sm">
-                                  {getSelectedVoice(character.id)?.title}
+                                  {getSelectedVoice(character.id)?.title ||
+                                    zonosList[0].title}
                                 </h4>
                                 <p className="text-xs text-gray-600">
-                                  {getSelectedVoice(character.id)?.description}
+                                  {getSelectedVoice(character.id)
+                                    ?.description || zonosList[0].description}
                                 </p>
                               </div>
                               <Button
@@ -321,9 +329,9 @@ export function CharacterFormZonos({
                                 size="sm"
                                 className="h-7 min-w-7 p-0"
                                 onClick={() => {
-                                  const selectedVoice = getSelectedVoice(
-                                    character.id
-                                  );
+                                  const selectedVoice =
+                                    getSelectedVoice(character.id) ||
+                                    zonosList[0];
                                   if (selectedVoice) {
                                     handlePlayVoice(
                                       character.id,
