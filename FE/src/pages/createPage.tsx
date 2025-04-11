@@ -192,7 +192,13 @@ export default function CreateVideoPage() {
           properties: character.description || "이미지 생성을 위한 설명...",
           // Zonos가 선택된 경우 캐릭터의 Zonos 음성 ID 사용, 아니면 기존 방식 사용
           voiceCode: isZonosSelected
-            ? String(character.voice === "male1" ? -1 : character.voice) || null // Zonos ID 사용
+            ? String(
+                character.voice === "male1"
+                  ? -1
+                  : character.voice === "female1"
+                  ? -2
+                  : character.voice
+              ) || null // Zonos ID 사용
             : character.voice && character.gender
             ? voiceCodes[finalAudioModel][character.gender][
                 parseInt(character.voice.slice(-1)) - 1
