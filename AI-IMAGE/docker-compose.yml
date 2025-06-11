@@ -1,0 +1,13 @@
+services:
+  ai-image:
+    build: .
+    container_name: ai-image-service
+    ports:
+      - "8001:8001"
+    volumes:
+      # - .:/app  # 개발환경 hot-reloading
+      - ./images:/app/images
+      - ./data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped

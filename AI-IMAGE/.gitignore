@@ -1,0 +1,10 @@
+data/*
+images/*
+!data/sample_scripts
+!data/reference_images
+
+# cursor 
+.cursorrules
+
+# vscode 
+.vscode
