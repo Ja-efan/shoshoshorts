@@ -1,0 +1,81 @@
+services:
+  frontend:                # ← 기존 nginx 서비스를 대체
+    build:
+      context: ./FE
+      dockerfile: Dockerfile
+    container_name: sss-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro   # 인증서 읽기
+    networks:
+      - sss-network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./BE
+      dockerfile: Dockerfile
+    container_name: sss-backend
+    ports:
+      - "${BACKEND_PORT}:8080"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - mongo
+    networks:
+      - sss-network
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: sss-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - sss-network
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7.0
+    container_name: sss-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=${MONGO_DB}
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - sss-network
+    restart: unless-stopped
+
+  # Redis 서비스
+  redis:
+    image: redis:7.2-alpine
+    container_name: sss-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - sss-network
+    restart: unless-stopped
+
+networks:
+  sss-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  mongo-data:
+  redis-data:

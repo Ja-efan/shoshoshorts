@@ -1,0 +1,30 @@
+# IDE 설정 파일 (IntelliJ IDEA)
+.idea/
+*.iml
+*.xml
+
+# IDE 설정 파일 (vscode)
+.vscode/
+
+# 컴파일 / 빌드 / 캐시 파일
+*.class
+.gradle/
+build/
+out/
+target/
+
+# Gradle Wrapper - Git에 포함되도록 예외 처리
+!gradlew
+!gradlew.bat
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# 로그 파일
+*.log
+
+# 환경설정 파일 (개발 환경별로 다를 수 있음)
+*.env
+
+# DB 관련 파일
+*.db
+*.sqlite

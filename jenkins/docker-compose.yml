@@ -1,0 +1,21 @@
+services:
+  jenkins:
+    build: 
+      context: .
+      args: 
+        - DOCKER_GID=122
+    container_name: sss-jenkins
+    user: jenkins
+    ports:
+      - "8090:8080"
+      - "50000:50000"
+    volumes:
+      - ./jenkins-data:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - jenkins-network
+    restart: unless-stopped
+
+networks:
+  jenkins-network:
+    driver: bridge

@@ -1,0 +1,28 @@
+FROM sss-backend-base:latest
+
+# 개발 환경 설정
+ENV SPRING_PROFILES_ACTIVE=dev
+
+# 한글 폰트 설치
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    fontconfig \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# 나눔 고딕 폰트만 직접 다운로드 및 설치
+RUN mkdir -p /usr/share/fonts/truetype/nanum && \
+    wget "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Regular.ttf" -O /usr/share/fonts/truetype/nanum/NanumGothic-Regular.ttf && \
+    wget "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf" -O /usr/share/fonts/truetype/nanum/NanumGothic-Bold.ttf && \
+    chmod 644 /usr/share/fonts/truetype/nanum/*.ttf
+
+    
+# 폰트 캐시 갱신 및 확인
+RUN fc-cache -fv && fc-list | grep -i nanum
+
+# 개발 모드에서는 소스 코드를 볼륨으로 마운트하므로 여기서는 복사하지 않음
+# 대신 docker-compose.dev.yml에서 볼륨 설정
+
+# 개발 모드 실행 명령 (gradle 직접 사용)
+CMD ["gradle", "bootRun"] 
